@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Openbank Price Check</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f4f4f9; }
+        table { border-collapse: collapse; width: 100%; background: white; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #eee; }
+        .hit { background: #d4edda; font-weight: bold; }
+        .waiting { color: #888; font-style: italic; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+        input[type="number"] { width: 80px; padding: 4px; }
+        .error-msg { color: red; font-weight: bold; margin: 10px 0; display: none; }
+    </style>
+</head>
+<body>
+
+    <h2>Openbank Price Check</h2>
+
+    <div class="controls">
+        <button onclick="fetchPrices()" style="background: #28a745; color: white; padding: 10px; border: none; cursor: pointer;">
+            1. Fetch Prices (Yahoo Finance)
+        </button>
+        <div id="status-summary" class="waiting">Awaiting data...</div>
+    </div>
+
+    <div id="error-banner" class="error-msg">⚠️ Fetch not available. Using manual override only.</div>
+
+    <table id="price-table">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Target</th>
+                <th>Auto Price</th>
+                <th>Override</th>
+                <th>Distance %</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="table-body">
+            </tbody>
+    </table>
+
+    <div style="margin-top: 30px; padding: 15px; border: 1px solid #ddd; background: #fff;">
+        <h3>Import JSON Data</h3>
+        <textarea id="json-input" rows="5" style="width: 100%; font-family: monospace;" placeholder='Paste your JSON list here...'></textarea>
+        <br><br>
+        <button onclick="importData()">2. Import & Refresh</button>
+    </div>
+
+    <script>
+        let data = [];
+        const API_URL = 'http://localhost:8765/prices';
+
+        async function fetchPrices() {
+            const tickers = data.map(d => d.ticker).join(',');
+            if (!tickers) return alert("Import data first!");
+
+            try {
+                const response = await fetch(`${API_URL}?tickers=${tickers}`);
+                const prices = await response.json();
+                
+                data.forEach(row => {
+                    if (prices[row.ticker]) {
+                        row.auto_price = prices[row.ticker];
+                    }
+                });
+                document.getElementById('error-banner').style.display = 'none';
+            } catch (e) {
+                console.error("Fetch failed", e);
+                document.getElementById('error-banner').style.display = 'block';
+            }
+            renderTable();
+        }
+
+        function importData() {
+            const input = document.getElementById('json-input').value;
+            try {
+                data = JSON.parse(input).map(item => ({
+                    ...item,
+                    auto_price: null,
+                    override: null
+                }));
+                renderTable();
+            } catch (e) {
+                alert("Invalid JSON format");
+            }
+        }
+
+        // FUNCIÓN CORREGIDA: Ya no redibuja la tabla entera al escribir
+        function updateOverride(ticker, val) {
+            const row = data.find(d => d.ticker === ticker);
+            if (row) {
+                row.override = val === "" ? null : parseFloat(val);
+                // En lugar de renderTable(), actualizamos solo los cálculos visuales
+                updateRowUI(ticker);
+            }
+        }
+
+        function updateRowUI(ticker) {
+            const row = data.find(d => d.ticker === ticker);
+            const currentPrice = row.override || row.auto_price;
+            const rowElement = document.getElementById(`row-${row.ticker}`);
+            
+            if (!rowElement) return;
+
+            const distCell = rowElement.querySelector('.distance-cell');
+            const statusCell = rowElement.querySelector('.status-cell');
+
+            if (currentPrice) {
+                const dist = ((currentPrice - row.target) / row.target * 100).toFixed(2);
+                distCell.innerText = `${dist}%`;
+                
+                if (currentPrice <= row.target) {
+                    statusCell.innerText = "🎯 HIT";
+                    rowElement.classList.add('hit');
+                } else {
+                    statusCell.innerText = "Above Target";
+                    rowElement.classList.remove('hit');
+                }
+            } else {
+                distCell.innerText = "-";
+                statusCell.innerText = "Waiting...";
+            }
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const total = data.length;
+            const hits = data.filter(d => {
+                const p = d.override || d.auto_price;
+                return p && p <= d.target;
+            }).length;
+            document.getElementById('status-summary').innerText = `Total: ${total} | Hits: ${hits}`;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(row => {
+                const currentPrice = row.override || row.auto_price;
+                const isHit = currentPrice && currentPrice <= row.target;
+                const dist = currentPrice ? ((currentPrice - row.target) / row.target * 100).toFixed(2) : "-";
+
+                const tr = document.createElement('tr');
+                tr.id = `row-${row.ticker}`;
+                if (isHit) tr.className = 'hit';
+
+                tr.innerHTML = `
+                    <td>${row.ticker}</td>
+                    <td>${row.target}</td>
+                    <td>${row.auto_price || '<span class="waiting">failed</span>'}</td>
+                    <td>
+                        <input type="number" step="0.001" 
+                            value="${row.override !== null ? row.override : ''}" 
+                            oninput="updateOverride('${row.ticker}', this.value)">
+                    </td>
+                    <td class="distance-cell">${currentPrice ? dist + '%' : '-'}</td>
+                    <td class="status-cell">${isHit ? '🎯 HIT' : (currentPrice ? 'Above Target' : 'Waiting...')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            updateSummary();
+        }
+    </script>
+</body>
+</html>
