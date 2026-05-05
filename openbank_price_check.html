@@ -207,6 +207,7 @@ var TODAY = (function(){ var d=new Date(); d.setHours(0,0,0,0); return d; })();
 var stocks   = [];
 var horizon  = 'best';
 var autoPx   = {};   // { TICKER: number|null }
+var autoSrc  = {};   // { TICKER: source name string }
 var overrides = {};  // { TICKER: number }
 var serverOk = false;
 
@@ -331,8 +332,9 @@ function fetchAll(){
   spin.classList.add('on');
   setLog('Fetching prices...');
 
-  var tickers = stocks.map(function(s){ return s.t; }).join(',');
-  var url     = SERVER+'/prices?tickers='+encodeURIComponent(tickers);
+  var tickers    = stocks.map(function(s){ return s.t; }).join(',');
+  var currencies = stocks.map(function(s){ return s.cu||'USD'; }).join(',');
+  var url = SERVER+'/prices?tickers='+encodeURIComponent(tickers)+'&currencies='+encodeURIComponent(currencies);
 
   var ctrl = typeof AbortController!=='undefined' ? new AbortController() : null;
   var tid  = ctrl ? setTimeout(function(){ ctrl.abort(); }, FETCH_TIMEOUT_MS) : null;
@@ -349,10 +351,12 @@ function fetchAll(){
       stocks.forEach(function(s){
         var r=results[s.t];
         if(r && typeof r.price==='number' && !r.error){
-          autoPx[s.t] = r.price;
+          autoPx[s.t]  = r.price;
+          autoSrc[s.t] = r.source || '';
           ok++;
         } else {
-          autoPx[s.t] = null;
+          autoPx[s.t]  = null;
+          autoSrc[s.t] = '';
           var reason = (r && r.error) ? r.error : 'no data';
           failed.push(s.t+'('+reason+')');
         }
@@ -380,7 +384,7 @@ function fetchAll(){
 
 function setLog(msg){ document.getElementById('flog').textContent = msg; }
 
-function loadDef(){ stocks=DEFS.slice(); autoPx={}; overrides={}; fullRender(); }
+function loadDef(){ stocks=DEFS.slice(); autoPx={}; autoSrc={}; overrides={}; fullRender(); }
 function clearOverrides(){ overrides={}; updateAllRows(); renderSummary(); }
 function setH(h){
   horizon=h;
@@ -483,7 +487,10 @@ function fillDynamicCells(s){
   if(apEl){
     if(!(s.t in autoPx))    apEl.innerHTML='<span class="ap-pend">--</span>';
     else if(au===null)       apEl.innerHTML='<span class="ap-err">failed</span>';
-    else                     apEl.innerHTML='<span class="ap-ok">'+au.toFixed(2)+'</span>';
+    else {
+      var src = autoSrc[s.t] ? '<span style="font-size:9px;color:#484f58;margin-left:4px">'+autoSrc[s.t]+'</span>' : '';
+      apEl.innerHTML='<span class="ap-ok">'+au.toFixed(2)+'</span>'+src;
+    }
   }
 
   // Override input styling (value NOT touched -- user may be typing)
@@ -628,7 +635,7 @@ function importCSV(){
     });
   });
   if(ns.length){
-    stocks=ns; autoPx={}; overrides={};
+    stocks=ns; autoPx={}; autoSrc={}; overrides={};
     setLog(ns.length+' stock(s) imported -- click Fetch prices');
     fullRender();
   }
