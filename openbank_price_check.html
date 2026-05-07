@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Openbank Price Check</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#e6edf3;padding:1.5rem}
+.wrap{max-width:1080px;margin:0 auto}
+
+/* top bar */
+.top-bar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;gap:12px;flex-wrap:wrap}
+.title{font-size:16px;font-weight:600;color:#e6edf3}
+.sub{font-size:11px;color:#8b949e;margin-top:3px;line-height:1.6}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* buttons */
+.btn{font-size:12px;padding:6px 14px;border-radius:6px;border:1px solid #30363d;background:transparent;color:#e6edf3;cursor:pointer;white-space:nowrap}
+.btn:hover:not(:disabled){background:#21262d}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.success{background:#1a4a2e;border-color:#238636;color:#3fb950}
+.btn.primary{background:#0d2136;border-color:#1f6feb;color:#58a6ff}
+
+/* server warning */
+.warn{display:none;align-items:flex-start;gap:10px;padding:10px 14px;border:1px solid #d29922;border-radius:8px;background:#1a1200;margin-bottom:1rem;font-size:12px;color:#d29922;line-height:1.6}
+.warn code{background:#2d2208;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:11px;color:#f0c060}
+
+/* fetch bar */
+.fetch-bar{display:flex;align-items:center;gap:10px;margin-bottom:1rem;padding:10px 14px;border:1px solid #30363d;border-radius:8px;background:#161b22}
+.fetch-bar .lbl{font-size:12px;font-weight:600;color:#e6edf3;flex-shrink:0}
+.flog{font-size:11px;color:#8b949e;font-family:monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spinner{width:12px;height:12px;border:1.5px solid #30363d;border-top-color:#3fb950;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;display:none}
+.spinner.on{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* summary */
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem}
+.metric{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 14px}
+.metric .lbl{font-size:11px;color:#8b949e;margin-bottom:4px}
+.metric .val{font-size:22px;font-weight:600;color:#e6edf3}
+.metric .val.g{color:#3fb950}.metric .val.a{color:#d29922}.metric .val.m{color:#8b949e}
+
+/* horizon tabs */
+.htabs{display:flex;gap:4px;margin-bottom:.4rem;flex-wrap:wrap}
+.htab{font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid #30363d;cursor:pointer;color:#8b949e;background:transparent}
+.htab.active{background:#0d2136;border-color:#1f6feb;color:#58a6ff}
+.hdates{font-size:10px;color:#484f58;margin-bottom:.9rem;font-family:monospace}
+
+/* table */
+.tbl-wrap{border:1px solid #30363d;border-radius:8px;overflow:auto;margin-bottom:1.5rem}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;min-width:900px}
+thead th{background:#161b22;font-weight:500;font-size:11px;color:#8b949e;padding:8px 10px;text-align:left;border-bottom:1px solid #30363d;vertical-align:bottom;white-space:nowrap}
+tbody tr{border-bottom:1px solid #21262d}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#161b22}
+tbody td{padding:8px 10px;vertical-align:middle}
+
+/* cell types */
+.tk{font-weight:600;color:#e6edf3}
+.co{font-size:11px;color:#8b949e}
+.cu{font-size:11px;color:#8b949e}
+.bd{font-size:11px;color:#484f58}
+.ap-ok{color:#3fb950;font-weight:600}
+.ap-err{color:#f85149;font-size:11px}
+.ap-pend{color:#484f58;font-size:11px}
+
+/* override input -- KEY FIX: no oninput, uses onchange */
+.ov{width:74px;padding:4px 6px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#e6edf3;font-size:12px;text-align:right;font-family:inherit}
+.ov:focus{outline:none;border-color:#388bfd}
+.ov.has-val{border-color:#d29922;color:#d29922}
+
+/* badges */
+.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px}
+.badge.hit{background:#1a4a2e;color:#3fb950}
+.badge.miss{background:#3d1515;color:#f85149}
+.badge.wait{background:#21262d;color:#8b949e}
+
+/* distance bar */
+.dw{display:flex;align-items:center;gap:6px}
+.db{height:5px;border-radius:3px;min-width:3px;flex-shrink:0}
+.dv{font-size:11px;font-weight:600;min-width:54px;text-align:right}
+.dv.pos{color:#3fb950}.dv.neg{color:#f85149}.dv.cls{color:#d29922}
+
+/* tags */
+.tag{display:inline-block;font-size:10px;padding:1px 5px;border-radius:8px;margin-left:4px;vertical-align:middle}
+.tag.soon{background:#2d2208;color:#d29922}
+.tag.now{background:#1a3a1a;color:#3fb950}
+.tag.past{background:#2a1515;color:#f85149}
+
+/* import / email boxes */
+.box{border:1px solid #30363d;border-radius:8px;padding:1rem;margin-bottom:1.5rem;background:#0d1117}
+.box h3{font-size:13px;font-weight:600;margin-bottom:8px;color:#e6edf3}
+.hint{font-size:11px;color:#8b949e;margin-bottom:6px;line-height:1.6}
+code{font-family:monospace;background:#161b22;padding:2px 6px;border-radius:4px;font-size:11px;color:#79c0ff}
+textarea{width:100%;height:90px;font-size:11px;font-family:monospace;padding:8px;border:1px solid #30363d;border-radius:6px;background:#161b22;color:#e6edf3;resize:vertical}
+.eprev{background:#161b22;border-radius:6px;padding:12px;font-size:11px;font-family:monospace;color:#8b949e;white-space:pre-wrap;line-height:1.6;max-height:220px;overflow-y:auto;margin-bottom:10px}
+.row{display:flex;gap:8px;margin-top:8px;align-items:center}
+.hint-sm{font-size:10px;color:#484f58}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Server not running warning -->
+  <div class="warn" id="warn">
+    <span>&#9888;</span>
+    <div>
+      <strong>Server not running</strong> &mdash; price fetch requires the local Python server.<br>
+      In a terminal: <code>cd &lt;folder&gt;</code> then <code>python run.py</code><br>
+      Then open <code>http://localhost:8765/openbank_price_check.html</code>
+    </div>
+  </div>
+
+  <div class="top-bar">
+    <div>
+      <div class="title">Openbank forecast &mdash; price check</div>
+      <div class="sub" id="dsub">Import stocks to see target dates</div>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="clearOverrides()">Clear overrides</button>
+      <button class="btn primary" onclick="buildEmail()">Email report</button>
+    </div>
+  </div>
+
+  <div class="fetch-bar">
+    <span class="lbl">Auto price (prev close)</span>
+    <span class="flog" id="flog">Import stocks first, then click Fetch</span>
+    <div class="spinner" id="spin"></div>
+    <button class="btn success" id="fbtn" onclick="fetchAll()" disabled>&#8595; Fetch prices</button>
+  </div>
+
+  <div class="grid" id="summary">
+    <div class="metric"><div class="lbl">Total</div><div class="val">0</div></div>
+    <div class="metric"><div class="lbl">Hit target</div><div class="val g">0</div></div>
+    <div class="metric"><div class="lbl">Close (&lt;15%)</div><div class="val a">0</div></div>
+    <div class="metric"><div class="lbl">Awaiting</div><div class="val m">0</div></div>
+  </div>
+
+  <div class="htabs">
+    <button class="htab active" onclick="setH('best')" id="tab-best">Best target</button>
+    <button class="htab" onclick="setH('1M')" id="tab-1M">1M</button>
+    <button class="htab" onclick="setH('3M')" id="tab-3M">3M</button>
+    <button class="htab" onclick="setH('6M')" id="tab-6M">6M</button>
+    <button class="htab" onclick="setH('12M')" id="tab-12M">12M</button>
+  </div>
+  <div class="hdates" id="hdates"></div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:62px">Ticker</th>
+          <th style="width:118px">Company</th>
+          <th style="width:44px">Cur.</th>
+          <th style="width:80px">Base date</th>
+          <th style="width:100px">Auto price</th>
+          <th style="width:90px">Override</th>
+          <th style="width:72px" id="th-1m">1M target</th>
+          <th style="width:72px" id="th-3m">3M target</th>
+          <th style="width:72px" id="th-6m">6M target</th>
+          <th style="width:72px" id="th-12m">12M target</th>
+          <th style="width:72px">Hit? &plusmn;5%</th>
+          <th style="width:120px">Distance</th>
+          <th style="width:100px">Status</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="box">
+    <h3>Import stocks</h3>
+    <p class="hint">
+      Format (9 fields): <code>TICKER, Company, CCY, BasePrice, 1M, 3M, 6M, 12M, DD/MM/YYYY</code><br>
+      The 9th field is the <strong>screenshot date</strong> used as base for the 4 target horizons.
+      Each row can have a different date.
+    </p>
+    <textarea id="csv" placeholder="TER,Teradyne,USD,299.40,353.92,257.57,341.91,790.98,18/03/2026&#10;HWM,Howmet Aerospace,USD,240.24,250.45,260.90,269.81,456.70,18/03/2026&#10;NEM,Newmont,USD,52.80,55.10,58.20,61.50,72.00,25/03/2026"></textarea>
+    <div class="row">
+      <button class="btn primary" onclick="importCSV()">Import</button>
+      <button class="btn" onclick="loadDef()">Sample data</button>
+      <span class="hint-sm">After import &rarr; click Fetch prices</span>
+    </div>
+  </div>
+
+  <div class="box" id="esec" style="display:none">
+    <h3>Email report</h3>
+    <div class="eprev" id="eprev"></div>
+    <div class="row">
+      <button class="btn primary" onclick="copyEmail()">Copy</button>
+      <button class="btn" onclick="document.getElementById('esec').style.display='none'">Close</button>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+'use strict';
+
+// ---- Config -----------------------------------------------------------------
+var SERVER  = 'http://localhost:8765';
+var FETCH_TIMEOUT_MS = 60000;  // 60 seconds per batch request
+
+// ---- State ------------------------------------------------------------------
+var TODAY = (function(){ var d=new Date(); d.setHours(0,0,0,0); return d; })();
+var stocks   = [];
+var horizon  = 'best';
+var autoPx   = {};   // { TICKER: number|null }
+var autoSrc  = {};   // { TICKER: source name string }
+var overrides = {};  // { TICKER: number }
+var serverOk = false;
+
+// ---- Defaults ---------------------------------------------------------------
+var DEFS = [
+  {t:'TER', co:'Teradyne',        cu:'USD', b:299.40, t1:353.92, t3:257.57, t6:341.91, t12:790.98, base:new Date(2026,2,18)},
+  {t:'HWM', co:'Howmet Aerospace',cu:'USD', b:240.24, t1:250.45, t3:260.90, t6:269.81, t12:456.70, base:new Date(2026,2,18)},
+  {t:'NEM', co:'Newmont',         cu:'USD', b:52.80,  t1:55.10,  t3:58.20,  t6:61.50,  t12:72.00,  base:new Date(2026,2,18)},
+  {t:'APA', co:'APA Corp',        cu:'USD', b:19.50,  t1:21.00,  t3:22.50,  t6:24.00,  t12:30.00,  base:new Date(2026,2,18)},
+  {t:'HAL', co:'Halliburton',     cu:'USD', b:28.90,  t1:31.50,  t3:33.20,  t6:35.80,  t12:45.00,  base:new Date(2026,2,18)}
+];
+
+// ---- Date helpers -----------------------------------------------------------
+function fd(d){
+  if(!d) return '--';
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+function addDays(d,n){ var r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function parseDate(s){
+  if(!s) return null;
+  var p=s.trim().split('/');
+  if(p.length!==3) return null;
+  var d=new Date(+p[2], +p[1]-1, +p[0]);
+  return isNaN(d.getTime()) ? null : d;
+}
+function tgDates(base){
+  return { d1:addDays(base,30), d3:addDays(base,91), d6:addDays(base,182), d12:addDays(base,365) };
+}
+function daysLeft(d){ return Math.round((d-TODAY)/864e5); }
+function dateTag(d){
+  var dl=daysLeft(d);
+  if(dl < -7)  return '<span class="tag past">past</span>';
+  if(dl <= 0)  return '<span class="tag now">now</span>';
+  if(dl <= 14) return '<span class="tag soon">soon</span>';
+  return '';
+}
+
+// ---- Target helpers ---------------------------------------------------------
+function getTgt(s,h){
+  if(h==='1M')  return s.t1;
+  if(h==='3M')  return s.t3;
+  if(h==='6M')  return s.t6;
+  if(h==='12M') return s.t12;
+  return Math.max(s.t1,s.t3,s.t6,s.t12);
+}
+function getTgtDate(s,h){
+  if(!s.base) return null;
+  var tg=tgDates(s.base);
+  if(h==='1M')  return tg.d1;
+  if(h==='3M')  return tg.d3;
+  if(h==='6M')  return tg.d6;
+  if(h==='12M') return tg.d12;
+  var best=Math.max(s.t1,s.t3,s.t6,s.t12);
+  if(best===s.t12) return tg.d12;
+  if(best===s.t6)  return tg.d6;
+  if(best===s.t3)  return tg.d3;
+  return tg.d1;
+}
+function effPrice(tk){
+  var ov=overrides[tk];
+  if(ov && ov>0) return ov;
+  var au=autoPx[tk];
+  if(au && au>0) return au;
+  return null;
+}
+
+// ---- Server check -----------------------------------------------------------
+// Retries up to 3 times with 1s gap before giving up
+function checkServer(attempt){
+  attempt = attempt || 0;
+  var ctrl = typeof AbortController!=='undefined' ? new AbortController() : null;
+  var tid   = ctrl ? setTimeout(function(){ ctrl.abort(); }, 3000) : null;
+
+  var opts = ctrl ? { signal: ctrl.signal } : {};
+  fetch(SERVER+'/health', opts)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      clearTimeout(tid);
+      if(data && data.status==='ok'){
+        serverOk = true;
+        document.getElementById('warn').style.display = 'none';
+        if(stocks.length) document.getElementById('fbtn').disabled = false;
+        setLog('Server ready. yfinance: '+(data.yfinance?'OK':'NOT INSTALLED -- run pip install yfinance'));
+      }
+    })
+    .catch(function(){
+      clearTimeout(tid);
+      if(attempt < 2){
+        setTimeout(function(){ checkServer(attempt+1); }, 1000);
+      } else {
+        serverOk = false;
+        document.getElementById('warn').style.display = 'flex';
+        document.getElementById('fbtn').disabled = true;
+        setLog('Server not found at '+SERVER);
+      }
+    });
+}
+
+// ---- Fetch prices -----------------------------------------------------------
+function classifyError(err, status){
+  if(!err && status) {
+    if(status===503) return 'yfinance not installed on server (pip install yfinance)';
+    if(status===400) return 'Bad request';
+    return 'Server error (HTTP '+status+')';
+  }
+  var msg = err ? err.message||String(err) : '';
+  if(msg.indexOf('abort')!==-1 || msg.indexOf('AbortError')!==-1)
+    return 'Timeout -- server took too long (>'+Math.round(FETCH_TIMEOUT_MS/1000)+'s)';
+  if(msg.indexOf('Failed to fetch')!==-1 || msg.indexOf('NetworkError')!==-1)
+    return 'Cannot reach server -- is run.py running?';
+  if(msg.indexOf('CORS')!==-1)
+    return 'CORS error -- open via http://localhost:8765, not file://';
+  return msg || 'Unknown error';
+}
+
+function fetchAll(){
+  if(!stocks.length || !serverOk) return;
+
+  var btn  = document.getElementById('fbtn');
+  var spin = document.getElementById('spin');
+  btn.disabled = true;
+  spin.classList.add('on');
+  setLog('Fetching prices...');
+
+  var tickers    = stocks.map(function(s){ return s.t; }).join(',');
+  var currencies = stocks.map(function(s){ return s.cu||'USD'; }).join(',');
+  var url = SERVER+'/prices?tickers='+encodeURIComponent(tickers)+'&currencies='+encodeURIComponent(currencies);
+
+  var ctrl = typeof AbortController!=='undefined' ? new AbortController() : null;
+  var tid  = ctrl ? setTimeout(function(){ ctrl.abort(); }, FETCH_TIMEOUT_MS) : null;
+  var opts = ctrl ? { signal: ctrl.signal } : {};
+
+  fetch(url, opts)
+    .then(function(r){
+      clearTimeout(tid);
+      if(!r.ok) return r.json().then(function(body){ throw {status:r.status, body:body}; });
+      return r.json();
+    })
+    .then(function(results){
+      var ok=0, failed=[];
+      stocks.forEach(function(s){
+        var r=results[s.t];
+        if(r && typeof r.price==='number' && !r.error){
+          autoPx[s.t]  = r.price;
+          autoSrc[s.t] = r.source || '';
+          ok++;
+        } else {
+          autoPx[s.t]  = null;
+          autoSrc[s.t] = '';
+          var reason = (r && r.error) ? r.error : 'no data';
+          failed.push(s.t+'('+reason+')');
+        }
+      });
+      updateAllRows();
+      renderSummary();
+      var msg = ok+'/'+stocks.length+' prices loaded';
+      if(failed.length) msg += ' | Failed: '+failed.join(', ');
+      setLog(msg);
+    })
+    .catch(function(err){
+      clearTimeout(tid);
+      var status = err && err.status;
+      setLog('Fetch error: '+classifyError(err, status));
+    })
+    .finally(function(){
+      spin.classList.remove('on');
+      btn.disabled = false;
+    });
+}
+
+// ---- Render -----------------------------------------------------------------
+// KEY FIX: surgical row updates instead of full innerHTML rebuild
+// This keeps focus stable when the user is typing in an override field.
+
+function setLog(msg){ document.getElementById('flog').textContent = msg; }
+
+function loadDef(){ stocks=DEFS.slice(); autoPx={}; autoSrc={}; overrides={}; fullRender(); }
+function clearOverrides(){ overrides={}; updateAllRows(); renderSummary(); }
+function setH(h){
+  horizon=h;
+  document.querySelectorAll('.htab').forEach(function(x){ x.classList.remove('active'); });
+  document.getElementById('tab-'+h).classList.add('active');
+  updateAllRows();
+  renderSummary();
+  updateHorizonDates();
+}
+
+function fullRender(){
+  updateSubtitle();
+  updateHorizonDates();
+  renderSummary();
+  rebuildTable();   // full rebuild only on import / load
+  if(serverOk) document.getElementById('fbtn').disabled = false;
+}
+
+function updateSubtitle(){
+  var el=document.getElementById('dsub');
+  if(!stocks.length){ el.textContent='Import stocks to see target dates'; return; }
+  var bases=[...new Set(stocks.map(function(s){ return s.base?fd(s.base):'?'; }))];
+  el.innerHTML='Today: <strong>'+fd(TODAY)+'</strong>'
+    +'&nbsp;&nbsp;&middot;&nbsp;&nbsp;Screenshot date(s): <strong>'+bases.join(', ')+'</strong>';
+}
+
+function updateHorizonDates(){
+  var el=document.getElementById('hdates');
+  var bases=stocks.map(function(s){return s.base;}).filter(Boolean);
+  if(!bases.length){ el.textContent=''; return; }
+  var b=bases[0], tg=tgDates(b);
+  function fmt(d){ return fd(d)+' ('+(daysLeft(d)>=0?'+':'')+daysLeft(d)+'d)'; }
+  el.textContent='1M -> '+fmt(tg.d1)+'   3M -> '+fmt(tg.d3)+'   6M -> '+fmt(tg.d6)+'   12M -> '+fmt(tg.d12);
+  function mkH(lbl,d){ return lbl+'<br><span style="font-size:9px;font-weight:400;color:#484f58">'+fd(d)+'</span>'; }
+  document.getElementById('th-1m').innerHTML = mkH('1M target',tg.d1);
+  document.getElementById('th-3m').innerHTML = mkH('3M target',tg.d3);
+  document.getElementById('th-6m').innerHTML = mkH('6M target',tg.d6);
+  document.getElementById('th-12m').innerHTML= mkH('12M target',tg.d12);
+}
+
+function renderSummary(){
+  var hits=0, close=0, aw=0;
+  stocks.forEach(function(s){
+    var p=effPrice(s.t); if(!p){aw++;return;}
+    var d=Math.abs((p-getTgt(s,horizon))/getTgt(s,horizon)*100);
+    if(d<=5) hits++; else if(d<=15) close++;
+  });
+  document.getElementById('summary').innerHTML=
+    mc('Total',stocks.length,'')+mc('Hit target',hits,'g')+mc('Close (<15%)',close,'a')+mc('Awaiting',aw,'m');
+}
+function mc(l,v,c){ return '<div class="metric"><div class="lbl">'+l+'</div><div class="val '+c+'">'+v+'</div></div>'; }
+
+// Full table rebuild (called only on data import or sample load)
+function rebuildTable(){
+  var tbody=document.getElementById('tbody');
+  tbody.innerHTML='';
+  stocks.forEach(function(s, idx){
+    var tr=document.createElement('tr');
+    tr.id='row-'+s.t;
+    tr.innerHTML=staticCells(s);
+    tbody.appendChild(tr);
+    fillDynamicCells(s);
+  });
+}
+
+// Static cells: ticker, company, currency, base date, targets (never change after import)
+function staticCells(s){
+  var best=Math.max(s.t1,s.t3,s.t6,s.t12);
+  function bs(v){ return v===best?'font-weight:600;color:#58a6ff':'color:#8b949e'; }
+  return '<td class="tk">'+s.t+'</td>'
+    +'<td class="co">'+s.co+'</td>'
+    +'<td class="cu">'+s.cu+'</td>'
+    +'<td class="bd">'+(s.base?fd(s.base):'--')+'</td>'
+    // dynamic cells (placeholders replaced by fillDynamicCells)
+    +'<td id="ap-'+s.t+'"><span class="ap-pend">--</span></td>'
+    +'<td><input type="number" id="ov-'+s.t+'" class="ov"'
+    +'  placeholder="'+(s.b?s.b.toFixed(2):'')+'"'
+    // KEY FIX: onchange instead of oninput
+    +'  onchange="setOv(\''+s.t+'\',this)"'
+    +'/></td>'
+    +'<td style="'+bs(s.t1)+'">'+s.t1.toFixed(2)+'</td>'
+    +'<td style="'+bs(s.t3)+'">'+s.t3.toFixed(2)+'</td>'
+    +'<td style="'+bs(s.t6)+'">'+s.t6.toFixed(2)+'</td>'
+    +'<td id="td12-'+s.t+'" style="'+bs(s.t12)+'">'+s.t12.toFixed(2)+'</td>'
+    +'<td id="hit-'+s.t+'"></td>'
+    +'<td id="dist-'+s.t+'"></td>'
+    +'<td id="stat-'+s.t+'"></td>';
+}
+
+// Update only the dynamic cells for one stock (keeps inputs untouched)
+function fillDynamicCells(s){
+  var p    = effPrice(s.t);
+  var au   = autoPx[s.t];
+  var tgt  = getTgt(s, horizon);
+  var tgtDate = getTgtDate(s, horizon);
+  var best = Math.max(s.t1,s.t3,s.t6,s.t12);
+
+  // Auto price cell
+  var apEl = document.getElementById('ap-'+s.t);
+  if(apEl){
+    if(!(s.t in autoPx))    apEl.innerHTML='<span class="ap-pend">--</span>';
+    else if(au===null)       apEl.innerHTML='<span class="ap-err">failed</span>';
+    else {
+      var src = autoSrc[s.t] ? '<span style="font-size:9px;color:#484f58;margin-left:4px">'+autoSrc[s.t]+'</span>' : '';
+      apEl.innerHTML='<span class="ap-ok">'+au.toFixed(2)+'</span>'+src;
+    }
+  }
+
+  // Override input styling (value NOT touched -- user may be typing)
+  var ovEl = document.getElementById('ov-'+s.t);
+  if(ovEl){
+    var ov=overrides[s.t];
+    if(ov && ov>0){ ovEl.classList.add('has-val'); }
+    else           { ovEl.classList.remove('has-val'); }
+  }
+
+  // 12M cell with countdown tag
+  var td12El = document.getElementById('td12-'+s.t);
+  if(td12El){
+    var tg12  = s.base ? tgDates(s.base).d12 : null;
+    var dtTag = tg12 ? dateTag(tg12) : '';
+    var dlTxt = tg12 ? '<span style="font-size:10px;color:#484f58;margin-left:3px">'+daysLeft(tg12)+'d</span>' : '';
+    var bs12  = best===s.t12?'font-weight:600;color:#58a6ff':'color:#8b949e';
+    td12El.style.cssText = bs12;
+    td12El.innerHTML = s.t12.toFixed(2)+dtTag+dlTxt;
+  }
+
+  // Hit / Distance / Status
+  var hitEl  = document.getElementById('hit-'+s.t);
+  var distEl = document.getElementById('dist-'+s.t);
+  var statEl = document.getElementById('stat-'+s.t);
+
+  if(!p){
+    if(hitEl)  hitEl.innerHTML  = '<span class="badge wait">--</span>';
+    if(distEl) distEl.innerHTML = '<span style="color:#484f58;font-size:11px">--</span>';
+    if(statEl) statEl.innerHTML = '<span style="color:#484f58;font-size:11px">awaiting</span>';
+    return;
+  }
+
+  var d  = (p-tgt)/tgt*100;
+  var ad = Math.abs(d);
+  var hit= ad<=5;
+  var cl = ad<=15 && !hit;
+
+  if(hitEl) hitEl.innerHTML = hit
+    ? '<span class="badge hit">HIT</span>'
+    : '<span class="badge miss">MISS</span>';
+
+  if(distEl){
+    var bw = Math.min(80, ad*3.5).toFixed(1);
+    var bc = hit ? '#1a4a2e' : cl ? '#3d2d00' : '#3d1515';
+    var dc = d>0 ? 'pos' : cl ? 'cls' : 'neg';
+    distEl.innerHTML =
+      '<div class="dw">'
+      +'<div class="db" style="width:'+bw+'px;background:'+bc+'"></div>'
+      +'<span class="dv '+dc+'">'+(d>0?'+':'')+d.toFixed(2)+'%</span>'
+      +'</div>';
+  }
+
+  if(statEl) statEl.innerHTML = p>=tgt
+    ? '<span style="color:#3fb950;font-size:11px">Reached</span>'
+    : cl
+      ? '<span style="color:#d29922;font-size:11px">Very close</span>'
+      : '<span style="color:#f85149;font-size:11px">Below</span>';
+}
+
+// Update dynamic cells for ALL stocks (called after fetch, horizon change, clear)
+function updateAllRows(){
+  stocks.forEach(function(s){ fillDynamicCells(s); });
+}
+
+// ---- Override handler -------------------------------------------------------
+// Called onchange (not oninput) -- fires only when user leaves the field
+function setOv(tk, el){
+  var v = parseFloat(el.value);
+  if(!isNaN(v) && v>0){
+    overrides[tk] = v;
+    el.classList.add('has-val');
+  } else {
+    delete overrides[tk];
+    el.value = '';
+    el.classList.remove('has-val');
+  }
+  // Only update THIS row and the summary -- no table rebuild
+  var s = stocks.find(function(x){ return x.t===tk; });
+  if(s) fillDynamicCells(s);
+  renderSummary();
+}
+
+// ---- Email ------------------------------------------------------------------
+function buildEmail(){
+  var lines = [
+    'Subject: Openbank Forecast Check -- '+fd(TODAY),
+    '', 'Hi,', '',
+    'Price check as of '+fd(TODAY)+' -- Horizon: '+(horizon==='best'?'Best target':horizon),
+    '',
+    'Ticker  | Base Date    | Auto Price  | Target     | Target Date   | Distance   | Status',
+    '------  | ------------ | ----------- | ---------- | ------------- | ---------- | ------'
+  ];
+  stocks.forEach(function(s){
+    var p   = effPrice(s.t);
+    var t   = getTgt(s,horizon);
+    var au  = autoPx[s.t];
+    var td  = getTgtDate(s,horizon);
+    var auS = au!=null ? au.toFixed(2) : 'N/A';
+    var bdS = s.base ? fd(s.base) : 'N/A';
+    var tdS = td ? fd(td) : 'N/A';
+    var dS  = p ? ((p-t)/t*100>=0?'+':'')+((p-t)/t*100).toFixed(2)+'%' : '--';
+    var adV = p ? Math.abs((p-t)/t*100) : null;
+    var st  = !p ? 'Awaiting'
+            : p>=t ? 'TARGET REACHED'
+            : adV<=5  ? 'Close (<5%)'
+            : adV<=15 ? 'Getting closer'
+            : 'Below target';
+    lines.push(
+      s.t.padEnd(6)+'  | '+bdS.padEnd(12)+' | '+auS.padStart(11)
+      +' | '+t.toFixed(2).padStart(10)+' | '+tdS.padEnd(13)
+      +' | '+dS.padStart(10)+' | '+st
+    );
+  });
+  lines.push('','---','Source: Yahoo Finance via yfinance. Not financial advice.');
+  document.getElementById('eprev').textContent = lines.join('\n');
+  document.getElementById('esec').style.display = 'block';
+}
+function copyEmail(){
+  navigator.clipboard.writeText(document.getElementById('eprev').textContent)
+    .then(function(){
+      var b=event.target, o=b.textContent;
+      b.textContent='Copied!'; setTimeout(function(){b.textContent=o;},1500);
+    });
+}
+
+// ---- Import CSV -------------------------------------------------------------
+function importCSV(){
+  var raw = document.getElementById('csv').value.trim();
+  if(!raw) return;
+  var ns=[];
+  raw.split('\n').filter(function(l){return l.trim();}).forEach(function(line){
+    var p=line.split(',').map(function(x){return x.trim();});
+    if(p.length<8) return;
+    var baseDate = p[8] ? parseDate(p[8]) : TODAY;
+    ns.push({
+      t:   p[0].toUpperCase(),
+      co:  p[1], cu: p[2],
+      b:   +p[3]||0,
+      t1:  +p[4]||0, t3: +p[5]||0, t6: +p[6]||0, t12: +p[7]||0,
+      base: baseDate||TODAY
+    });
+  });
+  if(ns.length){
+    stocks=ns; autoPx={}; autoSrc={}; overrides={};
+    setLog(ns.length+' stock(s) imported -- click Fetch prices');
+    fullRender();
+  }
+}
+
+// ---- Boot -------------------------------------------------------------------
+loadDef();
+checkServer();
+</script>
+</body>
+</html>
