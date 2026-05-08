@@ -1,0 +1,45 @@
+/* ── Reset ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Tokens ────────────────────────────────────────────── */
+:root {
+  --bg:         #0d1117;
+  --bg-2:       #161b22;
+  --bg-3:       #21262d;
+  --border:     #30363d;
+  --border-2:   #21262d;
+  --text:       #e6edf3;
+  --text-2:     #8b949e;
+  --text-3:     #484f58;
+  --green:      #3fb950;
+  --green-bg:   #1a4a2e;
+  --green-bdr:  #238636;
+  --blue:       #58a6ff;
+  --blue-bg:    #0d2136;
+  --blue-bdr:   #1f6feb;
+  --amber:      #d29922;
+  --amber-bg:   #3d2d00;
+  --red:        #f85149;
+  --red-bg:     #3d1515;
+  --font-mono:  'SF Mono', 'Fira Code', monospace;
+  --radius:     6px;
+  --radius-lg:  8px;
+}
+
+/* ── Base ──────────────────────────────────────────────── */
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: 1.5rem;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Spinner animation ─────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
