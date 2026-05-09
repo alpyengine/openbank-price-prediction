@@ -3,5 +3,3 @@ dist/
 .env
 .DS_Store
 *.local
-__pycache__/
-*.pyc

@@ -1,10 +1,8 @@
 import { useState, useCallback } from 'react'
-import { useServerHealth } from './hooks/useServerHealth.js'
 import { usePriceFetch }   from './hooks/usePriceFetch.js'
 import { DEFAULT_STOCKS }  from './utils/stocks.js'
 
 import Header       from './components/Header.jsx'
-import ServerWarn   from './components/ServerWarn.jsx'
 import FetchBar     from './components/FetchBar.jsx'
 import SummaryCards from './components/SummaryCards.jsx'
 import HorizonTabs  from './components/HorizonTabs.jsx'
@@ -13,22 +11,18 @@ import ImportBox    from './components/ImportBox.jsx'
 import EmailPreview from './components/EmailPreview.jsx'
 
 export default function App() {
-  // ── Data state ─────────────────────────────────────────────────────────────
   const [stocks,    setStocks]    = useState(DEFAULT_STOCKS)
   const [horizon,   setHorizon]   = useState('best')
-  const [overrides, setOverrides] = useState({})   // { TICKER: number }
+  const [overrides, setOverrides] = useState({})
   const [showEmail, setShowEmail] = useState(false)
 
-  // ── Server + fetch ──────────────────────────────────────────────────────────
-  const { status: serverStatus, retry: retryServer } = useServerHealth()
-  const { autoPrices, sources, fetching, log, fetchPrices, reset: resetPrices } = usePriceFetch()
+  const { autoPrices, fetching, log, fetchPrices, reset } = usePriceFetch()
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
   const handleImport = useCallback((newStocks) => {
     setStocks(newStocks)
     setOverrides({})
-    resetPrices()
-  }, [resetPrices])
+    reset()
+  }, [reset])
 
   const handleOverrideChange = useCallback((ticker, value) => {
     setOverrides(prev => {
@@ -41,29 +35,18 @@ export default function App() {
     })
   }, [])
 
-  const handleClearOverrides = useCallback(() => {
-    setOverrides({})
-  }, [])
-
-  const handleFetch = useCallback(() => {
-    fetchPrices(stocks)
-  }, [fetchPrices, stocks])
-
   return (
-    <div style={styles.wrap}>
+    <div style={{ maxWidth: 1080, margin: '0 auto' }}>
       <Header
         stocks={stocks}
-        onClearOverrides={handleClearOverrides}
-        onEmailReport={() => setShowEmail(v => !v)}
+        onClearOverrides={() => setOverrides({})}
+        onToggleEmail={() => setShowEmail(v => !v)}
       />
-
-      <ServerWarn status={serverStatus} onRetry={retryServer} />
 
       <FetchBar
         log={log}
         fetching={fetching}
-        serverOk={serverStatus === 'ok'}
-        onFetch={handleFetch}
+        onFetch={() => fetchPrices(stocks)}
       />
 
       <SummaryCards
@@ -83,7 +66,6 @@ export default function App() {
         stocks={stocks}
         horizon={horizon}
         autoPrices={autoPrices}
-        sources={sources}
         overrides={overrides}
         onOverrideChange={handleOverrideChange}
       />
@@ -101,8 +83,4 @@ export default function App() {
       )}
     </div>
   )
-}
-
-const styles = {
-  wrap: { maxWidth: 1080, margin: '0 auto' },
 }

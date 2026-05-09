@@ -5,13 +5,5 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    // Proxy /api calls to Python backend during dev
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8765',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
-    },
   },
 })

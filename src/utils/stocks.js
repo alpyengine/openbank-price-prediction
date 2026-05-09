@@ -31,7 +31,7 @@ export function effectivePrice(ticker, autoPrices, overrides) {
 }
 
 export function distancePct(price, target) {
-  if (!price || !target) return null
+  if (price == null || !target) return null
   return (price - target) / target * 100
 }
 

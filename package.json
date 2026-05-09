@@ -1,6 +1,6 @@
 {
-  "name": "openbank-price-check",
-  "version": "1.0.0",
+  "name": "openbank-price-prediction",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

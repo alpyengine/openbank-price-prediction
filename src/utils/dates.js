@@ -1,5 +1,3 @@
-// ── Date helpers ──────────────────────────────────────────────────────────────
-
 export function today() {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
@@ -17,7 +15,6 @@ export function addDays(d, n) {
   return r
 }
 
-/** Parse DD/MM/YYYY → Date */
 export function parseDate(s) {
   if (!s) return null
   const p = s.trim().split('/')
@@ -26,7 +23,6 @@ export function parseDate(s) {
   return isNaN(d.getTime()) ? null : d
 }
 
-/** Compute 1M/3M/6M/12M target dates from a base date */
 export function targetDates(base) {
   return {
     d1:  addDays(base, 30),
@@ -40,7 +36,6 @@ export function daysLeft(d) {
   return Math.round((d - today()) / 864e5)
 }
 
-/** 'past' | 'now' | 'soon' | null */
 export function dateStatus(d) {
   const dl = daysLeft(d)
   if (dl < -7)  return 'past'

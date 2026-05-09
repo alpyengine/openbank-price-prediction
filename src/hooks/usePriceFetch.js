@@ -1,63 +1,98 @@
 import { useState, useCallback } from 'react'
 
-const SERVER = '/api'
-const TIMEOUT_MS = 60000
+const API_KEY  = import.meta.env.VITE_TWELVE_DATA_KEY
+const BASE_URL = 'https://api.twelvedata.com'
+const TIMEOUT  = 15000
+
+/**
+ * Fetch prev close for a batch of tickers from Twelve Data.
+ * Twelve Data supports comma-separated symbols in one request.
+ * Free tier: 800 requests/day, 8 requests/minute.
+ *
+ * Endpoint: GET /price?symbol=AAPL,MSFT&apikey=KEY
+ * Returns:  { AAPL: { price: "123.45" }, MSFT: { price: "456.78" } }
+ * Or single ticker: { price: "123.45" }
+ */
+async function fetchBatch(tickers) {
+  if (!API_KEY) throw new Error('VITE_TWELVE_DATA_KEY not set in .env')
+
+  const symbols = tickers.join(',')
+  const url     = `${BASE_URL}/price?symbol=${encodeURIComponent(symbols)}&apikey=${API_KEY}`
+
+  const ctrl = new AbortController()
+  const tid  = setTimeout(() => ctrl.abort(), TIMEOUT)
+
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' })
+    clearTimeout(tid)
+
+    if (!res.ok) throw new Error('Twelve Data HTTP ' + res.status)
+
+    const data = await res.json()
+
+    // Normalise response — single ticker returns { price } directly
+    // Multiple tickers return { TICKER: { price } }
+    if (tickers.length === 1) {
+      if (data.code && data.message) throw new Error(data.message)
+      return { [tickers[0]]: data }
+    }
+    return data
+
+  } catch (err) {
+    clearTimeout(tid)
+    throw err
+  }
+}
 
 export function usePriceFetch() {
-  const [autoPrices, setAutoPrices] = useState({})  // { TICKER: number | null }
-  const [sources,    setSources]    = useState({})  // { TICKER: string }
+  const [autoPrices, setAutoPrices] = useState({})
   const [fetching,   setFetching]   = useState(false)
-  const [log,        setLog]        = useState('Import stocks first, then click Fetch')
+  const [log,        setLog]        = useState('Import stocks, then click Fetch')
 
   const fetchPrices = useCallback(async (stocks) => {
     if (!stocks.length) return
     setFetching(true)
-    setLog('Fetching prices...')
+    setLog('Fetching prices from Twelve Data...')
 
-    const tickers    = stocks.map(s => s.t).join(',')
-    const currencies = stocks.map(s => s.cu || 'USD').join(',')
-    const url        = `${SERVER}/prices?tickers=${encodeURIComponent(tickers)}&currencies=${encodeURIComponent(currencies)}`
-
-    const ctrl = new AbortController()
-    const tid  = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
+    const tickers = stocks.map(s => s.t)
 
     try {
-      const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' })
-      clearTimeout(tid)
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || 'HTTP ' + res.status)
-      }
-
-      const results = await res.json()
+      const raw = await fetchBatch(tickers)
 
       const newPrices = {}
-      const newSources = {}
-      const failed = []
+      const failed    = []
 
       for (const s of stocks) {
-        const r = results[s.t]
-        if (r && typeof r.price === 'number' && !r.error) {
-          newPrices[s.t]  = r.price
-          newSources[s.t] = r.source || ''
-        } else {
-          newPrices[s.t]  = null
-          newSources[s.t] = ''
-          failed.push(`${s.t}(${r?.error || 'no data'})`)
+        const entry = raw[s.t]
+        if (!entry) {
+          newPrices[s.t] = null
+          failed.push(`${s.t}(not found)`)
+          continue
         }
+        // Twelve Data error for individual ticker
+        if (entry.code || entry.status === 'error') {
+          newPrices[s.t] = null
+          failed.push(`${s.t}(${entry.message || 'error'})`)
+          continue
+        }
+        const price = parseFloat(entry.price)
+        if (isNaN(price)) {
+          newPrices[s.t] = null
+          failed.push(`${s.t}(invalid price)`)
+          continue
+        }
+        newPrices[s.t] = price
       }
 
       setAutoPrices(newPrices)
-      setSources(newSources)
-
-      const ok = stocks.length - failed.length
-      setLog(`${ok}/${stocks.length} prices loaded${failed.length ? ' | Failed: ' + failed.join(', ') : ''}`)
+      const ok = tickers.length - failed.length
+      setLog(
+        `${ok}/${tickers.length} prices loaded` +
+        (failed.length ? ' | Failed: ' + failed.join(', ') : '')
+      )
 
     } catch (err) {
-      clearTimeout(tid)
-      const msg = classifyError(err)
-      setLog('Fetch error: ' + msg)
+      setLog('Fetch error: ' + classifyError(err))
     } finally {
       setFetching(false)
     }
@@ -65,18 +100,19 @@ export function usePriceFetch() {
 
   const reset = useCallback(() => {
     setAutoPrices({})
-    setSources({})
-    setLog('Import stocks first, then click Fetch')
+    setLog('Import stocks, then click Fetch')
   }, [])
 
-  return { autoPrices, sources, fetching, log, fetchPrices, reset, setLog }
+  return { autoPrices, fetching, log, fetchPrices, reset, setLog }
 }
 
 function classifyError(err) {
   const msg = err?.message || String(err)
   if (msg.includes('abort') || msg.includes('AbortError'))
-    return 'Timeout — server took too long'
+    return 'Timeout — Twelve Data did not respond in time'
   if (msg.includes('Failed to fetch') || msg.includes('NetworkError'))
-    return 'Cannot reach server — is run.py running?'
-  return msg || 'Unknown error'
+    return 'No internet connection'
+  if (msg.includes('not set'))
+    return 'API key missing — check your .env file'
+  return msg
 }
