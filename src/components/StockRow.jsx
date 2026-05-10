@@ -3,17 +3,29 @@ import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js
 import { getTarget, getTargetDate, effectivePrice, distancePct, priceStatus } from '../utils/stocks.js'
 
 const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, onOverrideChange }) {
-  const best      = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
-  const tgt       = getTarget(stock, horizon)
-  const tgtDate   = getTargetDate(stock, horizon)
-  const p         = effectivePrice(stock.t, { [stock.t]: autoPrice }, { [stock.t]: override })
-  const dist      = distancePct(p, tgt)
-  const status    = priceStatus(p, tgt)
-  const tg12      = stock.base ? targetDates(stock.base).d12 : null
-  const ds12      = tg12 ? dateStatus(tg12) : null
-  const dl12      = tg12 ? daysLeft(tg12) : null
+  const best    = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
+  const tgt     = getTarget(stock, horizon)
+  const p       = effectivePrice(stock.t, { [stock.t]: autoPrice }, { [stock.t]: override })
+  const dist    = distancePct(p, tgt)
+  const status  = priceStatus(p, tgt)
 
-  // Local input state — never tied to React rerender cycle
+  // Compute per-horizon date info
+  const tg = stock.base ? targetDates(stock.base) : null
+  const horizonDates = tg
+    ? [
+        { val: stock.t1, date: tg.d1 },
+        { val: stock.t3, date: tg.d3 },
+        { val: stock.t6, date: tg.d6 },
+        { val: stock.t12, date: tg.d12 },
+      ]
+    : [
+        { val: stock.t1 },
+        { val: stock.t3 },
+        { val: stock.t6 },
+        { val: stock.t12 },
+      ]
+
+  // Local input state — commits only on blur/Enter, never causes rerender while typing
   const [val, setVal] = useState(override ? String(override) : '')
 
   const handleCommit = useCallback((e) => {
@@ -27,17 +39,19 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
     if (e.key === 'Escape') { setVal(''); onOverrideChange(stock.t, null); e.target.blur() }
   }, [stock.t, onOverrideChange])
 
-  const tdBase = { padding: '8px 10px', verticalAlign: 'middle' }
+  const td = { padding: '8px 10px', verticalAlign: 'middle' }
 
   return (
     <tr style={{ borderBottom: '1px solid #21262d' }}>
-      <td style={{ ...tdBase, fontWeight: 600, fontSize: 12, color: '#e6edf3' }}>{stock.t}</td>
-      <td style={{ ...tdBase, fontSize: 11, color: '#8b949e' }}>{stock.co}</td>
-      <td style={{ ...tdBase, fontSize: 11, color: '#484f58' }}>{stock.cu}</td>
-      <td style={{ ...tdBase, fontSize: 11, color: '#484f58' }}>{stock.base ? formatDate(stock.base) : '--'}</td>
+
+      {/* Static cells */}
+      <td style={{ ...td, fontWeight: 600, fontSize: 12, color: '#e6edf3' }}>{stock.t}</td>
+      <td style={{ ...td, fontSize: 11, color: '#8b949e' }}>{stock.co}</td>
+      <td style={{ ...td, fontSize: 11, color: '#484f58' }}>{stock.cu}</td>
+      <td style={{ ...td, fontSize: 11, color: '#484f58' }}>{stock.base ? formatDate(stock.base) : '--'}</td>
 
       {/* Auto price */}
-      <td style={tdBase}>
+      <td style={td}>
         {autoPrice == null
           ? <span style={{ color: '#484f58', fontSize: 11 }}>--</span>
           : autoPrice === null
@@ -46,8 +60,8 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
         }
       </td>
 
-      {/* Override — local state, commits on blur/Enter only */}
-      <td style={tdBase}>
+      {/* Override input */}
+      <td style={td}>
         <input
           type="number"
           style={{
@@ -64,29 +78,33 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
         />
       </td>
 
-      {/* Targets — best highlighted blue */}
-      {[stock.t1, stock.t3, stock.t6].map((t, i) => (
-        <td key={i} style={{ ...tdBase, fontSize: 12, color: best === t ? '#58a6ff' : '#8b949e', fontWeight: best === t ? 600 : 400 }}>
-          {t.toFixed(2)}
-        </td>
-      ))}
-
-      {/* 12M with date tag */}
-      <td style={{ ...tdBase, fontSize: 12, color: best === stock.t12 ? '#58a6ff' : '#8b949e', fontWeight: best === stock.t12 ? 600 : 400 }}>
-        {stock.t12.toFixed(2)}
-        {ds12 && <DateTag status={ds12} />}
-        {dl12 != null && <span style={{ fontSize: 10, color: '#484f58', marginLeft: 3 }}>{dl12}d</span>}
-      </td>
+      {/* Target columns — each with its own date tag */}
+      {horizonDates.map(({ val: t, date }, i) => {
+        const isBest  = t === best
+        const ds      = date ? dateStatus(date) : null
+        const dl      = date ? daysLeft(date) : null
+        return (
+          <td key={i} style={{ ...td, fontSize: 12, color: isBest ? '#58a6ff' : '#8b949e', fontWeight: isBest ? 600 : 400 }}>
+            {t.toFixed(2)}
+            {ds && <DateTag status={ds} />}
+            {dl != null && ds !== 'past' && (
+              <span style={{ display: 'block', fontSize: 9, color: '#484f58', marginTop: 1 }}>
+                {dl >= 0 ? '+' : ''}{dl}d
+              </span>
+            )}
+          </td>
+        )
+      })}
 
       {/* Hit badge */}
-      <td style={tdBase}>
-        {status == null  && <Badge type="wait">--</Badge>}
+      <td style={td}>
+        {status == null   && <Badge type="wait">--</Badge>}
         {status === 'hit' && <Badge type="hit">HIT</Badge>}
         {(status === 'close' || status === 'below') && <Badge type="miss">MISS</Badge>}
       </td>
 
       {/* Distance bar */}
-      <td style={tdBase}>
+      <td style={td}>
         {dist == null
           ? <span style={{ color: '#484f58', fontSize: 11 }}>--</span>
           : <DistBar dist={dist} status={status} />
@@ -94,10 +112,10 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
       </td>
 
       {/* Status text */}
-      <td style={tdBase}>
-        {p == null      && <span style={{ color: '#484f58', fontSize: 11 }}>awaiting</span>}
-        {p >= tgt       && <span style={{ color: '#3fb950', fontSize: 11 }}>Reached</span>}
-        {status === 'close' && <span style={{ color: '#d29922', fontSize: 11 }}>Very close</span>}
+      <td style={td}>
+        {p == null           && <span style={{ color: '#484f58', fontSize: 11 }}>awaiting</span>}
+        {p != null && p >= tgt  && <span style={{ color: '#3fb950', fontSize: 11 }}>Reached</span>}
+        {status === 'close'  && <span style={{ color: '#d29922', fontSize: 11 }}>Very close</span>}
         {status === 'below' && p < tgt && <span style={{ color: '#f85149', fontSize: 11 }}>Below</span>}
       </td>
     </tr>
@@ -106,25 +124,42 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
 
 export default StockRow
 
-function Badge({ type, children }) {
-  const colors = {
-    hit:  { bg: '#1a4a2e', color: '#3fb950' },
-    miss: { bg: '#3d1515', color: '#f85149' },
-    wait: { bg: '#21262d', color: '#8b949e' },
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function DateTag({ status }) {
+  const cfg = {
+    past: { bg: '#2a1515', color: '#f85149', label: 'expired' },
+    now:  { bg: '#1a3a1a', color: '#3fb950', label: 'now'     },
+    soon: { bg: '#2d2208', color: '#d29922', label: 'soon'    },
   }
-  const c = colors[type]
+  const c = cfg[status]
+  if (!c) return null
   return (
-    <span style={{ display: 'inline-flex', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20, background: c.bg, color: c.color }}>
-      {children}
+    <span style={{
+      display: 'inline-block', fontSize: 9, padding: '1px 4px',
+      borderRadius: 6, marginLeft: 4, verticalAlign: 'middle',
+      background: c.bg, color: c.color, fontWeight: 600,
+    }}>
+      {c.label}
     </span>
   )
 }
 
-function DateTag({ status }) {
-  const colors = { past: ['#2a1515', '#f85149'], now: ['#1a3a1a', '#3fb950'], soon: ['#2d2208', '#d29922'] }
-  const [bg, color] = colors[status] || []
-  if (!bg) return null
-  return <span style={{ display: 'inline-block', fontSize: 10, padding: '1px 5px', borderRadius: 8, marginLeft: 4, verticalAlign: 'middle', background: bg, color }}>{status}</span>
+function Badge({ type, children }) {
+  const cfg = {
+    hit:  { bg: '#1a4a2e', color: '#3fb950' },
+    miss: { bg: '#3d1515', color: '#f85149' },
+    wait: { bg: '#21262d', color: '#8b949e' },
+  }
+  const c = cfg[type]
+  return (
+    <span style={{
+      display: 'inline-flex', fontSize: 11, fontWeight: 600,
+      padding: '3px 8px', borderRadius: 20, background: c.bg, color: c.color,
+    }}>
+      {children}
+    </span>
+  )
 }
 
 function DistBar({ dist, status }) {

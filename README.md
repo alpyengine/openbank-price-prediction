@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v2.0.0
+# Openbank Price Prediction — v2.0.1
 
 ## Overview
 
@@ -146,6 +146,7 @@ npm run build
 |---------|------------|-----------------------|------------------------------------|
 | v1.0.0  | 2026-05    | React + Python backend| yfinance/stooq, requires run.py    |
 | v2.0.0  | 2026-05    | React only            | Twelve Data API, no backend        |
+| v2.0.1  | 2026-05    | React only            | Visual improvements: expired/soon/now tags on all target columns, horizon tab indicators, contextual banners |
 
 ---
 
