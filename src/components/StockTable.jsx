@@ -19,7 +19,7 @@ function Th({ w, date, children }) {
   )
 }
 
-export default function StockTable({ stocks, horizon, autoPrices, overrides, onOverrideChange }) {
+export default function StockTable({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, onOverrideChange }) {
   const base = stocks.find(s => s.base)?.base
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
 
@@ -52,7 +52,9 @@ export default function StockTable({ stocks, horizon, autoPrices, overrides, onO
                   stock={stock}
                   horizon={horizon}
                   autoPrice={autoPrices[stock.t]}
+                  histPrices={histPrices}
                   override={overrides[stock.t]}
+                  horizonExpired={horizonExpired}
                   onOverrideChange={onOverrideChange}
                 />
               ))

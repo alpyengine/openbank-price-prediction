@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { formatDate, today as getToday } from '../utils/dates.js'
-import { getTarget, getTargetDate, effectivePrice } from '../utils/stocks.js'
+import { getTarget, getTargetDate, getEffectivePrice } from '../utils/stocks.js'
 
 const s = {
   box:  { border: '1px solid #30363d', borderRadius: 8, padding: '1rem', marginBottom: '1.5rem', background: '#0d1117' },
@@ -11,34 +11,42 @@ const s = {
   btnG: { fontSize: 12, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid #30363d', background: 'transparent', color: '#e6edf3' },
 }
 
-export default function EmailPreview({ stocks, horizon, autoPrices, overrides, onClose }) {
+export default function EmailPreview({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, onClose }) {
   const TODAY = getToday()
 
   const text = useCallback(() => {
+    const priceType = horizonExpired && horizon !== 'best' ? 'Historical (on target date)' : 'Current market'
     const lines = [
       `Subject: Openbank Price Prediction Check -- ${formatDate(TODAY)}`,
       '', 'Hi,', '',
-      `Price check as of ${formatDate(TODAY)} -- Horizon: ${horizon === 'best' ? 'Best target' : horizon}`,
+      `Price check as of ${formatDate(TODAY)}`,
+      `Horizon: ${horizon === 'best' ? 'Best target' : horizon} | Price type: ${priceType}`,
       '',
-      'Ticker  | Base Date    | Auto Price  | Target     | Target Date   | Distance   | Status',
-      '------  | ------------ | ----------- | ---------- | ------------- | ---------- | ------',
+      'Ticker  | Base Date    | Price       | Price Date   | Target     | Target Date   | Distance   | Result',
+      '------  | ------------ | ----------- | ------------ | ---------- | ------------- | ---------- | ------',
     ]
     for (const s of stocks) {
-      const p   = effectivePrice(s.t, autoPrices, overrides)
+      const { price: p, isHistorical, historicalDate } = getEffectivePrice(
+        s.t, horizon, autoPrices, histPrices, overrides, horizonExpired
+      )
       const t   = getTarget(s, horizon)
       const td  = getTargetDate(s, horizon)
-      const au  = autoPrices[s.t]
-      const auS = au != null ? au.toFixed(2) : 'N/A'
+      const pS  = p ? p.toFixed(2) : 'N/A'
+      const pdS = isHistorical ? (historicalDate || 'hist') : formatDate(TODAY)
       const dS  = p ? ((p - t) / t * 100 >= 0 ? '+' : '') + ((p - t) / t * 100).toFixed(2) + '%' : '--'
       const adV = p ? Math.abs((p - t) / t * 100) : null
-      const st  = !p ? 'Awaiting' : p >= t ? 'TARGET REACHED' : adV <= 5 ? 'Close (<5%)' : adV <= 15 ? 'Getting closer' : 'Below target'
+      const result = !p             ? 'Awaiting'
+                   : p >= t         ? (isHistorical ? 'REACHED on date' : 'TARGET REACHED')
+                   : adV <= 5       ? 'Close (<5%)'
+                   : adV <= 15      ? 'Getting closer'
+                   : (isHistorical  ? 'NOT REACHED' : 'Below target')
       lines.push(
-        `${s.t.padEnd(6)}  | ${(s.base ? formatDate(s.base) : 'N/A').padEnd(12)} | ${auS.padStart(11)} | ${t.toFixed(2).padStart(10)} | ${(td ? formatDate(td) : 'N/A').padEnd(13)} | ${dS.padStart(10)} | ${st}`
+        `${s.t.padEnd(6)}  | ${(s.base ? formatDate(s.base) : 'N/A').padEnd(12)} | ${pS.padStart(11)} | ${pdS.padEnd(12)} | ${t.toFixed(2).padStart(10)} | ${(td ? formatDate(td) : 'N/A').padEnd(13)} | ${dS.padStart(10)} | ${result}`
       )
     }
     lines.push('', '---', 'Source: Twelve Data API. Not financial advice.')
     return lines.join('\n')
-  }, [stocks, horizon, autoPrices, overrides])()
+  }, [stocks, horizon, autoPrices, histPrices, overrides, horizonExpired])()
 
   const handleCopy = useCallback(async () => {
     try { await navigator.clipboard.writeText(text) } catch { /* ignore */ }

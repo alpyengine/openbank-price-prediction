@@ -22,6 +22,39 @@ export function getTargetDate(stock, horizon) {
   return tg.d1
 }
 
+/** Key used to store historical price: 'TER_1M' */
+export function histKey(ticker, horizon) {
+  return `${ticker}_${horizon}`
+}
+
+/**
+ * Get the price to use for comparison.
+ *
+ * Logic (v3):
+ *  1. Manual override always wins
+ *  2. If horizon is expired AND we have a historical price → use historical
+ *  3. Otherwise → use current auto price
+ *
+ * Returns { price, isHistorical, historicalDate }
+ */
+export function getEffectivePrice(ticker, horizon, autoPrices, histPrices, overrides, horizonExpired) {
+  const ov = overrides[ticker]
+  if (ov && ov > 0) return { price: ov, isHistorical: false, historicalDate: null }
+
+  if (horizonExpired && horizon !== 'best') {
+    const key  = histKey(ticker, horizon)
+    const hist = histPrices[key]
+    if (hist && hist.price) {
+      return { price: hist.price, isHistorical: true, historicalDate: hist.date }
+    }
+  }
+
+  const au = autoPrices[ticker]
+  if (au && au > 0) return { price: au, isHistorical: false, historicalDate: null }
+
+  return { price: null, isHistorical: false, historicalDate: null }
+}
+
 export function effectivePrice(ticker, autoPrices, overrides) {
   const ov = overrides[ticker]
   if (ov && ov > 0) return ov

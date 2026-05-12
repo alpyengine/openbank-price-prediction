@@ -2,94 +2,145 @@ import { useState, useCallback } from 'react'
 
 const API_KEY  = import.meta.env.VITE_TWELVE_DATA_KEY
 const BASE_URL = 'https://api.twelvedata.com'
-const TIMEOUT  = 15000
+const TIMEOUT  = 20000
 
-/**
- * Fetch prev close for a batch of tickers from Twelve Data.
- * Twelve Data supports comma-separated symbols in one request.
- * Free tier: 800 requests/day, 8 requests/minute.
- *
- * Endpoint: GET /price?symbol=AAPL,MSFT&apikey=KEY
- * Returns:  { AAPL: { price: "123.45" }, MSFT: { price: "456.78" } }
- * Or single ticker: { price: "123.45" }
- */
-async function fetchBatch(tickers) {
-  if (!API_KEY) throw new Error('VITE_TWELVE_DATA_KEY not set in .env')
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  const symbols = tickers.join(',')
-  const url     = `${BASE_URL}/price?symbol=${encodeURIComponent(symbols)}&apikey=${API_KEY}`
+function toYMD(date) {
+  // Format Date → 'YYYY-MM-DD'
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 
+function addDays(date, n) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + n)
+  return d
+}
+
+function classifyError(err) {
+  const msg = err?.message || String(err)
+  if (msg.includes('abort') || msg.includes('AbortError'))
+    return 'Timeout — Twelve Data did not respond'
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError'))
+    return 'No internet connection'
+  if (msg.includes('not set'))
+    return 'API key missing — check your .env file'
+  return msg
+}
+
+async function fetchWithTimeout(url) {
+  if (!API_KEY) throw new Error('VITE_TWELVE_DATA_KEY not set')
   const ctrl = new AbortController()
   const tid  = setTimeout(() => ctrl.abort(), TIMEOUT)
-
   try {
     const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' })
     clearTimeout(tid)
-
-    if (!res.ok) throw new Error('Twelve Data HTTP ' + res.status)
-
-    const data = await res.json()
-
-    // Normalise response — single ticker returns { price } directly
-    // Multiple tickers return { TICKER: { price } }
-    if (tickers.length === 1) {
-      if (data.code && data.message) throw new Error(data.message)
-      return { [tickers[0]]: data }
-    }
-    return data
-
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    return await res.json()
   } catch (err) {
     clearTimeout(tid)
     throw err
   }
 }
 
+// ── Current price (today) ─────────────────────────────────────────────────────
+// Fetches all tickers in one batch request → { TICKER: { price } }
+
+async function fetchCurrentPrices(tickers) {
+  const symbols = tickers.join(',')
+  const url     = `${BASE_URL}/price?symbol=${encodeURIComponent(symbols)}&apikey=${API_KEY}`
+  const data    = await fetchWithTimeout(url)
+
+  // Normalise: single ticker returns { price } directly, multiple returns { TICKER: { price } }
+  if (tickers.length === 1) {
+    if (data.code || data.status === 'error') throw new Error(data.message || 'API error')
+    return { [tickers[0]]: parseFloat(data.price) }
+  }
+
+  const result = {}
+  for (const tk of tickers) {
+    const entry = data[tk]
+    if (!entry || entry.code || entry.status === 'error') {
+      result[tk] = null
+    } else {
+      result[tk] = parseFloat(entry.price)
+    }
+  }
+  return result
+}
+
+// ── Historical price (on or near a specific date) ────────────────────────────
+// Uses /time_series with a ±5 day window to handle weekends and holidays.
+// Returns the closing price of the trading day closest to targetDate
+// without going past it (i.e. last trading day on or before targetDate).
+
+async function fetchHistoricalPrice(ticker, targetDate) {
+  const start = toYMD(addDays(targetDate, -7))  // look back 7 days
+  const end   = toYMD(targetDate)               // up to target date
+  const url   = `${BASE_URL}/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&start_date=${start}&end_date=${end}&apikey=${API_KEY}`
+
+  const data = await fetchWithTimeout(url)
+
+  if (data.status === 'error' || data.code) {
+    throw new Error(data.message || 'Historical data unavailable')
+  }
+
+  const values = data.values
+  if (!values || !values.length) {
+    throw new Error('No trading data found near ' + toYMD(targetDate))
+  }
+
+  // values are sorted newest → oldest; first entry is the closest to targetDate
+  const entry = values[0]
+  return {
+    price:    parseFloat(entry.close),
+    date:     entry.datetime,
+    isHistorical: true,
+  }
+}
+
+// ── Main hook ─────────────────────────────────────────────────────────────────
+//
+// State shape:
+//   autoPrices  — { TICKER: number | null }   current market price
+//   histPrices  — { TICKER_HORIZON: { price, date, isHistorical } | null }
+//                 keyed by `${ticker}_${horizon}` e.g. 'TER_1M'
+//   fetching    — boolean
+//   log         — status string
+
 export function usePriceFetch() {
   const [autoPrices, setAutoPrices] = useState({})
+  const [histPrices, setHistPrices] = useState({})
   const [fetching,   setFetching]   = useState(false)
   const [log,        setLog]        = useState('Import stocks, then click Fetch')
 
-  const fetchPrices = useCallback(async (stocks) => {
+  // ── fetchCurrentBatch ───────────────────────────────────────────────────────
+  const fetchCurrentBatch = useCallback(async (stocks) => {
     if (!stocks.length) return
     setFetching(true)
-    setLog('Fetching prices from Twelve Data...')
-
-    const tickers = stocks.map(s => s.t)
+    setLog('Fetching current prices...')
 
     try {
-      const raw = await fetchBatch(tickers)
+      const tickers = stocks.map(s => s.t)
+      const prices  = await fetchCurrentPrices(tickers)
 
       const newPrices = {}
       const failed    = []
-
       for (const s of stocks) {
-        const entry = raw[s.t]
-        if (!entry) {
+        const p = prices[s.t]
+        if (p != null && !isNaN(p)) {
+          newPrices[s.t] = p
+        } else {
           newPrices[s.t] = null
-          failed.push(`${s.t}(not found)`)
-          continue
+          failed.push(s.t)
         }
-        // Twelve Data error for individual ticker
-        if (entry.code || entry.status === 'error') {
-          newPrices[s.t] = null
-          failed.push(`${s.t}(${entry.message || 'error'})`)
-          continue
-        }
-        const price = parseFloat(entry.price)
-        if (isNaN(price)) {
-          newPrices[s.t] = null
-          failed.push(`${s.t}(invalid price)`)
-          continue
-        }
-        newPrices[s.t] = price
       }
-
       setAutoPrices(newPrices)
-      const ok = tickers.length - failed.length
-      setLog(
-        `${ok}/${tickers.length} prices loaded` +
-        (failed.length ? ' | Failed: ' + failed.join(', ') : '')
-      )
+      const ok = stocks.length - failed.length
+      setLog(`${ok}/${stocks.length} current prices loaded${failed.length ? ' | Failed: ' + failed.join(', ') : ''}`)
 
     } catch (err) {
       setLog('Fetch error: ' + classifyError(err))
@@ -98,21 +149,70 @@ export function usePriceFetch() {
     }
   }, [])
 
+  // ── fetchHistoricalForHorizon ───────────────────────────────────────────────
+  // Called when user clicks into an expired horizon tab.
+  // Fetches the historical closing price for each stock on that horizon's date.
+
+  const fetchHistoricalForHorizon = useCallback(async (stocks, horizon, targetDates) => {
+    if (!stocks.length) return
+    setFetching(true)
+    setLog(`Fetching historical prices for ${horizon} target dates...`)
+
+    const newHist = { ...histPrices }
+    const failed  = []
+    let   ok      = 0
+
+    for (const s of stocks) {
+      const key        = `${s.t}_${horizon}`
+      const targetDate = targetDates[s.t]
+
+      // Skip if already fetched
+      if (newHist[key]) { ok++; continue }
+
+      if (!targetDate) {
+        newHist[key] = null
+        failed.push(s.t + '(no date)')
+        continue
+      }
+
+      setLog(`Fetching ${s.t} on ${toYMD(targetDate)}...`)
+      try {
+        const result   = await fetchHistoricalPrice(s.t, targetDate)
+        newHist[key]   = result
+        ok++
+        setLog(`✓ ${s.t} on ${result.date} = ${result.price.toFixed(2)}`)
+      } catch (err) {
+        newHist[key] = null
+        failed.push(`${s.t}(${err.message})`)
+        setLog(`✗ ${s.t}: ${err.message}`)
+      }
+
+      // Small delay to respect rate limits (8 req/min on free tier)
+      await new Promise(r => setTimeout(r, 500))
+    }
+
+    setHistPrices(newHist)
+    setLog(
+      `Historical prices loaded: ${ok}/${stocks.length}` +
+      (failed.length ? ' | Failed: ' + failed.join(', ') : '')
+    )
+    setFetching(false)
+  }, [histPrices])
+
   const reset = useCallback(() => {
     setAutoPrices({})
+    setHistPrices({})
     setLog('Import stocks, then click Fetch')
   }, [])
 
-  return { autoPrices, fetching, log, fetchPrices, reset, setLog }
-}
-
-function classifyError(err) {
-  const msg = err?.message || String(err)
-  if (msg.includes('abort') || msg.includes('AbortError'))
-    return 'Timeout — Twelve Data did not respond in time'
-  if (msg.includes('Failed to fetch') || msg.includes('NetworkError'))
-    return 'No internet connection'
-  if (msg.includes('not set'))
-    return 'API key missing — check your .env file'
-  return msg
+  return {
+    autoPrices,
+    histPrices,
+    fetching,
+    log,
+    fetchCurrentBatch,
+    fetchHistoricalForHorizon,
+    reset,
+    setLog,
+  }
 }

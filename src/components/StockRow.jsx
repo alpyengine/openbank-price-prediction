@@ -1,31 +1,43 @@
 import { memo, useState, useCallback } from 'react'
 import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js'
-import { getTarget, getTargetDate, effectivePrice, distancePct, priceStatus } from '../utils/stocks.js'
+import { getTarget, getTargetDate, getEffectivePrice, distancePct, priceStatus, histKey } from '../utils/stocks.js'
 
-const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, onOverrideChange }) {
-  const best    = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
-  const tgt     = getTarget(stock, horizon)
-  const p       = effectivePrice(stock.t, { [stock.t]: autoPrice }, { [stock.t]: override })
-  const dist    = distancePct(p, tgt)
-  const status  = priceStatus(p, tgt)
+const StockRow = memo(function StockRow({
+  stock, horizon, autoPrice, histPrices, override, horizonExpired, onOverrideChange
+}) {
+  const best = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
+  const tgt  = getTarget(stock, horizon)
+  const tg   = stock.base ? targetDates(stock.base) : null
 
-  // Compute per-horizon date info
-  const tg = stock.base ? targetDates(stock.base) : null
+  // Get effective price: historical if horizon expired, current otherwise
+  const { price: p, isHistorical, historicalDate } = getEffectivePrice(
+    stock.t, horizon, { [stock.t]: autoPrice }, histPrices, override ? { [stock.t]: override } : {}, horizonExpired
+  )
+
+  const dist   = distancePct(p, tgt)
+  const status = priceStatus(p, tgt)
+
+  // Historical price entry for this stock+horizon
+  const hKey    = histKey(stock.t, horizon)
+  const histEntry = histPrices?.[hKey]
+  const histLoading = horizonExpired && horizon !== 'best' && histEntry === undefined
+
+  // Per-horizon date info for target columns
   const horizonDates = tg
     ? [
-        { val: stock.t1, date: tg.d1 },
-        { val: stock.t3, date: tg.d3 },
-        { val: stock.t6, date: tg.d6 },
+        { val: stock.t1,  date: tg.d1  },
+        { val: stock.t3,  date: tg.d3  },
+        { val: stock.t6,  date: tg.d6  },
         { val: stock.t12, date: tg.d12 },
       ]
     : [
-        { val: stock.t1 },
-        { val: stock.t3 },
-        { val: stock.t6 },
+        { val: stock.t1  },
+        { val: stock.t3  },
+        { val: stock.t6  },
         { val: stock.t12 },
       ]
 
-  // Local input state — commits only on blur/Enter, never causes rerender while typing
+  // Local input state
   const [val, setVal] = useState(override ? String(override) : '')
 
   const handleCommit = useCallback((e) => {
@@ -35,7 +47,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
   }, [stock.t, onOverrideChange])
 
   const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter') e.target.blur()
+    if (e.key === 'Enter')  e.target.blur()
     if (e.key === 'Escape') { setVal(''); onOverrideChange(stock.t, null); e.target.blur() }
   }, [stock.t, onOverrideChange])
 
@@ -44,23 +56,35 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
   return (
     <tr style={{ borderBottom: '1px solid #21262d' }}>
 
-      {/* Static cells */}
+      {/* Ticker */}
       <td style={{ ...td, fontWeight: 600, fontSize: 12, color: '#e6edf3' }}>{stock.t}</td>
       <td style={{ ...td, fontSize: 11, color: '#8b949e' }}>{stock.co}</td>
       <td style={{ ...td, fontSize: 11, color: '#484f58' }}>{stock.cu}</td>
       <td style={{ ...td, fontSize: 11, color: '#484f58' }}>{stock.base ? formatDate(stock.base) : '--'}</td>
 
-      {/* Auto price */}
+      {/* Price cell — shows historical or current */}
       <td style={td}>
-        {autoPrice == null
-          ? <span style={{ color: '#484f58', fontSize: 11 }}>--</span>
-          : autoPrice === null
-            ? <span style={{ color: '#f85149', fontSize: 11 }}>failed</span>
-            : <span style={{ color: '#3fb950', fontWeight: 600 }}>{autoPrice.toFixed(2)}</span>
-        }
+        {histLoading && <span style={{ color: '#484f58', fontSize: 11 }}>loading...</span>}
+        {!histLoading && isHistorical && histEntry && (
+          <div>
+            <span style={{ color: '#58a6ff', fontWeight: 600 }}>{histEntry.price.toFixed(2)}</span>
+            <span style={{ display: 'block', fontSize: 9, color: '#484f58', marginTop: 1 }}>
+              on {histEntry.date}
+            </span>
+          </div>
+        )}
+        {!histLoading && isHistorical && !histEntry && (
+          <span style={{ color: '#f85149', fontSize: 11 }}>unavailable</span>
+        )}
+        {!isHistorical && autoPrice == null && (
+          <span style={{ color: '#484f58', fontSize: 11 }}>--</span>
+        )}
+        {!isHistorical && autoPrice != null && (
+          <span style={{ color: '#3fb950', fontWeight: 600 }}>{autoPrice.toFixed(2)}</span>
+        )}
       </td>
 
-      {/* Override input */}
+      {/* Override */}
       <td style={td}>
         <input
           type="number"
@@ -71,18 +95,18 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
             fontSize: 12, textAlign: 'right', outline: 'none',
           }}
           value={val}
-          placeholder={autoPrice > 0 ? autoPrice.toFixed(2) : stock.b.toFixed(2)}
+          placeholder={p ? p.toFixed(2) : stock.b.toFixed(2)}
           onChange={e => setVal(e.target.value)}
           onBlur={handleCommit}
           onKeyDown={handleKeyDown}
         />
       </td>
 
-      {/* Target columns — each with its own date tag */}
+      {/* Target columns with date tags */}
       {horizonDates.map(({ val: t, date }, i) => {
-        const isBest  = t === best
-        const ds      = date ? dateStatus(date) : null
-        const dl      = date ? daysLeft(date) : null
+        const isBest = t === best
+        const ds     = date ? dateStatus(date) : null
+        const dl     = date ? daysLeft(date) : null
         return (
           <td key={i} style={{ ...td, fontSize: 12, color: isBest ? '#58a6ff' : '#8b949e', fontWeight: isBest ? 600 : 400 }}>
             {t.toFixed(2)}
@@ -98,25 +122,31 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
 
       {/* Hit badge */}
       <td style={td}>
-        {status == null   && <Badge type="wait">--</Badge>}
-        {status === 'hit' && <Badge type="hit">HIT</Badge>}
-        {(status === 'close' || status === 'below') && <Badge type="miss">MISS</Badge>}
+        {histLoading                                     && <Badge type="wait">...</Badge>}
+        {!histLoading && status == null                  && <Badge type="wait">--</Badge>}
+        {!histLoading && status === 'hit'                && <Badge type="hit">HIT</Badge>}
+        {!histLoading && (status === 'close' || status === 'below') && <Badge type="miss">MISS</Badge>}
       </td>
 
-      {/* Distance bar */}
+      {/* Distance */}
       <td style={td}>
-        {dist == null
-          ? <span style={{ color: '#484f58', fontSize: 11 }}>--</span>
+        {histLoading || dist == null
+          ? <span style={{ color: '#484f58', fontSize: 11 }}>{histLoading ? '...' : '--'}</span>
           : <DistBar dist={dist} status={status} />
         }
       </td>
 
-      {/* Status text */}
+      {/* Status */}
       <td style={td}>
-        {p == null           && <span style={{ color: '#484f58', fontSize: 11 }}>awaiting</span>}
-        {p != null && p >= tgt  && <span style={{ color: '#3fb950', fontSize: 11 }}>Reached</span>}
-        {status === 'close'  && <span style={{ color: '#d29922', fontSize: 11 }}>Very close</span>}
-        {status === 'below' && p < tgt && <span style={{ color: '#f85149', fontSize: 11 }}>Below</span>}
+        {histLoading                  && <span style={{ color: '#484f58', fontSize: 11 }}>loading...</span>}
+        {!histLoading && p == null    && <span style={{ color: '#484f58', fontSize: 11 }}>awaiting</span>}
+        {!histLoading && p != null && p >= tgt  && <span style={{ color: '#3fb950', fontSize: 11 }}>
+          {isHistorical ? '✓ Reached on date' : 'Reached'}
+        </span>}
+        {!histLoading && status === 'close'     && <span style={{ color: '#d29922', fontSize: 11 }}>Very close</span>}
+        {!histLoading && status === 'below' && p < tgt && <span style={{ color: '#f85149', fontSize: 11 }}>
+          {isHistorical ? '✗ Not reached' : 'Below'}
+        </span>}
       </td>
     </tr>
   )
@@ -124,7 +154,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, override, o
 
 export default StockRow
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
 function DateTag({ status }) {
   const cfg = {
@@ -135,11 +165,7 @@ function DateTag({ status }) {
   const c = cfg[status]
   if (!c) return null
   return (
-    <span style={{
-      display: 'inline-block', fontSize: 9, padding: '1px 4px',
-      borderRadius: 6, marginLeft: 4, verticalAlign: 'middle',
-      background: c.bg, color: c.color, fontWeight: 600,
-    }}>
+    <span style={{ display: 'inline-block', fontSize: 9, padding: '1px 4px', borderRadius: 6, marginLeft: 4, verticalAlign: 'middle', background: c.bg, color: c.color, fontWeight: 600 }}>
       {c.label}
     </span>
   )
@@ -153,10 +179,7 @@ function Badge({ type, children }) {
   }
   const c = cfg[type]
   return (
-    <span style={{
-      display: 'inline-flex', fontSize: 11, fontWeight: 600,
-      padding: '3px 8px', borderRadius: 20, background: c.bg, color: c.color,
-    }}>
+    <span style={{ display: 'inline-flex', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20, background: c.bg, color: c.color }}>
       {children}
     </span>
   )

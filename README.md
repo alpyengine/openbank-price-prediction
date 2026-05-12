@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v2.0.2
+# Openbank Price Prediction — v3.0.0
 
 ## Overview
 
@@ -148,6 +148,7 @@ npm run build
 | v2.0.0  | 2026-05    | React only            | Twelve Data API, no backend        |
 | v2.0.1  | 2026-05    | React only            | Visual improvements: expired/soon/now tags on all target columns, horizon tab indicators, contextual banners |
 | v2.0.2  | 2026-05    | React only            | Bugfix: React border/borderColor shorthand conflict in HorizonTabs causing fetch failure and render warning |
+| v3.0.0  | 2026-05    | React only            | Historical price fetch: expired horizons show closing price on exact target date via Twelve Data /time_series |
 
 ---
 
