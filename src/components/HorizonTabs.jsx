@@ -89,9 +89,7 @@ export default function HorizonTabs({ horizon, stocks, onHorizonChange }) {
           <div>
             <strong>This horizon expired {Math.abs(activeDl)} days ago</strong>
             {' '}({formatDate(activeDate)}).
-            {' '}You are seeing the <em>current price</em> vs the target —
-            not the price on the target date.
-            <span style={{ color: '#58a6ff', marginLeft: 4 }}>Historical price check coming in next version.</span>
+            {' '}Prices shown are the <em>closing price on the target date</em> — not today's price.
           </div>
         </div>
       )}
