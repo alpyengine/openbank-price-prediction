@@ -1,4 +1,4 @@
-import { getTarget, getEffectivePrice, priceStatus } from '../utils/stocks.js'
+import { getTarget, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
 
 const s = {
   grid: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: '1.5rem' },
@@ -23,14 +23,14 @@ export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, 
 
   for (const stock of stocks) {
     const { price: p } = getEffectivePrice(
-      stock.t, horizon,
-      autoPrices, histPrices,
-      overrides, horizonExpired
+      stock.t, horizon, autoPrices, histPrices, overrides, horizonExpired
     )
     if (!p) { awaiting++; continue }
-    const st = priceStatus(p, getTarget(stock, horizon))
-    if (st === 'hit')        hits++
-    else if (st === 'close') close++
+
+    const tgt = getTarget(stock, horizon)
+    const { verdict } = evaluatePrediction(p, tgt, stock.b)
+    if (verdict === 'hit')   hits++
+    else if (verdict === 'close') close++
   }
 
   const priceLabel = horizonExpired && horizon !== 'best' ? 'historical' : 'current'
@@ -38,8 +38,8 @@ export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, 
   return (
     <div style={s.grid}>
       <Card label="Total"        value={stocks.length} color="#e6edf3" />
-      <Card label="Hit target"   value={hits}          color="#3fb950" sub={hits   ? priceLabel : null} />
-      <Card label="Close (<15%)" value={close}         color="#d29922" sub={close  ? priceLabel : null} />
+      <Card label="Hit target"   value={hits}          color="#3fb950" sub={hits  ? priceLabel : null} />
+      <Card label="Close (±5%)"  value={close}         color="#d29922" sub={close ? priceLabel : null} />
       <Card label="Awaiting"     value={awaiting}      color="#8b949e" />
     </div>
   )

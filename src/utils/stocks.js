@@ -22,21 +22,10 @@ export function getTargetDate(stock, horizon) {
   return tg.d1
 }
 
-/** Key used to store historical price: 'TER_1M' */
 export function histKey(ticker, horizon) {
   return `${ticker}_${horizon}`
 }
 
-/**
- * Get the price to use for comparison.
- *
- * Logic (v3):
- *  1. Manual override always wins
- *  2. If horizon is expired AND we have a historical price → use historical
- *  3. Otherwise → use current auto price
- *
- * Returns { price, isHistorical, historicalDate }
- */
 export function getEffectivePrice(ticker, horizon, autoPrices, histPrices, overrides, horizonExpired) {
   const ov = overrides[ticker]
   if (ov && ov > 0) return { price: ov, isHistorical: false, historicalDate: null }
@@ -63,11 +52,64 @@ export function effectivePrice(ticker, autoPrices, overrides) {
   return null
 }
 
+/** % distance from price to target — always (price - target) / target */
 export function distancePct(price, target) {
   if (price == null || !target) return null
   return (price - target) / target * 100
 }
 
+/**
+ * Direction-aware prediction evaluation (v3.1.0)
+ *
+ * A prediction has a DIRECTION based on target vs base price:
+ *   bullish  → target > base  (Openbank expects price to rise)
+ *   bearish  → target < base  (Openbank expects price to fall)
+ *   neutral  → target = base
+ *
+ * HIT means the price moved in the predicted direction AND reached the target:
+ *   bullish HIT  → price >= target              (price reached or exceeded)
+ *   bearish HIT  → price <= target              (price dropped to target or below)
+ *
+ * CLOSE means within ±5% of target regardless of direction.
+ * MISS means the prediction was not fulfilled.
+ *
+ * Returns: { hit, close, direction, verdict }
+ *   direction: 'bullish' | 'bearish' | 'neutral'
+ *   verdict:   'hit' | 'close' | 'miss' | null
+ */
+export function evaluatePrediction(price, target, basePrice) {
+  if (price == null || target == null) return { verdict: null, direction: 'neutral' }
+
+  const direction = target > basePrice ? 'bullish'
+                  : target < basePrice ? 'bearish'
+                  : 'neutral'
+
+  // Distance % from price to target (unsigned for proximity check)
+  const distAbs = Math.abs((price - target) / target * 100)
+
+  // Within ±5% band → close to target regardless of direction
+  const isClose = distAbs <= 5
+
+  let verdict
+  if (direction === 'bullish') {
+    // Prediction: price will rise to target
+    if (price >= target)  verdict = 'hit'
+    else if (isClose)     verdict = 'close'
+    else                  verdict = 'miss'
+  } else if (direction === 'bearish') {
+    // Prediction: price will fall to target
+    if (price <= target)  verdict = 'hit'
+    else if (isClose)     verdict = 'close'
+    else                  verdict = 'miss'
+  } else {
+    // Neutral: treat as ±5% band
+    verdict = isClose ? 'hit' : 'miss'
+  }
+
+  return { verdict, direction, distAbs }
+}
+
+// Legacy helper kept for SummaryCards compatibility
 export function priceStatus(price, target) {
   if (price == null) return null
   const ad = Math.abs(distancePct(price, target))

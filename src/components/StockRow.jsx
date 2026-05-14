@@ -1,23 +1,21 @@
 import { memo, useState, useCallback } from 'react'
-import { formatDate, targetDates, daysLeft, dateStatus, today as getToday } from '../utils/dates.js'
-import { getTarget, getTargetDate, getEffectivePrice, distancePct, priceStatus, histKey } from '../utils/stocks.js'
-
-const TODAY = getToday()
+import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js'
+import {
+  getTarget, getEffectivePrice, distancePct,
+  evaluatePrediction, histKey,
+} from '../utils/stocks.js'
 
 const StockRow = memo(function StockRow({
   stock, horizon, autoPrice, histPrices, override, horizonExpired, onOverrideChange
 }) {
-  const best    = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
-  const tgt     = getTarget(stock, horizon)
-  const tg      = stock.base ? targetDates(stock.base) : null
+  const best  = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
+  const tgt   = getTarget(stock, horizon)
+  const tg    = stock.base ? targetDates(stock.base) : null
 
   // Which horizon label is "best" for this stock
-  const bestHorizonLabel =
-    best === stock.t12 ? '12M' :
-    best === stock.t6  ? '6M'  :
-    best === stock.t3  ? '3M'  : '1M'
+  const bestLabel = best === stock.t12 ? '12M' : best === stock.t6 ? '6M' : best === stock.t3 ? '3M' : '1M'
 
-  // Effective price — historical if expired, current otherwise
+  // Effective price
   const { price: p, isHistorical, historicalDate } = getEffectivePrice(
     stock.t, horizon,
     { [stock.t]: autoPrice },
@@ -26,28 +24,22 @@ const StockRow = memo(function StockRow({
     horizonExpired
   )
 
-  const dist   = distancePct(p, tgt)
-  const status = priceStatus(p, tgt)
+  // Direction-aware evaluation
+  const dist             = distancePct(p, tgt)
+  const { verdict, direction } = evaluatePrediction(p, tgt, stock.b)
 
-  // Historical entry for this horizon
-  const hKey       = histKey(stock.t, horizon)
-  const histEntry  = histPrices?.[hKey]
+  // Historical entry
+  const hKey      = histKey(stock.t, horizon)
+  const histEntry = histPrices?.[hKey]
   const histLoading = horizonExpired && horizon !== 'best' && histEntry === undefined
 
-  // Per-horizon date info for target columns
+  // Target columns
   const horizonDates = tg
-    ? [
-        { val: stock.t1,  date: tg.d1  },
-        { val: stock.t3,  date: tg.d3  },
-        { val: stock.t6,  date: tg.d6  },
-        { val: stock.t12, date: tg.d12 },
-      ]
-    : [
-        { val: stock.t1  }, { val: stock.t3  },
-        { val: stock.t6  }, { val: stock.t12 },
-      ]
+    ? [{ val: stock.t1, date: tg.d1 }, { val: stock.t3, date: tg.d3 },
+       { val: stock.t6, date: tg.d6 }, { val: stock.t12, date: tg.d12 }]
+    : [{ val: stock.t1 }, { val: stock.t3 }, { val: stock.t6 }, { val: stock.t12 }]
 
-  // Local input state — commits only on blur/Enter
+  // Local input state
   const [val, setVal] = useState(override ? String(override) : '')
   const handleCommit  = useCallback((e) => {
     const v = parseFloat(e.target.value)
@@ -64,7 +56,7 @@ const StockRow = memo(function StockRow({
   return (
     <tr style={{ borderBottom: '1px solid #21262d' }}>
 
-      {/* Ticker */}
+      {/* Static cells */}
       <td style={{ ...td, fontWeight: 600, fontSize: 12, color: '#e6edf3' }}>{stock.t}</td>
       <td style={{ ...td, fontSize: 11, color: '#8b949e' }}>{stock.co}</td>
       <td style={{ ...td, fontSize: 11, color: '#484f58' }}>{stock.cu}</td>
@@ -72,11 +64,8 @@ const StockRow = memo(function StockRow({
 
       {/* Price cell */}
       <td style={td}>
-        {histLoading && (
-          <span style={{ color: '#484f58', fontSize: 11 }}>fetching...</span>
-        )}
+        {histLoading && <span style={{ color: '#484f58', fontSize: 11 }}>fetching…</span>}
 
-        {/* Historical price (expired horizon) */}
         {!histLoading && isHistorical && histEntry && (
           <div>
             <span style={{ color: '#58a6ff', fontWeight: 600, fontSize: 12 }}>
@@ -90,8 +79,6 @@ const StockRow = memo(function StockRow({
         {!histLoading && isHistorical && !histEntry && (
           <span style={{ color: '#f85149', fontSize: 11 }}>unavailable</span>
         )}
-
-        {/* Current price (future horizon or best target) */}
         {!isHistorical && (
           <div>
             {autoPrice == null
@@ -100,10 +87,9 @@ const StockRow = memo(function StockRow({
                   {autoPrice.toFixed(2)}
                 </span>
             }
-            {/* Best target: show which horizon is being used */}
             {horizon === 'best' && autoPrice != null && (
               <span style={{ display: 'block', fontSize: 9, color: '#484f58', marginTop: 1 }}>
-                vs {bestHorizonLabel} · today
+                vs {bestLabel} · today
               </span>
             )}
           </div>
@@ -128,17 +114,21 @@ const StockRow = memo(function StockRow({
         />
       </td>
 
-      {/* Target columns — each with date tag */}
+      {/* Target columns */}
       {horizonDates.map(({ val: t, date }, i) => {
         const isBest = t === best
         const ds     = date ? dateStatus(date) : null
         const dl     = date ? daysLeft(date) : null
+        // Direction indicator per target
+        const tDir   = t > stock.b ? '↑' : t < stock.b ? '↓' : '→'
+        const tDirColor = t > stock.b ? '#3fb950' : t < stock.b ? '#f85149' : '#8b949e'
         return (
           <td key={i} style={{
             ...td, fontSize: 12,
             color:      isBest ? '#58a6ff' : '#8b949e',
             fontWeight: isBest ? 600 : 400,
           }}>
+            <span style={{ marginRight: 2, fontSize: 10, color: tDirColor }}>{tDir}</span>
             {t.toFixed(2)}
             {ds && <DateTag status={ds} />}
             {dl != null && ds !== 'past' && (
@@ -152,30 +142,29 @@ const StockRow = memo(function StockRow({
 
       {/* Hit badge */}
       <td style={{ ...td, textAlign: 'center' }}>
-        {histLoading                  && <Badge type="wait">…</Badge>}
-        {!histLoading && status == null  && <Badge type="wait">--</Badge>}
-        {!histLoading && status === 'hit' && <Badge type="hit">HIT</Badge>}
-        {!histLoading && (status === 'close' || status === 'below')
-          && <Badge type="miss">MISS</Badge>}
+        {histLoading             && <Badge type="wait">…</Badge>}
+        {!histLoading && verdict == null   && <Badge type="wait">--</Badge>}
+        {!histLoading && verdict === 'hit' && <Badge type="hit">HIT</Badge>}
+        {!histLoading && verdict === 'close' && <Badge type="close">CLOSE</Badge>}
+        {!histLoading && verdict === 'miss' && <Badge type="miss">MISS</Badge>}
       </td>
 
-      {/* Distance bar */}
+      {/* Distance — bar on top, % below */}
       <td style={td}>
         {histLoading || dist == null
           ? <span style={{ color: '#484f58', fontSize: 11 }}>{histLoading ? '…' : '--'}</span>
-          : <DistBar dist={dist} status={status} />
+          : <DistBar dist={dist} verdict={verdict} direction={direction} />
         }
       </td>
 
-      {/* Result — short labels, no overlap */}
+      {/* Result */}
       <td style={td}>
         <ResultCell
           histLoading={histLoading}
           p={p}
-          tgt={tgt}
-          status={status}
+          verdict={verdict}
+          direction={direction}
           isHistorical={isHistorical}
-          dist={dist}
         />
       </td>
     </tr>
@@ -184,50 +173,39 @@ const StockRow = memo(function StockRow({
 
 export default StockRow
 
-// ── Result cell ───────────────────────────────────────────────────────────────
-// Short, clear labels that fit in 120px column without overlap
+// ── ResultCell ────────────────────────────────────────────────────────────────
 
-function ResultCell({ histLoading, p, tgt, status, isHistorical, dist }) {
+function ResultCell({ histLoading, p, verdict, direction, isHistorical }) {
   if (histLoading) return <span style={{ color: '#484f58', fontSize: 11 }}>loading…</span>
   if (p == null)   return <span style={{ color: '#484f58', fontSize: 11 }}>awaiting</span>
 
-  if (p >= tgt) {
+  const sub = isHistorical ? 'on target date' : 'today'
+
+  if (verdict === 'hit') {
+    const label = direction === 'bearish' ? '✓ Dropped' : '✓ Reached'
     return (
       <div>
-        <span style={{ color: '#3fb950', fontSize: 11, fontWeight: 600 }}>
-          {isHistorical ? '✓ Reached' : '✓ Above'}
-        </span>
-        {isHistorical && (
-          <span style={{ display: 'block', fontSize: 9, color: '#484f58', marginTop: 1 }}>
-            on target date
-          </span>
-        )}
+        <span style={{ color: '#3fb950', fontSize: 11, fontWeight: 600 }}>{label}</span>
+        <span style={{ display: 'block', fontSize: 9, color: '#484f58', marginTop: 1 }}>{sub}</span>
       </div>
     )
   }
 
-  if (status === 'close') {
+  if (verdict === 'close') {
     return (
       <div>
-        <span style={{ color: '#d29922', fontSize: 11, fontWeight: 600 }}>Very close</span>
-        <span style={{ display: 'block', fontSize: 9, color: '#484f58', marginTop: 1 }}>
-          {isHistorical ? 'on target date' : 'today'}
-        </span>
+        <span style={{ color: '#d29922', fontSize: 11, fontWeight: 600 }}>Near target</span>
+        <span style={{ display: 'block', fontSize: 9, color: '#484f58', marginTop: 1 }}>{sub}</span>
       </div>
     )
   }
 
-  // below
+  // miss
+  const label = direction === 'bearish' ? '✗ Didn\'t drop' : '✗ Not reached'
   return (
     <div>
-      <span style={{ color: '#f85149', fontSize: 11, fontWeight: 600 }}>
-        {isHistorical ? '✗ Not reached' : 'Below'}
-      </span>
-      {isHistorical && (
-        <span style={{ display: 'block', fontSize: 9, color: '#484f58', marginTop: 1 }}>
-          on target date
-        </span>
-      )}
+      <span style={{ color: '#f85149', fontSize: 11, fontWeight: 600 }}>{label}</span>
+      <span style={{ display: 'block', fontSize: 9, color: '#484f58', marginTop: 1 }}>{sub}</span>
     </div>
   )
 }
@@ -255,9 +233,10 @@ function DateTag({ status }) {
 
 function Badge({ type, children }) {
   const cfg = {
-    hit:  { bg: '#1a4a2e', color: '#3fb950' },
-    miss: { bg: '#3d1515', color: '#f85149' },
-    wait: { bg: '#21262d', color: '#8b949e' },
+    hit:   { bg: '#1a4a2e', color: '#3fb950' },
+    close: { bg: '#2d2208', color: '#d29922' },
+    miss:  { bg: '#3d1515', color: '#f85149' },
+    wait:  { bg: '#21262d', color: '#8b949e' },
   }
   const c = cfg[type]
   return (
@@ -271,15 +250,26 @@ function Badge({ type, children }) {
   )
 }
 
-function DistBar({ dist, status }) {
-  const bw    = Math.min(60, Math.abs(dist) * 3)
-  const barBg = status === 'hit' ? '#1a4a2e' : status === 'close' ? '#3d2d00' : '#3d1515'
-  const color = dist > 0 ? '#3fb950' : status === 'close' ? '#d29922' : '#f85149'
+// FIX: bar on top, % below — no horizontal overlap with Result column
+function DistBar({ dist, verdict, direction }) {
+  const bw    = Math.min(70, Math.abs(dist) * 2.5)
+  const barBg = verdict === 'hit'   ? '#1a4a2e'
+              : verdict === 'close' ? '#3d2d00'
+              : '#3d1515'
+  // Positive = price above target
+  // For bullish: positive is good (green), negative is bad (red)
+  // For bearish: negative is good (price dropped), positive is bad
+  const color = verdict === 'hit'   ? '#3fb950'
+              : verdict === 'close' ? '#d29922'
+              : '#f85149'
+
+  const sign = dist > 0 ? '+' : ''
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-      <div style={{ width: bw, height: 4, borderRadius: 3, background: barBg, flexShrink: 0 }} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <div style={{ width: bw, height: 4, borderRadius: 3, background: barBg }} />
       <span style={{ fontSize: 11, fontWeight: 600, color, whiteSpace: 'nowrap' }}>
-        {dist > 0 ? '+' : ''}{dist.toFixed(2)}%
+        {sign}{dist.toFixed(2)}%
       </span>
     </div>
   )

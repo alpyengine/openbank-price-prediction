@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v3.0.1
+# Openbank Price Prediction — v3.1.0
 
 ## Overview
 
@@ -150,6 +150,7 @@ npm run build
 | v2.0.2  | 2026-05    | React only            | Bugfix: React border/borderColor shorthand conflict in HorizonTabs causing fetch failure and render warning |
 | v3.0.0  | 2026-05    | React only            | Historical price fetch: expired horizons show closing price on exact target date via Twelve Data /time_series |
 | v3.0.1  | 2026-05    | React only            | UI fixes: Status/Distance overlap resolved, wider columns, Best target shows which horizon, price date label |
+| v3.1.0  | 2026-05    | React only            | Direction-aware Hit/Miss logic (bearish predictions evaluated correctly), Distance bar vertical layout, direction arrows on targets |
 
 ---
 
