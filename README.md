@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v3.1.2
+# Openbank Price Prediction — v4.0.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,23 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.0.0 — CSV file upload + Clear button
+**Date:** May 2026
+
+**New:**
+- **Load CSV file** button — opens file picker, reads `.csv` directly from disk,
+  auto-imports on load without needing to click Import
+- **Header row detection** — first row skipped automatically if it contains
+  column names (Ticker, Company, Symbol, etc.)
+- **Clear button** — resets textarea, file input, error and success messages
+- Success message shows count of imported stocks and whether header was skipped
+- Textarea placeholder now shows the header row format for clarity
+- Visual dividers between button groups for better UX
+
+**Files changed:** `src/components/ImportBox.jsx`
+
+---
 
 ### v3.1.2 — Documentation: complete pre-React history
 **Date:** May 2026
@@ -389,3 +406,4 @@ regardless of CORS headers on the target server.
 | v3.1.0           | 2026-05  | React only                | Direction-aware Hit/Miss, distance layout       |
 | v3.1.1           | 2026-05  | React only                | Full docs: README changelog + GIT_GUIDE         |
 | v3.1.2           | 2026-05  | React only                | Docs: complete pre-React history v0.2.0-v1.0.0  |
+| v4.0.0           | 2026-05  | React only                | CSV file upload + Clear button in ImportBox      |

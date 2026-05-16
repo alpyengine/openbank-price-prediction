@@ -6,28 +6,34 @@
 # One repo, one branch (main), one commit + tag per version.
 # Copy files -> commit -> tag -> push -> repeat for each version.
 #
+# REPOSITORY:
+#   GitHub: https://github.com/alpyengine/openbank-price-prediction.git
+#   Local:  /Users/alex/Coding/TradingProjects/OpenBack/openbank-price-prediction
+#   Description: Investment monitoring web app evolved from vanilla HTML+Python
+#                to React. Tracks Openbank forecast accuracy across time horizons
+#                with direction-aware hit/miss logic.
+#
 # PREREQUISITES:
 #   - Git installed:      git --version
-#   - GitHub empty repo created (no README, no .gitignore)
+#   - GitHub repo created EMPTY (no README, no .gitignore)
 #   - Git configured with your name/email
 #
 # YOUR VERSION FOLDERS ON DISK:
-#   openbank_price_check_1/        -> v0.2.0
-#   openbank_price_check_2/        -> v0.3.0
-#   openbank_price_check_3/        -> v0.4.0
-#   openbank_price_check_4/        -> v0.5.0
-#   openbank_price_check_5/        -> v0.6.0
-#   openbank-price-prediction_v1.0.0_vanilla/ -> v1.0.0-vanilla
-#   openbank-price-prediction_v1.0.0/         -> v1.0.0
-#   openbank-price-prediction_v2.0.0/         -> v2.0.0
-#   openbank-price-prediction_v2.0.1/         -> v2.0.1
-#   openbank-price-prediction_v2.0.2/         -> v2.0.2
-#   openbank-price-prediction_v3.0.0/         -> v3.0.0
-#   openbank-price-prediction_v3.0.1/         -> v3.0.1
-#   openbank-price-prediction_v3.1.0/         -> v3.1.0
-#   openbank-price-prediction_v3.1.1/         -> v3.1.1
-#
-# Replace /Users/alex/Downloads/ with your actual path throughout.
+#   /Users/alex/Downloads/openbank_price_check_1/                   -> v0.2.0
+#   /Users/alex/Downloads/openbank_price_check_2/                   -> v0.3.0
+#   /Users/alex/Downloads/openbank_price_check_3/                   -> v0.4.0
+#   /Users/alex/Downloads/openbank_price_check_4/                   -> v0.5.0
+#   /Users/alex/Downloads/openbank_price_check_5/                   -> v0.6.0
+#   /Users/alex/Downloads/openbank-price-prediction_v1.0.0_vanilla/ -> v1.0.0-vanilla
+#   /Users/alex/Downloads/openbank-price-prediction_v1.0.0/         -> v1.0.0
+#   /Users/alex/Downloads/openbank-price-prediction_v2.0.0/         -> v2.0.0
+#   /Users/alex/Downloads/openbank-price-prediction_v2.0.1/         -> v2.0.1
+#   /Users/alex/Downloads/openbank-price-prediction_v2.0.2/         -> v2.0.2
+#   /Users/alex/Downloads/openbank-price-prediction_v3.0.0/         -> v3.0.0
+#   /Users/alex/Downloads/openbank-price-prediction_v3.0.1/         -> v3.0.1
+#   /Users/alex/Downloads/openbank-price-prediction_v3.1.0/         -> v3.1.0
+#   /Users/alex/Downloads/openbank-price-prediction_v3.1.1/         -> v3.1.1
+#   /Users/alex/Downloads/openbank-price-prediction_v3.1.2/         -> v3.1.2
 # ===========================================================================
 
 
@@ -46,12 +52,12 @@ git config --global --list
 # STEP 1 — Create the local repository
 # ===========================================================================
 
-mkdir openbank-price-prediction
-cd openbank-price-prediction
+mkdir /Users/alex/Coding/TradingProjects/OpenBack/openbank-price-prediction
+cd /Users/alex/Coding/TradingProjects/OpenBack/openbank-price-prediction
 
 git init
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/openbank-price-prediction.git
+git remote add origin https://github.com/alpyengine/openbank-price-prediction.git
 
 # Verify remote:
 git remote -v
@@ -74,6 +80,12 @@ EOF
 git add .gitignore
 git commit -m "chore: initial repo setup with .gitignore"
 git push -u origin main
+
+# NOTE: From this point on, each version step uses:
+#   find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+# instead of 'git rm -rf .'
+# This deletes all files EXCEPT .gitignore and the .git/ folder,
+# so .gitignore is preserved across all version commits automatically.
 
 
 # ===========================================================================
@@ -106,7 +118,7 @@ git push origin v0.2.0
 # STEP 4 — v0.3.0  Dark mode + improved UX
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank_price_check_2/. .
 
 git status
@@ -133,7 +145,7 @@ git push origin v0.3.0
 # STEP 5 — v0.4.0  Python 2/3 compatible server
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank_price_check_3/. .
 
 git status
@@ -159,7 +171,7 @@ git push origin v0.4.0
 # STEP 6 — v0.5.0  Multi-source server + CSV with date field
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank_price_check_4/. .
 
 git status
@@ -190,7 +202,7 @@ git push origin v0.5.0
 # STEP 7 — v0.6.0  allorigins proxy attempt (failed)
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank_price_check_5/. .
 
 git status
@@ -214,7 +226,7 @@ git push origin v0.6.0
 # STEP 8 — v1.0.0-vanilla  Final stable HTML + Python version
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v1.0.0_vanilla/. .
 
 git status
@@ -243,7 +255,7 @@ git push origin v1.0.0-vanilla
 # STEP 9 — v1.0.0  React + Python backend
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v1.0.0/. .
 
 # Verify .gitignore is still present (node_modules must be excluded):
@@ -274,7 +286,7 @@ git push origin v1.0.0
 # STEP 10 — v2.0.0  React only, Twelve Data API
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v2.0.0/. .
 
 git status
@@ -300,7 +312,7 @@ git push origin v2.0.0
 # STEP 11 — v2.0.1  Horizon status indicators
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v2.0.1/. .
 
 git status
@@ -327,7 +339,7 @@ git push origin v2.0.1
 # STEP 12 — v2.0.2  Bugfix: border style conflict
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v2.0.2/. .
 
 git status
@@ -350,7 +362,7 @@ git push origin v2.0.2
 # STEP 13 — v3.0.0  Historical price fetch
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v3.0.0/. .
 
 git status
@@ -382,7 +394,7 @@ git push origin v3.0.0
 # STEP 14 — v3.0.1  UI fixes
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v3.0.1/. .
 
 git status
@@ -406,7 +418,7 @@ git push origin v3.0.1
 # STEP 15 — v3.1.0  Direction-aware prediction logic
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v3.1.0/. .
 
 git status
@@ -437,7 +449,7 @@ git push origin v3.1.0
 # STEP 16 — v3.1.1  Documentation
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v3.1.1/. .
 
 git status
@@ -460,7 +472,7 @@ git push origin v3.1.1
 # STEP 17 — v3.1.2  Documentation: complete pre-React history
 # ===========================================================================
 
-git rm -rf .
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v3.1.2/. .
 
 git status
@@ -477,6 +489,32 @@ git commit -m "docs: complete pre-React version history in README and GIT_GUIDE 
 git tag -a v3.1.2 -m "v3.1.2: complete pre-React history docs"
 git push origin main
 git push origin v3.1.2
+
+
+# ===========================================================================
+# STEP 18 — v4.0.0  CSV file upload + Clear button
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.0.0/. .
+
+git status
+git add .
+
+git commit -m "feat: CSV file upload and Clear button in ImportBox (v4.0.0)
+
+- Load CSV file button: opens file picker, reads .csv from disk,
+  auto-imports on load without clicking Import
+- Header row detection: first row skipped automatically when it
+  contains column names (Ticker, Company, Symbol, etc.)
+- Clear button: resets textarea, file input, error and success messages
+- Success message shows count of imported stocks and header skip info
+- Textarea placeholder now shows header row format for clarity
+- Visual dividers between button groups"
+
+git tag -a v4.0.0 -m "v4.0.0: CSV file upload and Clear button"
+git push origin main
+git push origin v4.0.0
 
 
 # ===========================================================================
@@ -522,24 +560,44 @@ git log --oneline --graph
 # NOTES
 # ===========================================================================
 #
-# 1. PATHS: Replace /Users/alex/Downloads/ with your actual folder path.
+# 1. REPO:
+#    Remote: https://github.com/alpyengine/openbank-price-prediction.git
+#    Local:  /Users/alex/Coding/TradingProjects/OpenBack/openbank-price-prediction
 #
-# 2. .ENV: The .env file is in .gitignore and will NOT be committed.
+# 2. VERSION FOLDERS (source files on disk):
+#    /Users/alex/Downloads/openbank_price_check_1/   -> v0.2.0
+#    /Users/alex/Downloads/openbank_price_check_2/   -> v0.3.0
+#    /Users/alex/Downloads/openbank_price_check_3/   -> v0.4.0
+#    /Users/alex/Downloads/openbank_price_check_4/   -> v0.5.0
+#    /Users/alex/Downloads/openbank_price_check_5/   -> v0.6.0
+#    /Users/alex/Downloads/openbank-price-prediction_v1.0.0_vanilla/ -> v1.0.0-vanilla
+#    /Users/alex/Downloads/openbank-price-prediction_v1.0.0/         -> v1.0.0
+#    /Users/alex/Downloads/openbank-price-prediction_v2.0.0/         -> v2.0.0
+#    /Users/alex/Downloads/openbank-price-prediction_v2.0.1/         -> v2.0.1
+#    /Users/alex/Downloads/openbank-price-prediction_v2.0.2/         -> v2.0.2
+#    /Users/alex/Downloads/openbank-price-prediction_v3.0.0/         -> v3.0.0
+#    /Users/alex/Downloads/openbank-price-prediction_v3.0.1/         -> v3.0.1
+#    /Users/alex/Downloads/openbank-price-prediction_v3.1.0/         -> v3.1.0
+#    /Users/alex/Downloads/openbank-price-prediction_v3.1.1/         -> v3.1.1
+#    /Users/alex/Downloads/openbank-price-prediction_v3.1.2/         -> v3.1.2
+#    /Users/alex/Downloads/openbank-price-prediction_v4.0.0/         -> v4.0.0
+#
+# 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
 #
-# 3. GITHUB REPO: Create it empty (no README, no .gitignore) to avoid
+# 4. GITHUB REPO: Create it empty (no README, no .gitignore) to avoid
 #    conflicts on first push.
 #
-# 4. AUTHENTICATION: GitHub requires PAT or SSH (no password auth):
+# 5. AUTHENTICATION: GitHub requires PAT or SSH (no password auth):
 #    PAT: github.com -> Settings -> Developer settings -> Personal access tokens
 #    SSH: ssh-keygen -t ed25519 -C "your@email.com"
 #         then add public key to github.com -> Settings -> SSH keys
 #
-# 5. {src FOLDER: If you see a folder literally named {src in any version,
+# 6. {src FOLDER: If you see a folder literally named {src in any version,
 #    delete it before committing:
 #    rm -rf '{src'
 #
-# 6. ORDER: Always push in chronological order for a clean linear history.
+# 7. ORDER: Always push in chronological order for a clean linear history.
 #
-# 7. NODE_MODULES: Never copy node_modules/ between versions.
+# 8. NODE_MODULES: Never copy node_modules/ between versions.
 #    Run npm install fresh in each React version folder if needed.
