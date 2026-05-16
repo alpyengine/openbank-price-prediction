@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v3.1.1
+# Openbank Price Prediction — v3.1.2
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -8,15 +8,10 @@ Built with React + Vite. No backend required.
 ## Quick start
 
 ```bash
-# Install dependencies (once)
 cd openbank-price-prediction
 npm install
-
-# Add your Twelve Data API key
 cp .env.example .env
 # Edit .env: VITE_TWELVE_DATA_KEY=your_key_here
-
-# Run
 npm run dev
 # Open http://localhost:5173
 ```
@@ -33,7 +28,6 @@ Browser (React/Vite localhost:5173)
 ```
 
 - No proxy. No backend. No Python. Direct API call from the browser.
-- Twelve Data has CORS fully open — works from localhost.
 - **Future horizons** → current market price (updates on every Fetch)
 - **Expired horizons** → closing price on the exact target date (fixed, historical)
 
@@ -51,8 +45,6 @@ The 9th field is the **screenshot date** — base date for the 4 target horizons
 - 6M  = base + 182 days
 - 12M = base + 365 days
 
-Each row can have a different base date (different screenshot sessions).
-
 **Example:**
 ```
 AXP,American Express,USD,314.46,327.23,293.83,296.32,521.60,08/05/2026
@@ -63,22 +55,31 @@ MCD,McDonalds Corp,USD,277.60,288.47,306.68,328.16,344.01,08/05/2026
 
 ---
 
-## Prediction logic (v3.1.0)
+## Prediction logic (v3.1.0+)
 
 Each forecast has a **direction** based on `target` vs `basePrice`:
 
-| Direction | Condition       | HIT when              |
-|-----------|----------------|-----------------------|
-| Bullish   | target > base  | price >= target       |
-| Bearish   | target < base  | price <= target       |
-| Neutral   | target = base  | abs(distance) <= 5%   |
+| Direction | Condition      | HIT when         |
+|-----------|----------------|------------------|
+| Bullish   | target > base  | price >= target  |
+| Bearish   | target < base  | price <= target  |
+| Neutral   | target = base  | dist <= 5%       |
 
 **Verdict labels:**
-- `HIT ✓ Reached` — bullish prediction fulfilled
-- `HIT ✓ Dropped` — bearish prediction fulfilled
-- `CLOSE Near target` — price within ±5% of target
-- `MISS ✗ Not reached` — bullish prediction failed
-- `MISS ✗ Didn't drop` — bearish prediction failed
+- `HIT ✓ Reached` — bullish fulfilled
+- `HIT ✓ Dropped` — bearish fulfilled
+- `CLOSE Near target` — within ±5%
+- `MISS ✗ Not reached` — bullish failed
+- `MISS ✗ Didn't drop` — bearish failed
+
+---
+
+## Data source: Twelve Data
+
+- Free tier: 800 calls/day, 8/minute
+- Current: `GET /price?symbol=AXP,AMD,...`
+- Historical: `GET /time_series?symbol=TER&interval=1day&start_date=...&end_date=...`
+- Sign up: https://twelvedata.com
 
 ---
 
@@ -88,70 +89,58 @@ Each forecast has a **direction** based on `target` vs `basePrice`:
 openbank-price-prediction/
   src/
     components/
-      Header.jsx          — title, subtitle, action buttons
-      FetchBar.jsx        — fetch status, mode indicator (current/historical)
-      SummaryCards.jsx    — 4 metric cards (total/hit/close/awaiting)
-      HorizonTabs.jsx     — 1M/3M/6M/12M/best + expired/soon/now banners
-      StockTable.jsx      — table shell + column headers
-      StockRow.jsx        — single row, memo-wrapped, direction-aware logic
-      ImportBox.jsx       — CSV paste + import
-      EmailPreview.jsx    — formatted email report
+      Header.jsx
+      FetchBar.jsx
+      SummaryCards.jsx
+      HorizonTabs.jsx
+      StockTable.jsx
+      StockRow.jsx        -- memo, direction-aware logic
+      ImportBox.jsx
+      EmailPreview.jsx
     hooks/
-      usePriceFetch.js    — Twelve Data API, current + historical fetch
+      usePriceFetch.js    -- current + historical fetch
     utils/
-      dates.js            — date math
-      stocks.js           — prediction logic, evaluatePrediction()
+      dates.js
+      stocks.js           -- evaluatePrediction()
     styles/
-      global.css          — CSS tokens, reset
-    App.jsx               — root, all shared state
+      global.css
+    App.jsx
     main.jsx
-  .env                    — API key (never committed)
+  .env                    -- API key (never committed)
   .env.example
   .gitignore
   index.html
   vite.config.js
   package.json
-```
-
----
-
-## Data source: Twelve Data
-
-- Free tier: 800 API calls/day, 8/minute
-- Current price: `GET /price?symbol=AXP,AMD,...`
-- Historical price: `GET /time_series?symbol=TER&interval=1day&start_date=...&end_date=...`
-- CORS open — no proxy needed
-- Sign up: https://twelvedata.com
-
----
-
-## Pipeline context
-
-```
-Openbank app screenshots
-  → Claude extracts forecast data
-  → CSV (Ticker, Company, CCY, BasePrice, 1M, 3M, 6M, 12M, Date)
-  → Import into this app
-  → Fetch real prices (Twelve Data)
-  → Direction-aware Hit/Miss evaluation
-  → Email report
+  README.md
+  GIT_GUIDE.md
 ```
 
 ---
 
 ## Changelog
 
-### v3.1.1 — Documentation update
+### v3.1.2 — Documentation: complete pre-React history
 **Date:** May 2026
 
-**Changed:**
-- `README.md` — full changelog added covering all versions from v1.0.0-vanilla to v3.1.0
-- `GIT_GUIDE.md` — new file: step-by-step git commands for building the full repo
-  history (one commit + tag per version, from vanilla HTML to React v3)
+- README.md: changelog extended from v0.2.0 (all pre-React HTML versions
+  documented with features, known issues and lessons learned)
+- GIT_GUIDE.md: expanded to 16 steps covering all versions including
+  v0.2.0 through v1.0.0-vanilla with exact Mac paths, commit messages and tags
+- Note added about {src spurious folder and node_modules handling
 
-**Files changed:**
-- `README.md` — complete rewrite with changelog, architecture, prediction logic docs
-- `GIT_GUIDE.md` — new file
+**Files changed:** `README.md`, `GIT_GUIDE.md`
+
+---
+
+### v3.1.1 — Documentation
+**Date:** May 2026
+
+- Full changelog added to README covering all versions from v0.2.0
+- GIT_GUIDE.md updated with complete step-by-step git commands
+  for all versions including pre-React HTML versions
+
+**Files changed:** `README.md`, `GIT_GUIDE.md`
 
 ---
 
@@ -159,25 +148,20 @@ Openbank app screenshots
 **Date:** May 2026
 
 **New:**
-- `evaluatePrediction(price, target, basePrice)` in `stocks.js` — determines
-  direction (bullish/bearish/neutral) from target vs base price, then evaluates
-  HIT/CLOSE/MISS accordingly
-- Bearish predictions now correctly require `price <= target` to be a HIT
-- Direction arrows on each target column (↑ bullish, ↓ bearish, → neutral)
-- CLOSE badge (amber) — previously missing, now shown for ±5% proximity
-- Result labels differentiate bullish/bearish: "✓ Reached" vs "✓ Dropped",
-  "✗ Not reached" vs "✗ Didn't drop"
+- `evaluatePrediction(price, target, basePrice)` — determines direction
+  (bullish/bearish/neutral) and evaluates HIT/CLOSE/MISS accordingly
+- Bearish predictions require `price <= target` to be a HIT
+- Direction arrows on target columns (↑ green / ↓ red / → gray)
+- CLOSE badge (amber) for ±5% proximity
+- Result labels: "✓ Reached" / "✓ Dropped" / "✗ Not reached" / "✗ Didn't drop"
+- DistBar: bar on top, % below — no overlap with Result column
+- SummaryCards uses `evaluatePrediction`
 
 **Fixed:**
-- NEM-type bug: bearish predictions showing "Reached" when price was above
-  target — now correctly evaluated as MISS
-- Distance bar layout: bar on top, percentage below — no overlap with Result column
+- Bearish predictions incorrectly showing "Reached" when price was above
+  a downward target (e.g. NEM 113.41 vs bearish target 55.10)
 
-**Files changed:**
-- `src/utils/stocks.js` — added `evaluatePrediction()`, updated `priceStatus()`
-- `src/components/StockRow.jsx` — uses `evaluatePrediction`, new `DistBar` layout,
-  new `ResultCell`, direction arrows on targets
-- `src/components/SummaryCards.jsx` — uses `evaluatePrediction`
+**Files changed:** `stocks.js`, `StockRow.jsx`, `SummaryCards.jsx`
 
 ---
 
@@ -185,17 +169,13 @@ Openbank app screenshots
 **Date:** May 2026
 
 **Fixed:**
-- Status and Distance columns overlapping — Status column widened to 120px,
-  renamed to "Result", text shortened to fit
-- Table `minWidth` increased to 1060px to prevent column compression
-- Best target tab now shows which horizon is being used per stock (`vs 12M · today`)
-- Auto price column shows "close on YYYY-MM-DD" for historical prices
-- HorizonTabs expired banner updated: removed "coming in next version" text
+- Status/Distance columns overlapping — Result column widened to 120px
+- Table minWidth increased to 1060px
+- Result text shortened to prevent overflow
+- Best target tab shows which horizon per stock (`vs 12M · today`)
+- HorizonTabs expired banner: removed stale "coming in next version" text
 
-**Files changed:**
-- `src/components/StockTable.jsx` — column widths, minWidth, column renamed
-- `src/components/StockRow.jsx` — Result cell refactored, Best target label
-- `src/components/HorizonTabs.jsx` — banner text updated
+**Files changed:** `StockTable.jsx`, `StockRow.jsx`, `HorizonTabs.jsx`
 
 ---
 
@@ -203,28 +183,18 @@ Openbank app screenshots
 **Date:** May 2026
 
 **New:**
-- Historical price fetch via Twelve Data `/time_series` endpoint
-- When a horizon tab is expired (past target date), the app automatically fetches
-  the closing price on that exact target date instead of today's price
-- 7-day lookback window handles weekends and US market holidays
-- `usePriceFetch.js` split into `fetchCurrentBatch()` + `fetchHistoricalForHorizon()`
-- `histPrices` state: keyed by `TICKER_HORIZON` (e.g. `TER_1M`)
-- `getEffectivePrice()` in `stocks.js`: override > historical > current
-- Historical prices auto-load when switching to an expired horizon tab
-- FetchBar shows "Historical price · 1M" badge when in historical mode
-- "fetching…" loading state per row while historical data loads
-- Price cell shows historical date: "close on 2026-04-16"
-- Result shows "on target date" subtitle for historical results
+- Expired horizon tabs auto-fetch closing price on exact target date
+- Twelve Data `/time_series` with 7-day lookback (handles weekends/holidays)
+- `usePriceFetch.js`: `fetchCurrentBatch()` + `fetchHistoricalForHorizon()`
+- `histPrices` state keyed by `TICKER_HORIZON` (e.g. `TER_1M`)
+- `getEffectivePrice()`: override > historical > current
+- `App.jsx` useEffect triggers historical fetch on expired tab switch
+- FetchBar shows mode badge (current / historical · 1M)
+- Price column shows "close on YYYY-MM-DD" for historical prices
+- Loading state per row while fetching
 
-**Files changed:**
-- `src/hooks/usePriceFetch.js` — complete rewrite, two fetch modes
-- `src/utils/stocks.js` — added `histKey()`, `getEffectivePrice()`
-- `src/App.jsx` — `useEffect` triggers historical fetch on expired tab switch
-- `src/components/FetchBar.jsx` — mode-aware display
-- `src/components/StockRow.jsx` — historical price display, loading state
-- `src/components/StockTable.jsx` — passes `histPrices`, `horizonExpired`
-- `src/components/SummaryCards.jsx` — uses `getEffectivePrice`
-- `src/components/EmailPreview.jsx` — includes historical date in report
+**Files changed:** `usePriceFetch.js`, `stocks.js`, `App.jsx`, `FetchBar.jsx`,
+`StockRow.jsx`, `StockTable.jsx`, `SummaryCards.jsx`, `EmailPreview.jsx`
 
 ---
 
@@ -232,123 +202,190 @@ Openbank app screenshots
 **Date:** May 2026
 
 **Fixed:**
-- React warning and fetch failure caused by mixing `border` shorthand with
-  `borderColor` longhand in `HorizonTabs.jsx` tab styles
-- All tab style variants now use full `border` shorthand exclusively
+- `HorizonTabs` mixed `border` shorthand with `borderColor` longhand
+- React rejected this during rerender → fetch failure + console warning
+- All tab variants now use full `border` shorthand
 
-**Files changed:**
-- `src/components/HorizonTabs.jsx` — all border styles use shorthand
-
----
-
-### v2.0.1 — Visual improvements: horizon status indicators
-**Date:** May 2026
-
-**New:**
-- `expired` / `soon` / `now` date tags on all 4 target columns (previously only on 12M)
-- Countdown days shown below each target price
-- HorizonTabs: tab border color indicates status (red = expired, amber = soon)
-- Dot indicator on non-active tabs showing their status
-- Date reference bar: each horizon colored by status
-- Three contextual banners below tabs:
-  - 🔴 Expired horizon — warns that current price is being used (not historical)
-  - 🟡 Approaching — days remaining
-  - 🟢 Target date is today/this week
-
-**Files changed:**
-- `src/components/StockRow.jsx` — date tags on all target columns
-- `src/components/HorizonTabs.jsx` — full rewrite with status indicators
+**Files changed:** `HorizonTabs.jsx`
 
 ---
 
-### v2.0.0 — React rewrite, no backend
+### v2.0.1 — Horizon status indicators
 **Date:** May 2026
 
-**Architecture change:** eliminated Python backend entirely.
+**New:**
+- `expired` / `soon` / `now` tags on all 4 target columns
+- Countdown days below each target price
+- Tab border color by status (red = expired, amber = soon)
+- Dot indicator on non-active tabs
+- Three contextual banners: expired warning, approaching, target today
+- Date reference bar colored by horizon status
+
+**Files changed:** `StockRow.jsx`, `HorizonTabs.jsx`
+
+---
+
+### v2.0.0 — React only, no backend
+**Date:** May 2026
+
+**Architecture change:** Python backend eliminated.
 
 **New:**
-- React 18 + Vite frontend only
-- Twelve Data API called directly from browser (CORS open, no proxy needed)
-- `usePriceFetch.js` hook — single batch request for all tickers
-- `useServerHealth.js` hook — removed (no server to check)
-- `React.memo` on `StockRow` — only rerenders rows with changed props
-- Override inputs: local state + `onBlur/Enter` commit — no focus loss on typing
-- All state in `App.jsx`, passed as props
-- `.env` file for API key — never committed to git
-- Vite proxy removed (was `src/vite.config.js` → `/api` → `localhost:8765`)
-- `VITE_TWELVE_DATA_KEY` env variable
+- Twelve Data API called directly from browser (CORS open)
+- `usePriceFetch.js` — single batch request for all tickers
+- `.env` / `VITE_TWELVE_DATA_KEY`
+- Single terminal: `npm run dev`
+- `React.memo` on StockRow
+- Override: local state + onBlur/Enter commit — no focus loss
 
-**Removed:**
-- `backend/run.py` — Python HTTP server
-- `pip install yfinance requests` requirement
-- Two-terminal workflow
-
-**Files added:**
-- `src/hooks/usePriceFetch.js`
-- `src/utils/dates.js`, `src/utils/stocks.js`
-- All components rewritten as React JSX
+**Removed:** `backend/run.py`, `pip` dependencies, Vite proxy
 
 ---
 
 ### v1.0.0 — React + Python backend
 **Date:** May 2026
 
-**Architecture:** React (Vite) frontend + Python HTTP server backend.
-
-**Features:**
-- React 18 + Vite
-- Python `run.py` serves `/health` and `/prices` endpoints
-- Price sources: yfinance → stooq.com (cascade fallback)
+**New:**
+- React 18 + Vite frontend
+- Python `run.py`: `/health` + `/prices` endpoints
+- Price sources: yfinance → stooq cascade fallback
 - Vite proxy: `/api/*` → `http://localhost:8765`
-- All visual features from vanilla version
 - `React.memo` on StockRow
-- Override input focus fix (onBlur commit)
-
-**Workflow:** two terminals required:
-```bash
-# Terminal 1
-python backend/run.py
-
-# Terminal 2
-npm run dev
-```
+- Override: onBlur commit, no focus loss on typing
+- Two terminals required
 
 ---
 
-### v1.0.0-vanilla — Original HTML version
+### v1.0.0-vanilla — Final HTML + Python version
 **Date:** May 2026
 
-**Architecture:** Single HTML file + Python HTTP server.
-
 **Features:**
-- Vanilla JS, no framework
-- Dark mode UI
-- CSV import (8 fields: TICKER, Company, CCY, BasePrice, 1M, 3M, 6M, 12M)
-- Manual price override
-- Horizon tabs (Best/1M/3M/6M/12M)
+- Full dark mode UI
+- CSV import with screenshot date (9 fields)
+- Date-aware target horizon dates per stock
+- Manual price override (onBlur, no focus loss)
+- Horizon tabs with expired/soon/now tags
 - Distance bar + Hit/Miss badges
 - Email report generator
-- Price fetch via Python server (yfinance + stooq fallback)
-- Extension blocking workaround (Adobe Acrobat, Grammarly)
+- Price fetch via Python server: yfinance → stooq → Alpha Vantage
+- Extension-blocking workaround documented
 
-**Known issues resolved in later versions:**
-- `oninput` on override caused focus loss on every keystroke
-- No date-aware target system (all horizons used today's date)
-- No direction-aware prediction logic
-- Extension interference with fetch from `file://`
+**Known issues resolved in v1.0.0:**
+- No React component isolation
+- Full table rebuild on any state change
+
+---
+
+### v0.6.0 — HTML with allorigins proxy attempt
+**Date:** May 2026
+
+**Changed:**
+- Attempted to replace Python server with allorigins.win CORS proxy
+- fetch via `https://api.allorigins.win/get?url=...` to Yahoo Finance
+- Failed: allorigins also blocked from `file://` origin
+- `run.py`: same multi-source version as v0.5.0
+
+**Lesson learned:** Any external fetch from `file://` is blocked by browser
+regardless of CORS headers on the target server.
+
+---
+
+### v0.5.0 — Multi-source Python server + currencies
+**Date:** May 2026
+
+**New in run.py:**
+- Three price sources in cascade: yfinance → stooq → Alpha Vantage
+- `currencies` query param: `/prices?tickers=TER&currencies=USD`
+- stooq suffix map by currency (USD→.us, EUR→.de, GBP→.uk...)
+- Alpha Vantage support via `AV_KEY` env var
+- `do_OPTIONS` for CORS preflight
+- Port-in-use error detection
+- `time.sleep(0.3)` between tickers (rate limit protection)
+- `requests` library required alongside `yfinance`
+
+**New in HTML:**
+- Screenshot date field added to CSV (9th field, DD/MM/YYYY)
+- Each stock can have different base date
+- Target dates calculated per stock from base date
+- Horizon date bar shows target dates with countdown
+
+---
+
+### v0.4.0 — Python 2/3 compatible server + MIME types
+**Date:** May 2026
+
+**New in run.py:**
+- Python 2/3 compatibility (`PY2` flag, conditional imports)
+- `YF_OK` flag — graceful handling when yfinance not installed
+- Full MIME type map (.html, .js, .css, .json, .png, .ico, .svg)
+- `do_OPTIONS` added for CORS preflight
+- Path traversal security check (`os.path.normpath`)
+- Port-in-use error with clear message
+- `fetch_all()` wrapper with per-ticker logging
+- ASCII-only source (no Unicode box-drawing chars)
+
+**Fixed:**
+- `SyntaxError: Non-ASCII character` on Python 2 (box-drawing dashes)
+
+---
+
+### v0.3.0 — Dark mode HTML + improved UX
+**Date:** May 2026
+
+**New in HTML:**
+- Full dark mode UI (GitHub-style color palette)
+- Summary cards (Total / Hit / Close / Awaiting)
+- Horizon tabs (Best / 1M / 3M / 6M / 12M)
+- Distance bar visualization
+- Email report generator with Copy button
+- Server warning banner when run.py not running
+- `checkServer()` with retries
+- fetch timeout via AbortController
+- Error classification (timeout / no server / CORS)
+
+**run.py:** same as v0.2.0
+
+---
+
+### v0.2.0 — First functional HTML + Python version
+**Date:** May 2026
+
+**Features:**
+- Single HTML file, light theme
+- JSON import (not CSV)
+- Basic table: Ticker / Target / Auto Price / Override / Distance / Status
+- `updateOverride()` updates only the changed row (no full redraw)
+- `run.py`: SimpleHTTPRequestHandler, yfinance only, f-strings
+- `/prices?tickers=TER,HWM` endpoint
+- `/health` endpoint
+- Auto-opens browser on start
+
+**Known issues:**
+- Light theme only
+- JSON import instead of CSV
+- Only one price source (yfinance)
+- No Python 2 compatibility
+- No horizon tabs
+- No date-aware targets
 
 ---
 
 ## Version summary
 
-| Version        | Date     | Architecture            | Key change                                      |
-|----------------|----------|-------------------------|-------------------------------------------------|
-| v1.0.0-vanilla | 2026-05  | HTML + Python           | Initial version                                 |
-| v1.0.0         | 2026-05  | React + Python          | React rewrite, memo, focus fix                  |
-| v2.0.0         | 2026-05  | React only              | Twelve Data API, no backend                     |
-| v2.0.1         | 2026-05  | React only              | Horizon status tags on all columns              |
-| v2.0.2         | 2026-05  | React only              | Bugfix: border style conflict                   |
-| v3.0.0         | 2026-05  | React only              | Historical prices for expired horizons          |
-| v3.0.1         | 2026-05  | React only              | UI fixes: column widths, overlap, labels        |
-| v3.1.0         | 2026-05  | React only              | Direction-aware Hit/Miss, distance layout fix   |
-| v3.1.1         | 2026-05  | React only              | Full README changelog + GIT_GUIDE.md            |
+| Version          | Date     | Architecture              | Key change                                      |
+|------------------|----------|---------------------------|-------------------------------------------------|
+| v0.2.0           | 2026-05  | HTML + Python (yfinance)  | First functional version                        |
+| v0.3.0           | 2026-05  | HTML + Python             | Dark mode, summary cards, horizon tabs          |
+| v0.4.0           | 2026-05  | HTML + Python (Py2/3)     | Python 2/3 compat, MIME types, ASCII fix        |
+| v0.5.0           | 2026-05  | HTML + Python (multi-src) | yfinance→stooq→AV cascade, currencies, CSV date |
+| v0.6.0           | 2026-05  | HTML + allorigins proxy   | Proxy attempt (failed), lesson learned           |
+| v1.0.0-vanilla   | 2026-05  | HTML + Python (final)     | Stable final HTML version                       |
+| v1.0.0           | 2026-05  | React + Python            | React rewrite, memo, focus fix                  |
+| v2.0.0           | 2026-05  | React only                | Twelve Data API, no backend                     |
+| v2.0.1           | 2026-05  | React only                | Horizon status tags on all columns              |
+| v2.0.2           | 2026-05  | React only                | Bugfix: border style conflict                   |
+| v3.0.0           | 2026-05  | React only                | Historical prices for expired horizons          |
+| v3.0.1           | 2026-05  | React only                | UI fixes: overlap, columns, labels              |
+| v3.1.0           | 2026-05  | React only                | Direction-aware Hit/Miss, distance layout       |
+| v3.1.1           | 2026-05  | React only                | Full docs: README changelog + GIT_GUIDE         |
+| v3.1.2           | 2026-05  | React only                | Docs: complete pre-React history v0.2.0-v1.0.0  |
