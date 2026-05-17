@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.2
+# Openbank Price Prediction — v4.1.3
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,23 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.3 — Bugfix: Clear overrides not resetting input values
+**Date:** May 2026
+
+**Fixed:**
+- Pressing "Clear overrides" removed overrides from App state but the
+  input fields in each StockRow still showed the old manually entered values
+- Root cause: `useState(override ? String(override) : '')` only runs once
+  on mount — it does not react to prop changes after that
+- Fix: added `useEffect` in StockRow that watches the `override` prop and
+  syncs the local `val` state — when override becomes `null` (cleared),
+  the input is reset to empty string
+
+**Files changed:**
+- `src/components/StockRow.jsx` — added `useEffect` to sync input with override prop
+
+---
 
 ### v4.1.2 — Switch sector source to Financial Modeling Prep
 **Date:** May 2026
@@ -482,3 +499,4 @@ regardless of CORS headers on the target server.
 | v4.1.0           | 2026-05  | React only                | Sector, market cap, PER forward + grouping      |
 | v4.1.1           | 2026-05  | React only                | Bugfix: sector display + button Unicode icons   |
 | v4.1.2           | 2026-05  | React only                | Switch sector source to FMP (TD /profile = 403) |
+| v4.1.3           | 2026-05  | React only                | Bugfix: Clear overrides not resetting inputs     |

@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from 'react'
+import { memo, useState, useCallback, useEffect } from 'react'
 import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js'
 import {
   getTarget, getEffectivePrice, distancePct,
@@ -38,6 +38,13 @@ const StockRow = memo(function StockRow({
     : [{ val: stock.t1 }, { val: stock.t3 }, { val: stock.t6 }, { val: stock.t12 }]
 
   const [val, setVal] = useState(override ? String(override) : '')
+
+  // Sync local input state when override is cleared externally (e.g. Clear overrides button)
+  useEffect(() => {
+    if (override == null) setVal('')
+    else setVal(String(override))
+  }, [override])
+
   const handleCommit  = useCallback((e) => {
     const v = parseFloat(e.target.value)
     onOverrideChange(stock.t, isNaN(v) || v <= 0 ? null : v)

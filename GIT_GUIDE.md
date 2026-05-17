@@ -598,6 +598,29 @@ git push origin v4.1.2
 
 
 # ===========================================================================
+# STEP 22 — v4.1.3  Bugfix: Clear overrides not resetting input values
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.3/. .
+
+git status
+git add .
+
+git commit -m "fix: Clear overrides not resetting StockRow input fields (v4.1.3)
+
+- Clicking Clear overrides emptied App state but inputs still showed
+  old manually entered values
+- Root cause: useState initial value only runs on mount, not on prop change
+- Fix: useEffect in StockRow watches override prop and syncs local val state
+  When override becomes null (cleared externally), input resets to empty"
+
+git tag -a v4.1.3 -m "v4.1.3: fix Clear overrides input sync"
+git push origin main
+git push origin v4.1.3
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -664,6 +687,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.0/         -> v4.1.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.1/         -> v4.1.1
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.2/         -> v4.1.2
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.3/         -> v4.1.3
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
