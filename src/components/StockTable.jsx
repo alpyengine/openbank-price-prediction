@@ -81,11 +81,11 @@ export default function StockTable({
     />
   )
 
-  const colSpan = 14
+  const colSpan = 15
 
   return (
     <div style={s.wrap}>
-      <table style={s.table}>
+      <table style={{ ...s.table, minWidth: 1180 }}>
         <thead>
           <tr>
             <Th w={56}>Ticker</Th>
@@ -93,6 +93,7 @@ export default function StockTable({
             <Th w={90}>Sector</Th>
             <Th w={40}>Cur.</Th>
             <Th w={76}>Base date</Th>
+            <Th w={76}>Base price</Th>
             <Th w={100}>Price</Th>
             <Th w={82}>Override</Th>
             <Th w={68} date={tg?.d1}>1M</Th>

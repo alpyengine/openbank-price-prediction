@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.5
+# Openbank Price Prediction — v4.1.6
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,24 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.6 — Light theme email + Base price column
+**Date:** May 2026
+
+**New:**
+- Email report redesigned with light theme — white background, dark header band,
+  soft color cards, clean table with subtle alternating rows
+- Base price column added to both the app table and the email report
+  showing the stock price at the time of the Openbank screenshot
+- Email table now has: Ticker+Sector, Company, Base date, Base price,
+  Current price, Target+date, Distance, Result badge, Fundamentals
+
+**Files changed:**
+- `src/components/EmailPreview.jsx` — light theme HTML, base price column
+- `src/components/StockTable.jsx` — base price column header, minWidth 1180px
+- `src/components/StockRow.jsx` — base price cell, colSpan updated to 15
+
+---
 
 ### v4.1.5 — HTML email report
 **Date:** May 2026
@@ -552,3 +570,4 @@ regardless of CORS headers on the target server.
 | v4.1.3           | 2026-05  | React only                | Bugfix: Clear overrides not resetting inputs     |
 | v4.1.4           | 2026-05  | React only                | Email sending via EmailJS                        |
 | v4.1.5           | 2026-05  | React only                | HTML email report with styling and fundamentals  |
+| v4.1.6           | 2026-05  | React only                | Light theme email + Base price column in table   |

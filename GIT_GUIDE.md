@@ -678,6 +678,31 @@ git push origin v4.1.5
 
 
 # ===========================================================================
+# STEP 25 — v4.1.6  Light theme email + Base price column
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.6/. .
+
+git status
+git add .
+
+git commit -m "feat: light theme email and base price column (v4.1.6)
+
+- Email redesigned: white background, dark header band, soft color cards
+- Base price column added to app table (stock price at screenshot date)
+- Base price column added to email report table
+- Email table: Ticker+Sector / Company / Base date / Base price /
+  Price / Target / Distance / Result / Fundamentals
+- StockTable minWidth increased to 1180px for new column
+- colSpan updated to 15 throughout"
+
+git tag -a v4.1.6 -m "v4.1.6: light theme email and base price column"
+git push origin main
+git push origin v4.1.6
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -747,6 +772,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.3/         -> v4.1.3
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.4/         -> v4.1.4
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.5/         -> v4.1.5
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.6/         -> v4.1.6
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

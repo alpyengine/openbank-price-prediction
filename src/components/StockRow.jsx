@@ -87,6 +87,11 @@ const StockRow = memo(function StockRow({
         <td style={{ ...td, fontSize: 11, color: '#484f58' }}>{stock.cu}</td>
         <td style={{ ...td, fontSize: 11, color: '#484f58' }}>{stock.base ? formatDate(stock.base) : '--'}</td>
 
+        {/* Base price */}
+        <td style={{ ...td, fontSize: 12, color: '#8b949e', fontWeight: 500 }}>
+          {stock.b ? stock.b.toFixed(2) : '--'}
+        </td>
+
         {/* Price */}
         <td style={td} onClick={e => e.stopPropagation()}>
           {histLoading && <span style={{ color: '#484f58', fontSize: 11 }}>fetching…</span>}
@@ -175,7 +180,7 @@ const StockRow = memo(function StockRow({
       {/* Expandable fundamentals panel */}
       {expanded && (
         <tr style={{ borderBottom: '1px solid #21262d' }}>
-          <td colSpan={14} style={{ padding: '0 10px 10px 32px', background: '#0d1117' }}>
+          <td colSpan={15} style={{ padding: '0 10px 10px 32px', background: '#0d1117' }}>
             <FundamentalsPanel fundamental={fundamental} ticker={stock.t} />
           </td>
         </tr>
