@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.3
+# Openbank Price Prediction — v4.1.4
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,33 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.4 — Email sending via EmailJS
+**Date:** May 2026
+
+**New:**
+- Email report can now be sent directly from the app to any recipient
+- Recipient email input field in the Email report panel
+- "Send" button — calls EmailJS API, no backend required
+- EmailJS SDK loaded dynamically at runtime (no npm install)
+- Success/error feedback message after send attempt
+- Enter key on email input triggers send
+- Three new env variables required: `VITE_EMAILJS_SERVICE_ID`,
+  `VITE_EMAILJS_TEMPLATE_ID`, `VITE_EMAILJS_PUBLIC_KEY`
+- `.env.example` updated with EmailJS variables
+- Email sent from dedicated Gmail account via EmailJS service
+
+**Setup required:**
+1. Create account at emailjs.com
+2. Add Gmail service — connect dedicated Gmail account
+3. Create template with variables: `{{to_email}}`, `{{report_date}}`, `{{report_body}}`
+4. Add 3 keys to `.env`
+
+**Files changed:**
+- `src/components/EmailPreview.jsx` — recipient input, Send button, EmailJS integration
+- `.env.example` — added EmailJS variables
+
+---
 
 ### v4.1.3 — Bugfix: Clear overrides not resetting input values
 **Date:** May 2026
@@ -500,3 +527,4 @@ regardless of CORS headers on the target server.
 | v4.1.1           | 2026-05  | React only                | Bugfix: sector display + button Unicode icons   |
 | v4.1.2           | 2026-05  | React only                | Switch sector source to FMP (TD /profile = 403) |
 | v4.1.3           | 2026-05  | React only                | Bugfix: Clear overrides not resetting inputs     |
+| v4.1.4           | 2026-05  | React only                | Email sending via EmailJS                        |

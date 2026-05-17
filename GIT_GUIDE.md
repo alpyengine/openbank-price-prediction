@@ -621,6 +621,38 @@ git push origin v4.1.3
 
 
 # ===========================================================================
+# STEP 23 — v4.1.4  Email sending via EmailJS
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.4/. .
+
+# IMPORTANT: add EmailJS keys to .env (not committed to git):
+# echo "VITE_EMAILJS_SERVICE_ID=service_xugjmjv" >> .env
+# echo "VITE_EMAILJS_TEMPLATE_ID=template_964hakr" >> .env
+# echo "VITE_EMAILJS_PUBLIC_KEY=JfqMD2pTRueO8N82w" >> .env
+
+git status
+git add .
+
+git commit -m "feat: send email report via EmailJS (v4.1.4)
+
+- Recipient email input in Email report panel
+- Send button calls EmailJS API directly from browser
+- EmailJS SDK loaded dynamically at runtime (no npm install)
+- Success/error feedback after send
+- Enter key triggers send
+- Requires VITE_EMAILJS_SERVICE_ID, VITE_EMAILJS_TEMPLATE_ID,
+  VITE_EMAILJS_PUBLIC_KEY in .env
+- .env.example updated with EmailJS variables
+- Uses dedicated Gmail account via EmailJS service"
+
+git tag -a v4.1.4 -m "v4.1.4: email sending via EmailJS"
+git push origin main
+git push origin v4.1.4
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -688,6 +720,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.1/         -> v4.1.1
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.2/         -> v4.1.2
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.3/         -> v4.1.3
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.4/         -> v4.1.4
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
