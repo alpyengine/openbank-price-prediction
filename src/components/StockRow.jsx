@@ -154,13 +154,29 @@ const StockRow = memo(function StockRow({
           )
         })}
 
-        {/* Hit badge */}
+        {/* Hit badge + days remaining */}
         <td style={{ ...td, textAlign: 'center' }}>
           {histLoading             && <Badge type="wait">…</Badge>}
           {!histLoading && verdict == null   && <Badge type="wait">--</Badge>}
           {!histLoading && verdict === 'hit' && <Badge type="hit">HIT</Badge>}
           {!histLoading && verdict === 'close' && <Badge type="close">CLOSE</Badge>}
           {!histLoading && verdict === 'miss' && <Badge type="miss">MISS</Badge>}
+          {/* Days remaining for active horizon */}
+          {horizon !== 'best' && tg && (() => {
+            const KEYS = { '1M': 'd1', '3M': 'd3', '6M': 'd6', '12M': 'd12' }
+            const tgtD  = tg[KEYS[horizon]]
+            if (!tgtD) return null
+            const dl   = daysLeft(tgtD)
+            const expired = dl < 0
+            return (
+              <div style={{
+                fontSize: 9, marginTop: 4, fontWeight: 600,
+                color: expired ? '#f85149' : dl <= 14 ? '#d29922' : '#484f58',
+              }}>
+                {expired ? `${Math.abs(dl)}d ago` : `${dl}d left`}
+              </div>
+            )
+          })()}
         </td>
 
         {/* Distance */}
@@ -181,7 +197,7 @@ const StockRow = memo(function StockRow({
       {expanded && (
         <tr style={{ borderBottom: '1px solid #21262d' }}>
           <td colSpan={15} style={{ padding: '0 10px 10px 32px', background: '#0d1117' }}>
-            <FundamentalsPanel fundamental={fundamental} ticker={stock.t} />
+            <FundamentalsPanel fundamental={fundamental} ticker={stock.t} tg={tg} />
           </td>
         </tr>
       )}
@@ -193,25 +209,59 @@ export default StockRow
 
 // ── Fundamentals panel ────────────────────────────────────────────────────────
 
-function FundamentalsPanel({ fundamental, ticker }) {
-  if (fundamental === undefined) {
-    return <span style={{ fontSize: 11, color: '#484f58' }}>Click "Fetch fundamentals" to load data for {ticker}</span>
-  }
-  if (fundamental === null) {
-    return <span style={{ fontSize: 11, color: '#f85149' }}>Fundamentals unavailable for {ticker}</span>
-  }
+function FundamentalsPanel({ fundamental, ticker, tg }) {
+  // Days remaining per horizon
+  const horizonItems = tg ? [
+    { label: '1M target',  date: tg.d1  },
+    { label: '3M target',  date: tg.d3  },
+    { label: '6M target',  date: tg.d6  },
+    { label: '12M target', date: tg.d12 },
+  ] : []
 
-  const items = [
+  const fundItems = fundamental ? [
     { label: 'Sector',      value: fundamental.sector    || '--' },
     { label: 'Industry',    value: fundamental.industry   || '--' },
     { label: 'Market Cap',  value: fmtMarketCap(fundamental.marketCap) },
     { label: 'Forward P/E', value: fundamental.forwardPE  ? fundamental.forwardPE.toFixed(2) : '--' },
     { label: 'Beta',        value: fundamental.beta        ? fundamental.beta.toFixed(2)      : '--' },
-  ]
+  ] : []
 
   return (
     <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', paddingTop: 6 }}>
-      {items.map(({ label, value }) => (
+
+      {/* Days remaining per horizon */}
+      {horizonItems.map(({ label, date }) => {
+        const dl      = daysLeft(date)
+        const expired = dl < 0
+        const color   = expired ? '#f85149' : dl <= 14 ? '#d29922' : '#3fb950'
+        return (
+          <div key={label}>
+            <div style={{ fontSize: 9, color: '#484f58', marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color }}>
+              {expired ? `${Math.abs(dl)}d ago` : `${dl}d left`}
+            </div>
+            <div style={{ fontSize: 9, color: '#484f58', marginTop: 1 }}>{formatDate(date)}</div>
+          </div>
+        )
+      })}
+
+      {/* Divider */}
+      {horizonItems.length > 0 && fundItems.length > 0 && (
+        <div style={{ width: 1, background: '#30363d', alignSelf: 'stretch', margin: '0 4px' }} />
+      )}
+
+      {/* Fundamentals */}
+      {fundamental === undefined && (
+        <span style={{ fontSize: 11, color: '#484f58', alignSelf: 'center' }}>
+          Click "Fetch fundamentals" to load data for {ticker}
+        </span>
+      )}
+      {fundamental === null && (
+        <span style={{ fontSize: 11, color: '#f85149', alignSelf: 'center' }}>
+          Fundamentals unavailable for {ticker}
+        </span>
+      )}
+      {fundItems.map(({ label, value }) => (
         <div key={label}>
           <div style={{ fontSize: 9, color: '#484f58', marginBottom: 2 }}>{label}</div>
           <div style={{ fontSize: 12, color: '#e6edf3', fontWeight: 500 }}>{value}</div>

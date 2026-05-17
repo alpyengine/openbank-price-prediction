@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.6
+# Openbank Price Prediction — v4.1.7
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,29 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.7 — Responsive email + days remaining
+**Date:** May 2026
+
+**New:**
+- Email is now fully responsive:
+  - Desktop (>620px): horizontal table as before
+  - Mobile (≤620px): vertical card per stock with all data grouped
+  - Uses CSS `@media` query — works in Gmail app and Apple Mail
+- Days remaining column added to email table (desktop) and cards (mobile)
+  - Green: >14 days left
+  - Amber: ≤14 days left
+  - Red: expired (shows "Xd ago")
+- Days remaining added to app table — shown below Hit/Miss badge
+  for the active horizon tab (not shown on "Best target")
+- Expandable panel now shows days remaining for all 4 horizons
+  with color coding, plus a divider before fundamentals data
+
+**Files changed:**
+- `src/components/EmailPreview.jsx` — responsive HTML, days column
+- `src/components/StockRow.jsx` — days below badge, panel horizon dates
+
+---
 
 ### v4.1.6 — Light theme email + Base price column
 **Date:** May 2026
@@ -571,3 +594,4 @@ regardless of CORS headers on the target server.
 | v4.1.4           | 2026-05  | React only                | Email sending via EmailJS                        |
 | v4.1.5           | 2026-05  | React only                | HTML email report with styling and fundamentals  |
 | v4.1.6           | 2026-05  | React only                | Light theme email + Base price column in table   |
+| v4.1.7           | 2026-05  | React only                | Responsive email + days remaining column         |

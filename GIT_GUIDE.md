@@ -703,6 +703,29 @@ git push origin v4.1.6
 
 
 # ===========================================================================
+# STEP 26 — v4.1.7  Responsive email + days remaining
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.7/. .
+
+git status
+git add .
+
+git commit -m "feat: responsive email and days remaining column (v4.1.7)
+
+- Email responsive: table on desktop, cards on mobile (@media max-width:620px)
+- Days remaining column in email (green >14d, amber <=14d, red expired)
+- Days remaining shown below Hit/Miss badge in app table (active horizon)
+- Expandable panel: all 4 horizon dates with days remaining + color coding
+- Divider between horizon dates and fundamentals in expanded panel"
+
+git tag -a v4.1.7 -m "v4.1.7: responsive email and days remaining"
+git push origin main
+git push origin v4.1.7
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -773,6 +796,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.4/         -> v4.1.4
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.5/         -> v4.1.5
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.6/         -> v4.1.6
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.7/         -> v4.1.7
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
