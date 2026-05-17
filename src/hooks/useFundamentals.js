@@ -1,14 +1,17 @@
 import { useState, useCallback } from 'react'
 
-const API_KEY  = import.meta.env.VITE_TWELVE_DATA_KEY
-const BASE_URL = 'https://api.twelvedata.com'
-const TIMEOUT  = 15000
+const TD_KEY  = import.meta.env.VITE_TWELVE_DATA_KEY
+const FMP_KEY = import.meta.env.VITE_FMP_KEY
+const TD_URL  = 'https://api.twelvedata.com'
+const FMP_URL = 'https://financialmodelingprep.com/stable'
+const TIMEOUT = 15000
 
-// { TICKER: { sector, industry, marketCap, forwardPE, beta } | null }
-// null = fetch failed, undefined = not yet fetched
-
-function fmt(url) {
-  return url + '&apikey=' + API_KEY
+export function fmtMarketCap(val) {
+  if (!val) return '--'
+  if (val >= 1e12) return (val / 1e12).toFixed(1) + 'T'
+  if (val >= 1e9)  return (val / 1e9).toFixed(1) + 'B'
+  if (val >= 1e6)  return (val / 1e6).toFixed(1) + 'M'
+  return val.toLocaleString()
 }
 
 async function fetchWithTimeout(url) {
@@ -25,17 +28,32 @@ async function fetchWithTimeout(url) {
   }
 }
 
-/** Format market cap to human readable: 4.4T, 180B, 2.3M */
-export function fmtMarketCap(val) {
-  if (!val) return '--'
-  if (val >= 1e12) return (val / 1e12).toFixed(1) + 'T'
-  if (val >= 1e9)  return (val / 1e9).toFixed(1) + 'B'
-  if (val >= 1e6)  return (val / 1e6).toFixed(1) + 'M'
-  return val.toLocaleString()
+// FMP: GET /stable/profile?symbol=TER&apikey=KEY
+// Returns array — take first element
+async function fetchFMPProfile(ticker) {
+  const url  = `${FMP_URL}/profile?symbol=${encodeURIComponent(ticker)}&apikey=${FMP_KEY}`
+  const data = await fetchWithTimeout(url)
+  if (!Array.isArray(data) || !data.length) throw new Error('FMP: no data')
+  const p = data[0]
+  return {
+    sector:    p.sector    || '--',
+    industry:  p.industry  || '--',
+    marketCap: p.marketCap || null,
+    beta:      p.beta      || null,
+  }
+}
+
+// Twelve Data: GET /statistics?symbol=TER&apikey=KEY
+// Returns forwardPE from valuations_metrics
+async function fetchTDForwardPE(ticker) {
+  const url  = `${TD_URL}/statistics?symbol=${encodeURIComponent(ticker)}&apikey=${TD_KEY}`
+  const data = await fetchWithTimeout(url)
+  if (data?.status === 'error') throw new Error(data.message || 'TD error')
+  return data?.statistics?.valuations_metrics?.forward_pe || null
 }
 
 export function useFundamentals() {
-  const [fundamentals, setFundamentals] = useState({})  // { TICKER: data | null }
+  const [fundamentals, setFundamentals] = useState({})
   const [loading,      setLoading]      = useState(false)
   const [log,          setLog]          = useState('')
 
@@ -48,30 +66,30 @@ export function useFundamentals() {
     let ok = 0, failed = []
 
     for (const s of stocks) {
-      // Skip if already fetched successfully
       if (newData[s.t] !== undefined) { ok++; continue }
 
       try {
-        setLog(`Fetching ${s.t} fundamentals...`)
+        setLog(`Fetching ${s.t}...`)
 
-        // Fetch profile (sector, industry) and statistics (marketCap, forwardPE, beta) in parallel
-        const [profileData, statsData] = await Promise.all([
-          fetchWithTimeout(fmt(`${BASE_URL}/profile?symbol=${encodeURIComponent(s.t)}`)),
-          fetchWithTimeout(fmt(`${BASE_URL}/statistics?symbol=${encodeURIComponent(s.t)}`)),
+        // FMP and Twelve Data in parallel
+        const [fmp, forwardPE] = await Promise.allSettled([
+          fetchFMPProfile(s.t),
+          fetchTDForwardPE(s.t),
         ])
 
-        const sector   = profileData?.sector   || '--'
-        const industry = profileData?.industry  || '--'
+        const fmpData  = fmp.status === 'fulfilled' ? fmp.value : {}
+        const fwdPE    = forwardPE.status === 'fulfilled' ? forwardPE.value : null
 
-        const stats    = statsData?.statistics
-        const marketCap = stats?.valuations_metrics?.market_capitalization || null
-        const forwardPE = stats?.valuations_metrics?.forward_pe            || null
-        const beta      = stats?.stock_price_summary?.beta                 || null
+        newData[s.t] = {
+          sector:    fmpData.sector    || '--',
+          industry:  fmpData.industry  || '--',
+          marketCap: fmpData.marketCap || null,
+          beta:      fmpData.beta      || null,
+          forwardPE: fwdPE,
+        }
 
-        newData[s.t] = { sector, industry, marketCap, forwardPE, beta }
         ok++
-        setLog(`✓ ${s.t}: ${sector}`)
-        // Update state after each ticker so UI reflects progress immediately
+        setLog(`✓ ${s.t}: ${newData[s.t].sector}`)
         setFundamentals({ ...newData })
 
       } catch (err) {
@@ -81,11 +99,10 @@ export function useFundamentals() {
         setFundamentals({ ...newData })
       }
 
-      // Respect free tier rate limit (8 req/min = 2 parallel calls per ticker)
+      // Rate limit: FMP 250/day, TD 8/min — 800ms gap is safe
       await new Promise(r => setTimeout(r, 800))
     }
 
-    setFundamentals(newData)
     setLoading(false)
     setLog(
       `Fundamentals: ${ok}/${stocks.length} loaded` +

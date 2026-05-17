@@ -570,6 +570,34 @@ git push origin v4.1.1
 
 
 # ===========================================================================
+# STEP 21 — v4.1.2  Switch sector source to Financial Modeling Prep
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.2/. .
+
+# IMPORTANT: after copying, add your FMP key to .env (not committed to git)
+# echo "VITE_FMP_KEY=your_fmp_key_here" >> .env
+
+git status
+git add .
+
+git commit -m "fix: switch sector source from Twelve Data to FMP (v4.1.2)
+
+- Twelve Data /profile requires paid plan (403 on free tier)
+- Switched to Financial Modeling Prep /stable/profile endpoint
+  FMP free plan: 250 req/day, no credit card required
+  Returns: sector, industry, marketCap, beta
+- Twelve Data /statistics retained for forward P/E only
+- Promise.allSettled: FMP and TD called in parallel, each independent
+- .env.example updated with VITE_FMP_KEY variable"
+
+git tag -a v4.1.2 -m "v4.1.2: switch sector source to FMP"
+git push origin main
+git push origin v4.1.2
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -635,6 +663,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.0.0/         -> v4.0.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.0/         -> v4.1.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.1/         -> v4.1.1
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.2/         -> v4.1.2
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

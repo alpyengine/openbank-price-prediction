@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.1
+# Openbank Price Prediction — v4.1.2
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,28 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.2 — Switch sector source to Financial Modeling Prep
+**Date:** May 2026
+
+**Changed:**
+- Twelve Data `/profile` endpoint requires paid plan (403 error on free tier)
+- Switched sector and company profile data to **Financial Modeling Prep (FMP)**
+  free tier — 250 requests/day, no credit card required
+- FMP endpoint: `GET /stable/profile?symbol=TER&apikey=KEY`
+  Returns: sector, industry, marketCap, beta
+- Twelve Data `/statistics` retained for forward P/E only
+- Both APIs called in parallel via `Promise.allSettled` — one failing does not
+  block the other
+- `.env.example` updated with `VITE_FMP_KEY` variable
+- FMP historical price endpoints not available on free plan — Twelve Data
+  remains the source for current prices and historical closes
+
+**Files changed:**
+- `src/hooks/useFundamentals.js` — FMP for profile, TD for forwardPE
+- `.env.example` — added `VITE_FMP_KEY`
+
+---
 
 ### v4.1.1 — Bugfix: sector display and button icons
 **Date:** May 2026
@@ -459,3 +481,4 @@ regardless of CORS headers on the target server.
 | v4.0.0           | 2026-05  | React only                | CSV file upload + Clear button                  |
 | v4.1.0           | 2026-05  | React only                | Sector, market cap, PER forward + grouping      |
 | v4.1.1           | 2026-05  | React only                | Bugfix: sector display + button Unicode icons   |
+| v4.1.2           | 2026-05  | React only                | Switch sector source to FMP (TD /profile = 403) |
