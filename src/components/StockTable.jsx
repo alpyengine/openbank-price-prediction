@@ -76,6 +76,7 @@ export default function StockTable({
       override={overrides[stock.t]}
       horizonExpired={horizonExpired}
       fundamental={fundamentals[stock.t]}
+      fundamentalKey={fundamentals[stock.t] ? 'loaded' : 'pending'}
       onOverrideChange={onOverrideChange}
     />
   )

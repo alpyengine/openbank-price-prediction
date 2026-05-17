@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.0
+# Openbank Price Prediction — v4.1.1
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,28 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.1 — Bugfix: sector display and button icons
+**Date:** May 2026
+
+**Fixed:**
+- Sector column showing `--` despite fundamentals loading 5/5 — caused by
+  `useFundamentals` calling `setFundamentals` only once at the end of the
+  fetch loop. React batching prevented intermediate updates from reaching
+  `StockRow`. Fix: `setFundamentals({ ...newData })` now called after each
+  ticker with a new spread object, forcing React to detect the change and
+  rerender immediately as data arrives
+- Group and Sort buttons showing raw HTML entities (`&#9660;`, `&#9658;`,
+  `&#8597;`) instead of triangle/arrow symbols — JSX does not interpret
+  HTML entities in string literals. Fix: replaced with Unicode characters
+  directly (`▼`, `▶`, `↕`)
+
+**Files changed:**
+- `src/hooks/useFundamentals.js` — `setFundamentals` called after each ticker
+- `src/components/SectorControls.jsx` — Unicode chars instead of HTML entities
+- `src/components/StockTable.jsx` — added `fundamentalKey` prop for memo safety
+
+---
 
 ### v4.1.0 — Sector, market cap, PER forward + sector grouping
 **Date:** May 2026
@@ -436,3 +458,4 @@ regardless of CORS headers on the target server.
 | v3.1.2           | 2026-05  | React only                | Docs: complete pre-React history v0.2.0-v1.0.0  |
 | v4.0.0           | 2026-05  | React only                | CSV file upload + Clear button                  |
 | v4.1.0           | 2026-05  | React only                | Sector, market cap, PER forward + grouping      |
+| v4.1.1           | 2026-05  | React only                | Bugfix: sector display + button Unicode icons   |

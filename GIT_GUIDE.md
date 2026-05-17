@@ -545,6 +545,31 @@ git push origin v4.1.0
 
 
 # ===========================================================================
+# STEP 20 — v4.1.1  Bugfix: sector display + button Unicode icons
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.1/. .
+
+git status
+git add .
+
+git commit -m "fix: sector display and button HTML entities (v4.1.1)
+
+- Sector column showed -- despite fundamentals 5/5 loaded
+  Root cause: setFundamentals called once at end of fetch loop
+  Fix: setFundamentals({ ...newData }) called after each ticker
+  so React detects change and rerenders rows as data arrives
+- Group/Sort buttons showed raw HTML entities (&#9660; &#9658; &#8597;)
+  JSX does not interpret HTML entities in string literals
+  Fix: replaced with Unicode chars directly (▼ ▶ ↕)"
+
+git tag -a v4.1.1 -m "v4.1.1: fix sector display and button Unicode icons"
+git push origin main
+git push origin v4.1.1
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -609,6 +634,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v3.1.2/         -> v3.1.2
 #    /Users/alex/Downloads/openbank-price-prediction_v4.0.0/         -> v4.0.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.0/         -> v4.1.0
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.1/         -> v4.1.1
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

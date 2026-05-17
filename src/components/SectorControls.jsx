@@ -41,7 +41,7 @@ export default function SectorControls({
         style={{ ...s.toggle, ...(groupBySector ? s.toggleOn : {}) }}
         onClick={onGroupToggle}
       >
-        {groupBySector ? '&#9660;' : '&#9658;'} Group
+        {groupBySector ? '▼' : '▶'} Group
       </button>
 
       {/* Sort toggle */}
@@ -49,7 +49,7 @@ export default function SectorControls({
         style={{ ...s.toggle, ...(sortBySector ? s.toggleOn : {}) }}
         onClick={onSortToggle}
       >
-        &#8597; Sort by sector
+        ↕ Sort by sector
       </button>
     </div>
   )

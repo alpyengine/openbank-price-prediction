@@ -71,11 +71,14 @@ export function useFundamentals() {
         newData[s.t] = { sector, industry, marketCap, forwardPE, beta }
         ok++
         setLog(`✓ ${s.t}: ${sector}`)
+        // Update state after each ticker so UI reflects progress immediately
+        setFundamentals({ ...newData })
 
       } catch (err) {
         newData[s.t] = null
         failed.push(s.t)
         setLog(`✗ ${s.t}: ${err.message}`)
+        setFundamentals({ ...newData })
       }
 
       // Respect free tier rate limit (8 req/min = 2 parallel calls per ticker)
