@@ -163,6 +163,7 @@ export default function App() {
           histPrices={histPrices}
           overrides={overrides}
           horizonExpired={horizonExpired}
+          fundamentals={fundamentals}
           onClose={() => setShowEmail(false)}
         />
       )}

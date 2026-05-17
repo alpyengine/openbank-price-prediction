@@ -653,6 +653,31 @@ git push origin v4.1.4
 
 
 # ===========================================================================
+# STEP 24 — v4.1.5  HTML email report
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.5/. .
+
+git status
+git add .
+
+git commit -m "feat: HTML email report with styling and fundamentals (v4.1.5)
+
+- Email now sends fully styled HTML (dark theme, GitHub palette)
+- Summary cards: Total / Hit / Near / Miss / Awaiting
+- Color-coded result badges per stock (green/amber/red)
+- Sector shown below ticker, fundamentals column (cap/PE/beta)
+- Historical price date shown for expired horizons
+- EmailJS template uses triple-brace {{{report_body}}} for HTML
+- App passes fundamentals prop to EmailPreview"
+
+git tag -a v4.1.5 -m "v4.1.5: HTML email report"
+git push origin main
+git push origin v4.1.5
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -721,6 +746,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.2/         -> v4.1.2
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.3/         -> v4.1.3
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.4/         -> v4.1.4
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.5/         -> v4.1.5
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

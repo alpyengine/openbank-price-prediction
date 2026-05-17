@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.4
+# Openbank Price Prediction — v4.1.5
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,29 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.5 — HTML email report
+**Date:** May 2026
+
+**New:**
+- Email report now sends fully styled HTML instead of plain text
+- Dark theme matching the app (GitHub-style palette)
+- Summary cards at top: Total / Hit / Near / Miss / Awaiting
+- Stock table with color-coded Result badges (green HIT, amber CLOSE, red MISS)
+- Sector shown below ticker in the table
+- Fundamentals column: Market Cap, Forward P/E, Beta (when loaded)
+- Price column shows date for historical prices (expired horizons)
+- Target column shows target date below the price
+- Distance colored by verdict (green/amber/red)
+- Footer with data sources and report date
+- EmailJS template updated to use `{{{report_body}}}` (triple brace = HTML)
+- Preview in app shows truncated raw HTML with hint
+
+**Files changed:**
+- `src/components/EmailPreview.jsx` — full HTML builder, fundamentals column
+- `src/App.jsx` — passes `fundamentals` prop to EmailPreview
+
+---
 
 ### v4.1.4 — Email sending via EmailJS
 **Date:** May 2026
@@ -528,3 +551,4 @@ regardless of CORS headers on the target server.
 | v4.1.2           | 2026-05  | React only                | Switch sector source to FMP (TD /profile = 403) |
 | v4.1.3           | 2026-05  | React only                | Bugfix: Clear overrides not resetting inputs     |
 | v4.1.4           | 2026-05  | React only                | Email sending via EmailJS                        |
+| v4.1.5           | 2026-05  | React only                | HTML email report with styling and fundamentals  |
