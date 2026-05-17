@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.0.0
+# Openbank Price Prediction — v4.1.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,34 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.0 — Sector, market cap, PER forward + sector grouping
+**Date:** May 2026
+
+**New:**
+- `useFundamentals.js` hook — fetches sector and industry via Twelve Data
+  `/profile`, and market cap, forward P/E, beta via `/statistics`
+- `FundamentalsBar` — dedicated fetch bar for fundamentals with status log
+- `SectorControls` — three controls above the table:
+  - Dropdown filter: show only one sector
+  - Group toggle: collapses/expands sector groups in the table
+  - Sort toggle: sorts all stocks alphabetically by sector
+- `StockRow` expandable panel — click any row to expand a detail panel
+  showing Sector, Industry, Market Cap, Forward P/E, Beta
+- Sector column added to the main table
+- Sector groups are collapsible — click the group header to collapse
+- `fmtMarketCap()` — formats raw values to human readable (4.4T, 180B, 2.3M)
+- Rate limit protection: 800ms delay between tickers (2 parallel calls each)
+
+**Files changed:**
+- `src/hooks/useFundamentals.js` — new
+- `src/components/FundamentalsBar.jsx` — new
+- `src/components/SectorControls.jsx` — new
+- `src/components/StockRow.jsx` — sector column, expandable panel
+- `src/components/StockTable.jsx` — grouping, sorting, filtering logic
+- `src/App.jsx` — wires useFundamentals, SectorControls, FundamentalsBar
+
+---
 
 ### v4.0.0 — CSV file upload + Clear button
 **Date:** May 2026
@@ -406,4 +434,5 @@ regardless of CORS headers on the target server.
 | v3.1.0           | 2026-05  | React only                | Direction-aware Hit/Miss, distance layout       |
 | v3.1.1           | 2026-05  | React only                | Full docs: README changelog + GIT_GUIDE         |
 | v3.1.2           | 2026-05  | React only                | Docs: complete pre-React history v0.2.0-v1.0.0  |
-| v4.0.0           | 2026-05  | React only                | CSV file upload + Clear button in ImportBox      |
+| v4.0.0           | 2026-05  | React only                | CSV file upload + Clear button                  |
+| v4.1.0           | 2026-05  | React only                | Sector, market cap, PER forward + grouping      |

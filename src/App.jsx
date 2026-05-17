@@ -1,92 +1,99 @@
-import { useState, useCallback, useEffect } from 'react'
-import { usePriceFetch }  from './hooks/usePriceFetch.js'
-import { DEFAULT_STOCKS } from './utils/stocks.js'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { usePriceFetch }     from './hooks/usePriceFetch.js'
+import { useFundamentals }   from './hooks/useFundamentals.js'
+import { DEFAULT_STOCKS }    from './utils/stocks.js'
 import { targetDates, dateStatus } from './utils/dates.js'
 
-import Header       from './components/Header.jsx'
-import FetchBar     from './components/FetchBar.jsx'
-import SummaryCards from './components/SummaryCards.jsx'
-import HorizonTabs  from './components/HorizonTabs.jsx'
-import StockTable   from './components/StockTable.jsx'
-import ImportBox    from './components/ImportBox.jsx'
-import EmailPreview from './components/EmailPreview.jsx'
+import Header           from './components/Header.jsx'
+import FetchBar         from './components/FetchBar.jsx'
+import FundamentalsBar  from './components/FundamentalsBar.jsx'
+import SectorControls   from './components/SectorControls.jsx'
+import SummaryCards     from './components/SummaryCards.jsx'
+import HorizonTabs      from './components/HorizonTabs.jsx'
+import StockTable       from './components/StockTable.jsx'
+import ImportBox        from './components/ImportBox.jsx'
+import EmailPreview     from './components/EmailPreview.jsx'
 
 export default function App() {
-  const [stocks,    setStocks]    = useState(DEFAULT_STOCKS)
-  const [horizon,   setHorizon]   = useState('best')
-  const [overrides, setOverrides] = useState({})
-  const [showEmail, setShowEmail] = useState(false)
+  const [stocks,       setStocks]       = useState(DEFAULT_STOCKS)
+  const [horizon,      setHorizon]      = useState('best')
+  const [overrides,    setOverrides]    = useState({})
+  const [showEmail,    setShowEmail]    = useState(false)
+
+  // Sector controls
+  const [filterSector,  setFilterSector]  = useState('all')
+  const [groupBySector, setGroupBySector] = useState(false)
+  const [sortBySector,  setSortBySector]  = useState(false)
 
   const {
     autoPrices, histPrices,
     fetching, log,
     fetchCurrentBatch, fetchHistoricalForHorizon,
-    reset,
+    reset: resetPrices,
   } = usePriceFetch()
 
-  // ── When horizon changes to an expired one, auto-fetch historical prices ───
+  const {
+    fundamentals, loading: fundLoading, log: fundLog,
+    fetchFundamentals, reset: resetFundamentals,
+  } = useFundamentals()
+
+  // Auto-fetch historical on expired horizon switch
   useEffect(() => {
     if (horizon === 'best' || !stocks.length) return
-
-    // Check if this horizon is expired for the first stock (all share same base in typical use)
     const firstBase = stocks.find(s => s.base)?.base
     if (!firstBase) return
-
     const KEYS = { '1M': 'd1', '3M': 'd3', '6M': 'd6', '12M': 'd12' }
     const tg   = targetDates(firstBase)
     const date = tg[KEYS[horizon]]
-    if (!date) return
-
-    const status = dateStatus(date)
-    if (status !== 'past') return
-
-    // Build targetDates map per stock for this horizon
-    const stocksNeedingFetch = stocks.filter(s => {
-      const key = `${s.t}_${horizon}`
-      return !histPrices[key] // skip already fetched
-    })
-    if (!stocksNeedingFetch.length) return
-
-    // Build { TICKER: Date } map
+    if (!date || dateStatus(date) !== 'past') return
+    const needFetch = stocks.filter(s => !histPrices[`${s.t}_${horizon}`])
+    if (!needFetch.length) return
     const targetDateMap = {}
     for (const s of stocks) {
       if (!s.base) continue
-      const tg = targetDates(s.base)
-      targetDateMap[s.t] = tg[KEYS[horizon]]
+      targetDateMap[s.t] = targetDates(s.base)[KEYS[horizon]]
     }
+    fetchHistoricalForHorizon(needFetch, horizon, targetDateMap)
+  }, [horizon, stocks])
 
-    fetchHistoricalForHorizon(stocksNeedingFetch, horizon, targetDateMap)
-  }, [horizon, stocks]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Unique sectors from fetched fundamentals
+  const sectors = useMemo(() => {
+    const set = new Set()
+    for (const s of stocks) {
+      const f = fundamentals[s.t]
+      if (f?.sector) set.add(f.sector)
+    }
+    return [...set].sort()
+  }, [stocks, fundamentals])
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // Handlers
   const handleImport = useCallback((newStocks) => {
     setStocks(newStocks)
     setOverrides({})
     setHorizon('best')
-    reset()
-  }, [reset])
+    setFilterSector('all')
+    setGroupBySector(false)
+    setSortBySector(false)
+    resetPrices()
+    resetFundamentals()
+  }, [resetPrices, resetFundamentals])
 
   const handleOverrideChange = useCallback((ticker, value) => {
     setOverrides(prev => {
-      if (value == null) {
-        const next = { ...prev }
-        delete next[ticker]
-        return next
-      }
+      if (value == null) { const next = { ...prev }; delete next[ticker]; return next }
       return { ...prev, [ticker]: value }
     })
   }, [])
 
-  // Determine if active horizon is expired
+  // Horizon expired?
   const firstBase = stocks.find(s => s.base)?.base
   const KEYS = { '1M': 'd1', '3M': 'd3', '6M': 'd6', '12M': 'd12' }
   const activeTargetDate = firstBase && horizon !== 'best'
-    ? targetDates(firstBase)[KEYS[horizon]]
-    : null
+    ? targetDates(firstBase)[KEYS[horizon]] : null
   const horizonExpired = activeTargetDate ? dateStatus(activeTargetDate) === 'past' : false
 
   return (
-    <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1120, margin: '0 auto' }}>
       <Header
         stocks={stocks}
         onClearOverrides={() => setOverrides({})}
@@ -99,6 +106,12 @@ export default function App() {
         horizonExpired={horizonExpired}
         horizon={horizon}
         onFetch={() => fetchCurrentBatch(stocks)}
+      />
+
+      <FundamentalsBar
+        log={fundLog}
+        loading={fundLoading}
+        onFetch={() => fetchFundamentals(stocks)}
       />
 
       <SummaryCards
@@ -116,6 +129,16 @@ export default function App() {
         onHorizonChange={setHorizon}
       />
 
+      <SectorControls
+        sectors={sectors}
+        filterSector={filterSector}
+        groupBySector={groupBySector}
+        sortBySector={sortBySector}
+        onFilterChange={setFilterSector}
+        onGroupToggle={() => setGroupBySector(v => !v)}
+        onSortToggle={() => setSortBySector(v => !v)}
+      />
+
       <StockTable
         stocks={stocks}
         horizon={horizon}
@@ -123,6 +146,10 @@ export default function App() {
         histPrices={histPrices}
         overrides={overrides}
         horizonExpired={horizonExpired}
+        fundamentals={fundamentals}
+        groupBySector={groupBySector}
+        filterSector={filterSector}
+        sortBySector={sortBySector}
         onOverrideChange={handleOverrideChange}
       />
 

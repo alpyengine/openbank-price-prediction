@@ -518,6 +518,33 @@ git push origin v4.0.0
 
 
 # ===========================================================================
+# STEP 19 — v4.1.0  Sector, market cap, PER forward + sector grouping
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.0/. .
+
+git status
+git add .
+
+git commit -m "feat: sector, market cap, PER forward and sector grouping (v4.1.0)
+
+- useFundamentals.js: fetches sector/industry via /profile and
+  marketCap/forwardPE/beta via /statistics (Twelve Data free tier)
+- FundamentalsBar: dedicated fetch bar with status log
+- SectorControls: filter dropdown + group toggle + sort toggle
+- StockRow: expandable panel on click showing all fundamental data
+- StockTable: sector grouping (collapsible), sort and filter logic
+- Sector column added to main table
+- fmtMarketCap(): formats to 4.4T / 180B / 2.3M
+- 800ms rate limit delay between tickers (2 parallel calls each)"
+
+git tag -a v4.1.0 -m "v4.1.0: sector, market cap, PER forward and grouping"
+git push origin main
+git push origin v4.1.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -581,6 +608,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v3.1.1/         -> v3.1.1
 #    /Users/alex/Downloads/openbank-price-prediction_v3.1.2/         -> v3.1.2
 #    /Users/alex/Downloads/openbank-price-prediction_v4.0.0/         -> v4.0.0
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.0/         -> v4.1.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
