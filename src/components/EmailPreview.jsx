@@ -261,7 +261,7 @@ const s = {
 }
 
 export default function EmailPreview({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, fundamentals, onClose }) {
-  const [toEmail, setToEmail] = useState('')
+  const [toEmail, setToEmail] = useState('alpyengine@gmail.com')
   const [sending, setSending] = useState(false)
   const [sendMsg, setSendMsg] = useState('')
   const [sendOk,  setSendOk]  = useState(null)

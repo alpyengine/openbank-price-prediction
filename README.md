@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.8
+# Openbank Price Prediction — v4.1.9
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,18 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.9 — Default recipient email
+**Date:** May 2026
+
+**Changed:**
+- Email report To field pre-filled with `alpyengine@gmail.com`
+- Field remains editable — clear and type any other address as needed
+
+**Files changed:**
+- `src/components/EmailPreview.jsx` — default email in useState
+
+---
 
 ### v4.1.8 — Email table horizontal scroll
 **Date:** May 2026
@@ -610,3 +622,4 @@ regardless of CORS headers on the target server.
 | v4.1.6           | 2026-05  | React only                | Light theme email + Base price column in table   |
 | v4.1.7           | 2026-05  | React only                | Responsive email + days remaining column         |
 | v4.1.8           | 2026-05  | React only                | Email table horizontal scroll (Gmail fix)        |
+| v4.1.9           | 2026-05  | React only                | Default recipient email pre-filled               |

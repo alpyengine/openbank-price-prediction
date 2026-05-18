@@ -748,6 +748,26 @@ git push origin v4.1.8
 
 
 # ===========================================================================
+# STEP 28 — v4.1.9  Default recipient email
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.9/. .
+
+git status
+git add .
+
+git commit -m "feat: default recipient email pre-filled (v4.1.9)
+
+- Email report To field pre-filled with alpyengine@gmail.com
+- Field remains fully editable for any other recipient"
+
+git tag -a v4.1.9 -m "v4.1.9: default recipient email"
+git push origin main
+git push origin v4.1.9
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -820,6 +840,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.6/         -> v4.1.6
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.7/         -> v4.1.7
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.8/         -> v4.1.8
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.9/         -> v4.1.9
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
