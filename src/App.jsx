@@ -19,6 +19,12 @@ export default function App() {
   const [horizon,      setHorizon]      = useState('best')
   const [overrides,    setOverrides]    = useState({})
   const [showEmail,    setShowEmail]    = useState(false)
+  const [darkMode,     setDarkMode]     = useState(true)
+
+  // Apply theme to document root
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
 
   // Sector controls
   const [filterSector,  setFilterSector]  = useState('all')
@@ -96,6 +102,8 @@ export default function App() {
     <div style={{ maxWidth: 1120, margin: '0 auto' }}>
       <Header
         stocks={stocks}
+        darkMode={darkMode}
+        onToggleDark={() => setDarkMode(v => !v)}
         onClearOverrides={() => setOverrides({})}
         onToggleEmail={() => setShowEmail(v => !v)}
       />

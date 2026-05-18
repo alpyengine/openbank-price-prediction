@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.9
+# Openbank Price Prediction — v4.2.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,30 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.2.0 — Dark/light mode toggle + Email modal
+**Date:** May 2026
+
+**New:**
+- **Dark/light mode toggle** — ☀️/🌙 button in header switches between themes
+  instantly. Uses CSS custom properties (`data-theme` attribute on `<html>`)
+  so all components update automatically without inline style changes.
+  Light theme uses GitHub-style light palette.
+- **Email report modal** — clicking "✉ Email report" opens a centered overlay
+  above the page. No more scrolling to reach send buttons.
+  - Close with ✕ button, Escape key, or clicking outside the modal
+  - `autoFocus` on the To: field for immediate keyboard input
+  - Modal uses `var(--bg-2)` and `var(--border)` — adapts to current theme
+
+**Files changed:**
+- `src/styles/global.css` — light theme variables, `.modal-overlay` and
+  `.modal-box` CSS classes
+- `src/components/Header.jsx` — dark/light toggle button, CSS variable colors
+- `src/components/EmailPreview.jsx` — modal layout, Escape key handler,
+  CSS variable colors throughout
+- `src/App.jsx` — `darkMode` state, `useEffect` sets `data-theme` on `<html>`
+
+---
 
 ### v4.1.9 — Default recipient email
 **Date:** May 2026
@@ -623,3 +647,4 @@ regardless of CORS headers on the target server.
 | v4.1.7           | 2026-05  | React only                | Responsive email + days remaining column         |
 | v4.1.8           | 2026-05  | React only                | Email table horizontal scroll (Gmail fix)        |
 | v4.1.9           | 2026-05  | React only                | Default recipient email pre-filled               |
+| v4.2.0           | 2026-05  | React only                | Dark/light mode toggle + Email modal overlay     |

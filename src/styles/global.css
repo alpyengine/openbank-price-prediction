@@ -1,6 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
+/* ── Dark theme (default) ─────────────────────────────────────────────────── */
+:root, [data-theme="dark"] {
   --bg:          #0d1117;
   --bg-2:        #161b22;
   --bg-3:        #21262d;
@@ -24,6 +25,29 @@
   --radius-lg:   8px;
 }
 
+/* ── Light theme ──────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:          #f6f8fa;
+  --bg-2:        #ffffff;
+  --bg-3:        #eaeef2;
+  --border:      #d0d7de;
+  --border-2:    #eaeef2;
+  --text:        #1f2328;
+  --text-2:      #656d76;
+  --text-3:      #9198a1;
+  --green:       #1a7f37;
+  --green-bg:    #dafbe1;
+  --green-bdr:   #2da44e;
+  --blue:        #0969da;
+  --blue-bg:     #ddf4ff;
+  --blue-bdr:    #0969da;
+  --amber:       #9a6700;
+  --amber-bg:    #fff8c5;
+  --red:         #cf222e;
+  --red-bg:      #ffebe9;
+  --red-bdr:     #cf222e;
+}
+
 body {
   font-family: system-ui, -apple-system, sans-serif;
   background: var(--bg);
@@ -31,6 +55,7 @@ body {
   padding: 1.5rem;
   font-size: 14px;
   line-height: 1.5;
+  transition: background 0.2s, color 0.2s;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -38,3 +63,27 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Modal overlay ────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+}
+
+.modal-box {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}

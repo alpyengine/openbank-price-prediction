@@ -768,6 +768,31 @@ git push origin v4.1.9
 
 
 # ===========================================================================
+# STEP 29 — v4.2.0  Dark/light mode toggle + Email modal
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.2.0/. .
+
+git status
+git add .
+
+git commit -m "feat: dark/light mode toggle and email modal overlay (v4.2.0)
+
+- Dark/light toggle button in header (sun/moon emoji)
+  Uses data-theme attribute on html element + CSS custom properties
+  All components update automatically via var(--bg), var(--text) etc.
+  Light theme: GitHub-style light palette
+- Email report opens as modal overlay (fixed, centered, above content)
+  Close with X button, Escape key, or click outside
+  autoFocus on To: field, adapts to current theme via CSS variables"
+
+git tag -a v4.2.0 -m "v4.2.0: dark/light mode and email modal"
+git push origin main
+git push origin v4.2.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -841,6 +866,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.7/         -> v4.1.7
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.8/         -> v4.1.8
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.9/         -> v4.1.9
+#    /Users/alex/Downloads/openbank-price-prediction_v4.2.0/         -> v4.2.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

@@ -4,13 +4,13 @@ const TODAY = getToday()
 
 const s = {
   bar:      { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem', gap: 12, flexWrap: 'wrap' },
-  title:    { fontSize: 16, fontWeight: 600, color: '#e6edf3' },
-  sub:      { fontSize: 11, color: '#8b949e', marginTop: 3, lineHeight: 1.6 },
+  title:    { fontSize: 16, fontWeight: 600, color: 'var(--text)' },
+  sub:      { fontSize: 11, color: 'var(--text-2)', marginTop: 3, lineHeight: 1.6 },
   controls: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   btnBase:  { fontSize: 12, padding: '6px 14px', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit' },
 }
 
-export default function Header({ stocks, onClearOverrides, onToggleEmail }) {
+export default function Header({ stocks, darkMode, onToggleDark, onClearOverrides, onToggleEmail }) {
   const bases = [...new Set(stocks.map(s => s.base ? formatDate(s.base) : '?'))]
 
   return (
@@ -25,18 +25,37 @@ export default function Header({ stocks, onClearOverrides, onToggleEmail }) {
         </div>
       </div>
       <div style={s.controls}>
+
+        {/* Dark / Light toggle */}
         <button
-          style={{ ...s.btnBase, border: '1px solid #30363d', background: 'transparent', color: '#e6edf3' }}
+          title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          style={{
+            ...s.btnBase,
+            border: '1px solid var(--border)',
+            background: 'transparent',
+            color: 'var(--text-2)',
+            fontSize: 16,
+            padding: '4px 10px',
+          }}
+          onClick={onToggleDark}
+        >
+          {darkMode ? '☀️' : '🌙'}
+        </button>
+
+        <button
+          style={{ ...s.btnBase, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }}
           onClick={onClearOverrides}
         >
           Clear overrides
         </button>
+
         <button
-          style={{ ...s.btnBase, border: '1px solid #1f6feb', background: '#0d2136', color: '#58a6ff' }}
+          style={{ ...s.btnBase, border: '1px solid var(--blue-bdr)', background: 'var(--blue-bg)', color: 'var(--blue)' }}
           onClick={onToggleEmail}
         >
-          Email report
+          ✉ Email report
         </button>
+
       </div>
     </div>
   )
