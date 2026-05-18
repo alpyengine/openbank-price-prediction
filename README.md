@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.2.0
+# Openbank Price Prediction — v4.2.1
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,25 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.2.1 — Full light theme + mobile-compatible email
+**Date:** May 2026
+
+**New:**
+- All components now use CSS variables — light/dark theme works everywhere
+  Previously FetchBar, FundamentalsBar, SummaryCards, HorizonTabs,
+  StockTable, StockRow, ImportBox, SectorControls had hardcoded dark colors
+- Email table reduced from 9 to 7 columns:
+  Ticker+Sector | Company | Price | Target+date | Days | Distance | Result
+  Max width ~600px — fits iPhone screen without horizontal scroll
+  Summary cards use HTML table (width%) instead of CSS flexbox for Gmail compat
+  No more overflow-x:auto needed
+
+**Files changed:**
+- All components: CSS variables via `var(--bg)`, `var(--text)` etc.
+- `src/components/EmailPreview.jsx` — 7-column email, nested HTML tables
+
+---
 
 ### v4.2.0 — Dark/light mode toggle + Email modal
 **Date:** May 2026
@@ -648,3 +667,4 @@ regardless of CORS headers on the target server.
 | v4.1.8           | 2026-05  | React only                | Email table horizontal scroll (Gmail fix)        |
 | v4.1.9           | 2026-05  | React only                | Default recipient email pre-filled               |
 | v4.2.0           | 2026-05  | React only                | Dark/light mode toggle + Email modal overlay     |
+| v4.2.1           | 2026-05  | React only                | Full light theme + 7-col mobile email            |

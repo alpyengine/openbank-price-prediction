@@ -793,6 +793,32 @@ git push origin v4.2.0
 
 
 # ===========================================================================
+# STEP 30 — v4.2.1  Full light theme + mobile email
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.2.1/. .
+
+git status
+git add .
+
+git commit -m "feat: full light theme and 7-column mobile email (v4.2.1)
+
+- All components converted to CSS variables (var(--bg) var(--text) etc.)
+  Light/dark toggle now works correctly across the entire app
+  FetchBar FundamentalsBar SummaryCards HorizonTabs StockTable StockRow
+  ImportBox SectorControls all updated
+- Email table: 7 columns (was 9), max-width 600px
+  Fits iPhone screen without horizontal scroll
+  Uses nested HTML tables for Gmail compatibility (no flexbox/grid)
+  Columns: Ticker+Sector / Company / Price / Target / Days / Distance / Result"
+
+git tag -a v4.2.1 -m "v4.2.1: full light theme and 7-column mobile email"
+git push origin main
+git push origin v4.2.1
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -867,6 +893,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.8/         -> v4.1.8
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.9/         -> v4.1.9
 #    /Users/alex/Downloads/openbank-price-prediction_v4.2.0/         -> v4.2.0
+#    /Users/alex/Downloads/openbank-price-prediction_v4.2.1/         -> v4.2.1
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

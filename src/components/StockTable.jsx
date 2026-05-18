@@ -3,48 +3,26 @@ import StockRow from './StockRow.jsx'
 import { formatDate, targetDates } from '../utils/dates.js'
 import { fmtMarketCap } from '../hooks/useFundamentals.js'
 
-const s = {
-  wrap:       { border: '1px solid #30363d', borderRadius: 8, overflowX: 'auto', marginBottom: '1.5rem' },
-  table:      { width: '100%', borderCollapse: 'collapse', fontSize: 12, tableLayout: 'fixed', minWidth: 1100 },
-  th:         { background: '#161b22', fontWeight: 500, fontSize: 11, color: '#8b949e', padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #30363d', verticalAlign: 'bottom', whiteSpace: 'nowrap' },
-  dateSub:    { display: 'block', fontSize: 9, fontWeight: 400, color: '#484f58' },
-  empty:      { padding: '24px 10px', textAlign: 'center', color: '#484f58', fontSize: 12 },
-  groupHdr:   { background: '#0d2136', borderBottom: '1px solid #1f6feb' },
-  groupCell:  { padding: '6px 10px', fontSize: 11, fontWeight: 600, color: '#58a6ff', cursor: 'pointer', userSelect: 'none' },
-  groupCount: { fontSize: 10, color: '#484f58', marginLeft: 8, fontWeight: 400 },
-}
-
 function Th({ w, date, children }) {
   return (
-    <th style={{ ...s.th, width: w }}>
+    <th style={{ background:'var(--bg-2)', fontWeight:500, fontSize:11, color:'var(--text-2)', padding:'8px 10px', textAlign:'left', borderBottom:'1px solid var(--border)', verticalAlign:'bottom', whiteSpace:'nowrap', width:w }}>
       {children}
-      {date && <span style={s.dateSub}>{formatDate(date)}</span>}
+      {date && <span style={{ display:'block', fontSize:9, fontWeight:400, color:'var(--text-3)' }}>{formatDate(date)}</span>}
     </th>
   )
 }
 
-export default function StockTable({
-  stocks, horizon, autoPrices, histPrices, overrides, horizonExpired,
-  fundamentals, groupBySector, filterSector, sortBySector,
-  onOverrideChange,
-}) {
+export default function StockTable({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, fundamentals, groupBySector, filterSector, sortBySector, onOverrideChange }) {
   const base = stocks.find(s => s.base)?.base
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
-
-  // Collapsed sector groups
   const [collapsed, setCollapsed] = useState({})
   const toggleGroup = (sector) => setCollapsed(prev => ({ ...prev, [sector]: !prev[sector] }))
 
-  // Apply filter
   const filtered = useMemo(() => {
     if (filterSector === 'all') return stocks
-    return stocks.filter(s => {
-      const f = fundamentals[s.t]
-      return f && f.sector === filterSector
-    })
+    return stocks.filter(s => fundamentals[s.t]?.sector === filterSector)
   }, [stocks, filterSector, fundamentals])
 
-  // Apply sort
   const sorted = useMemo(() => {
     if (!sortBySector) return filtered
     return [...filtered].sort((a, b) => {
@@ -54,7 +32,6 @@ export default function StockTable({
     })
   }, [filtered, sortBySector, fundamentals])
 
-  // Group by sector
   const groups = useMemo(() => {
     if (!groupBySector) return null
     const map = {}
@@ -84,8 +61,8 @@ export default function StockTable({
   const colSpan = 15
 
   return (
-    <div style={s.wrap}>
-      <table style={{ ...s.table, minWidth: 1180 }}>
+    <div style={{ border:'1px solid var(--border)', borderRadius:8, overflowX:'auto', marginBottom:'1.5rem' }}>
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed', minWidth:1180 }}>
         <thead>
           <tr>
             <Th w={56}>Ticker</Th>
@@ -107,27 +84,19 @@ export default function StockTable({
         </thead>
         <tbody>
           {sorted.length === 0 && (
-            <tr><td colSpan={colSpan} style={s.empty}>No stocks to display</td></tr>
+            <tr><td colSpan={colSpan} style={{ padding:'24px 10px', textAlign:'center', color:'var(--text-3)', fontSize:12 }}>No stocks to display</td></tr>
           )}
-
-          {/* Grouped view */}
           {groups && Object.entries(groups).map(([sector, sectorStocks]) => (
             <>
-              <tr key={`group-${sector}`} style={s.groupHdr}>
-                <td
-                  colSpan={colSpan}
-                  style={s.groupCell}
-                  onClick={() => toggleGroup(sector)}
-                >
+              <tr key={`group-${sector}`} style={{ background:'var(--blue-bg)', borderBottom:'1px solid var(--blue-bdr)' }}>
+                <td colSpan={colSpan} style={{ padding:'6px 10px', fontSize:11, fontWeight:600, color:'var(--blue)', cursor:'pointer', userSelect:'none' }} onClick={() => toggleGroup(sector)}>
                   {collapsed[sector] ? '▶' : '▼'} {sector}
-                  <span style={s.groupCount}>{sectorStocks.length} stock{sectorStocks.length > 1 ? 's' : ''}</span>
+                  <span style={{ fontSize:10, color:'var(--text-3)', marginLeft:8, fontWeight:400 }}>{sectorStocks.length} stock{sectorStocks.length > 1 ? 's' : ''}</span>
                 </td>
               </tr>
               {!collapsed[sector] && sectorStocks.map(renderRow)}
             </>
           ))}
-
-          {/* Flat view */}
           {!groups && sorted.map(renderRow)}
         </tbody>
       </table>
