@@ -203,8 +203,9 @@ function buildHtmlReport(stocks, horizon, autoPrices, histPrices, overrides, hor
     <div style="display:flex;gap:10px;flex-wrap:wrap;">${summaryCards}</div>
   </div>
 
-  <!-- Desktop table -->
-  <table class="desktop-table" style="width:100%;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:12px;">
+  <!-- Desktop table with horizontal scroll -->
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <table class="desktop-table" style="width:100%;min-width:700px;border-collapse:collapse;font-family:system-ui,sans-serif;font-size:12px;">
     <thead>
       <tr style="background:#f7f9fc;border-bottom:2px solid #e0e6ed;">
         <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:600;color:#8899aa;text-transform:uppercase;letter-spacing:0.8px;">Ticker</th>
@@ -221,6 +222,7 @@ function buildHtmlReport(stocks, horizon, autoPrices, histPrices, overrides, hor
     </thead>
     <tbody>${desktopRows}</tbody>
   </table>
+  </div>
 
   <!-- Mobile cards -->
   <div class="mobile-cards" style="padding:16px;">

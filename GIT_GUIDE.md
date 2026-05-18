@@ -726,6 +726,28 @@ git push origin v4.1.7
 
 
 # ===========================================================================
+# STEP 27 — v4.1.8  Email table horizontal scroll (Gmail fix)
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.1.8/. .
+
+git status
+git add .
+
+git commit -m "fix: email table horizontal scroll for Gmail web (v4.1.8)
+
+- Gmail ignores CSS @media queries — responsive breakpoints had no effect
+- Wrapped desktop table in overflow-x:auto div with min-width:700px
+- Gmail respects inline overflow-x style
+- Table now scrolls horizontally when window is too narrow to show all columns"
+
+git tag -a v4.1.8 -m "v4.1.8: email horizontal scroll Gmail fix"
+git push origin main
+git push origin v4.1.8
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -797,6 +819,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.5/         -> v4.1.5
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.6/         -> v4.1.6
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.7/         -> v4.1.7
+#    /Users/alex/Downloads/openbank-price-prediction_v4.1.8/         -> v4.1.8
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

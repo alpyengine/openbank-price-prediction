@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.1.7
+# Openbank Price Prediction — v4.1.8
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,20 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.1.8 — Email table horizontal scroll
+**Date:** May 2026
+
+**Fixed:**
+- Gmail web clips the email table when the window is narrow
+- Gmail ignores CSS @media queries so responsive breakpoints don't work
+- Fix: wrapped desktop table in `overflow-x:auto` div with `min-width:700px`
+  Gmail respects inline overflow-x — table stays readable with a scrollbar
+
+**Files changed:**
+- `src/components/EmailPreview.jsx` — scroll wrapper around desktop table
+
+---
 
 ### v4.1.7 — Responsive email + days remaining
 **Date:** May 2026
@@ -595,3 +609,4 @@ regardless of CORS headers on the target server.
 | v4.1.5           | 2026-05  | React only                | HTML email report with styling and fundamentals  |
 | v4.1.6           | 2026-05  | React only                | Light theme email + Base price column in table   |
 | v4.1.7           | 2026-05  | React only                | Responsive email + days remaining column         |
+| v4.1.8           | 2026-05  | React only                | Email table horizontal scroll (Gmail fix)        |
