@@ -27,9 +27,10 @@ export default function App() {
   }, [darkMode])
 
   // Sector controls
-  const [filterSector,  setFilterSector]  = useState('all')
-  const [groupBySector, setGroupBySector] = useState(false)
-  const [sortBySector,  setSortBySector]  = useState(false)
+  const [filterSector,   setFilterSector]   = useState('all')
+  const [filterIndustry, setFilterIndustry] = useState('all')
+  const [groupBySector,  setGroupBySector]  = useState(false)
+  const [sortBySector,   setSortBySector]   = useState(false)
 
   const {
     autoPrices, histPrices,
@@ -72,12 +73,25 @@ export default function App() {
     return [...set].sort()
   }, [stocks, fundamentals])
 
+  // Unique industries — filtered by selected sector
+  const industries = useMemo(() => {
+    const set = new Set()
+    for (const s of stocks) {
+      const f = fundamentals[s.t]
+      if (!f?.industry) continue
+      if (filterSector !== 'all' && f.sector !== filterSector) continue
+      set.add(f.industry)
+    }
+    return [...set].sort()
+  }, [stocks, fundamentals, filterSector])
+
   // Handlers
   const handleImport = useCallback((newStocks) => {
     setStocks(newStocks)
     setOverrides({})
     setHorizon('best')
     setFilterSector('all')
+    setFilterIndustry('all')
     setGroupBySector(false)
     setSortBySector(false)
     resetPrices()
@@ -139,10 +153,13 @@ export default function App() {
 
       <SectorControls
         sectors={sectors}
+        industries={industries}
         filterSector={filterSector}
+        filterIndustry={filterIndustry}
         groupBySector={groupBySector}
         sortBySector={sortBySector}
-        onFilterChange={setFilterSector}
+        onFilterSectorChange={(v) => { setFilterSector(v); setFilterIndustry('all') }}
+        onFilterIndustryChange={setFilterIndustry}
         onGroupToggle={() => setGroupBySector(v => !v)}
         onSortToggle={() => setSortBySector(v => !v)}
       />
@@ -157,6 +174,7 @@ export default function App() {
         fundamentals={fundamentals}
         groupBySector={groupBySector}
         filterSector={filterSector}
+        filterIndustry={filterIndustry}
         sortBySector={sortBySector}
         onOverrideChange={handleOverrideChange}
       />

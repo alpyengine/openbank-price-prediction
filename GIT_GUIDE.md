@@ -847,6 +847,31 @@ git push origin v4.3.0
 
 
 # ===========================================================================
+# STEP 32 — v4.4.0  Industry column + expanded fundamentals panel
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.4.0/. .
+
+git status
+git add .
+
+git commit -m "feat: industry column and expanded fundamentals panel (v4.4.0)
+
+- Industry column added to main table (between Sector and Cur.)
+- Industry filter dropdown in SectorControls, resets when Sector changes
+- Expanded panel 5 new fields: Beta, Last Dividend, CIK (SEC),
+  Website (clickable link), Description (dedicated modal overlay)
+- Description modal: closes on X, Escape, or click outside
+- FMP fetch updated: website, lastDividend, cik, description
+- StockTable: colSpan 16, minWidth 1280px"
+
+git tag -a v4.4.0 -m "v4.4.0: industry column and expanded fundamentals"
+git push origin main
+git push origin v4.4.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -923,6 +948,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.2.0/         -> v4.2.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.2.1/         -> v4.2.1
 #    /Users/alex/Downloads/openbank-price-prediction_v4.3.0/         -> v4.3.0
+#    /Users/alex/Downloads/openbank-price-prediction_v4.4.0/         -> v4.4.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

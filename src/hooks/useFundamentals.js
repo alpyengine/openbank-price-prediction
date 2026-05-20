@@ -36,10 +36,14 @@ async function fetchFMPProfile(ticker) {
   if (!Array.isArray(data) || !data.length) throw new Error('FMP: no data')
   const p = data[0]
   return {
-    sector:    p.sector    || '--',
-    industry:  p.industry  || '--',
-    marketCap: p.marketCap || null,
-    beta:      p.beta      || null,
+    sector:       p.sector       || '--',
+    industry:     p.industry     || '--',
+    marketCap:    p.marketCap    || null,
+    beta:         p.beta         || null,
+    website:      p.website      || null,
+    lastDividend: p.lastDividend || null,
+    cik:          p.cik          || null,
+    description:  p.description  || null,
   }
 }
 
@@ -81,11 +85,15 @@ export function useFundamentals() {
         const fwdPE    = forwardPE.status === 'fulfilled' ? forwardPE.value : null
 
         newData[s.t] = {
-          sector:    fmpData.sector    || '--',
-          industry:  fmpData.industry  || '--',
-          marketCap: fmpData.marketCap || null,
-          beta:      fmpData.beta      || null,
-          forwardPE: fwdPE,
+          sector:       fmpData.sector       || '--',
+          industry:     fmpData.industry     || '--',
+          marketCap:    fmpData.marketCap    || null,
+          beta:         fmpData.beta         || null,
+          website:      fmpData.website      || null,
+          lastDividend: fmpData.lastDividend || null,
+          cik:          fmpData.cik          || null,
+          description:  fmpData.description  || null,
+          forwardPE:    fwdPE,
         }
 
         ok++

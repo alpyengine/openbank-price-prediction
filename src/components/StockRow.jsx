@@ -4,7 +4,8 @@ import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey 
 import { fmtMarketCap } from '../hooks/useFundamentals.js'
 
 const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded,     setExpanded]     = useState(false)
+  const [showDesc,     setShowDesc]     = useState(false)
 
   const best      = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
   const tgt       = getTarget(stock, horizon)
@@ -40,13 +41,50 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
     if (e.key==='Escape') { setVal(''); onOverrideChange(stock.t, null); e.target.blur() }
   }, [stock.t, onOverrideChange])
 
-  const sectorText  = fundamental===undefined?'...':fundamental===null?'--':fundamental.sector||'--'
-  const sectorColor = (fundamental===undefined||fundamental===null) ? 'var(--text-3)' : 'var(--text-2)'
+  // Close description modal on Escape
+  useEffect(() => {
+    if (!showDesc) return
+    const handler = (e) => { if (e.key === 'Escape') setShowDesc(false) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showDesc])
+
+  const sectorText   = fundamental===undefined?'...':fundamental===null?'--':fundamental.sector  ||'--'
+  const industryText = fundamental===undefined?'...':fundamental===null?'--':fundamental.industry ||'--'
+  const fundColor    = (fundamental===undefined||fundamental===null) ? 'var(--text-3)' : 'var(--text-2)'
 
   const td = { padding:'7px 10px', verticalAlign:'middle' }
 
   return (
     <>
+      {/* Description modal */}
+      {showDesc && fundamental?.description && (
+        <tr style={{ display:'contents' }}>
+          <td style={{ padding:0 }}>
+            <div
+              style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, backdropFilter:'blur(2px)' }}
+              onClick={() => setShowDesc(false)}
+            >
+              <div
+                style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', maxWidth:540, width:'100%', maxHeight:'80vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.3)' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--text)' }}>{stock.t} — {stock.co}</div>
+                    <div style={{ fontSize:'var(--fs-xs)', color:'var(--text-3)', marginTop:2 }}>{fundamental.industry} · {fundamental.sector}</div>
+                  </div>
+                  <button style={{ fontSize:18, border:'none', background:'transparent', cursor:'pointer', color:'var(--text-3)', padding:'2px 6px', borderRadius:'var(--radius)', fontFamily:'inherit' }} onClick={() => setShowDesc(false)}>✕</button>
+                </div>
+                <div style={{ padding:18, fontSize:'var(--fs-sm)', color:'var(--text-2)', lineHeight:1.7 }}>
+                  {fundamental.description}
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+
       <tr style={{ borderBottom: expanded ? 'none' : '1px solid var(--border)', cursor:'pointer' }} onClick={() => setExpanded(v=>!v)}>
 
         <td style={{ ...td, fontWeight:600, fontSize:12, color:'var(--text)' }}>
@@ -54,7 +92,8 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           {stock.t}
         </td>
         <td style={{ ...td, fontSize:11, color:'var(--text-2)' }}>{stock.co}</td>
-        <td style={{ ...td, fontSize:11, color:sectorColor }}>{sectorText}</td>
+        <td style={{ ...td, fontSize:11, color:fundColor }}>{sectorText}</td>
+        <td style={{ ...td, fontSize:11, color:fundColor }}>{industryText}</td>
         <td style={{ ...td, fontSize:11, color:'var(--text-3)' }}>{stock.cu}</td>
         <td style={{ ...td, fontSize:11, color:'var(--text-3)' }}>{stock.base ? formatDate(stock.base) : '--'}</td>
         <td style={{ ...td, fontSize:12, color:'var(--text-2)', fontWeight:500 }}>{stock.b ? stock.b.toFixed(2) : '--'}</td>
@@ -143,8 +182,8 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
       {expanded && (
         <tr style={{ borderBottom:'1px solid var(--border)' }}>
-          <td colSpan={15} style={{ padding:'0 10px 10px 32px', background:'var(--bg)' }}>
-            <FundamentalsPanel fundamental={fundamental} ticker={stock.t} tg={tg} />
+          <td colSpan={16} style={{ padding:'0 10px 10px 32px', background:'var(--surface2)' }}>
+            <FundamentalsPanel fundamental={fundamental} ticker={stock.t} tg={tg} onShowDesc={() => setShowDesc(true)} />
           </td>
         </tr>
       )}
@@ -154,43 +193,75 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
 export default StockRow
 
-function FundamentalsPanel({ fundamental, ticker, tg }) {
+function FundamentalsPanel({ fundamental, ticker, tg, onShowDesc }) {
   const horizonItems = tg ? [
     { label:'1M target', date:tg.d1 },{ label:'3M target', date:tg.d3 },
     { label:'6M target', date:tg.d6 },{ label:'12M target', date:tg.d12 },
   ] : []
 
-  const fundItems = fundamental ? [
-    { label:'Sector',      value: fundamental.sector    || '--' },
-    { label:'Industry',    value: fundamental.industry   || '--' },
-    { label:'Market Cap',  value: fmtMarketCap(fundamental.marketCap) },
-    { label:'Forward P/E', value: fundamental.forwardPE  ? fundamental.forwardPE.toFixed(2) : '--' },
-    { label:'Beta',        value: fundamental.beta        ? fundamental.beta.toFixed(2)      : '--' },
-  ] : []
+  const lbl = { fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:3, fontWeight:700 }
+  const val = { fontSize:'var(--fs-sm)', color:'var(--text)', fontWeight:500 }
 
   return (
-    <div style={{ display:'flex', gap:24, flexWrap:'wrap', paddingTop:6 }}>
+    <div style={{ display:'flex', gap:20, flexWrap:'wrap', paddingTop:8, alignItems:'flex-start' }}>
+
+      {/* Horizon dates */}
       {horizonItems.map(({ label, date }) => {
         const dl = daysLeft(date)
         const expired = dl < 0
         const color = expired?'var(--red)':dl<=14?'var(--amber)':'var(--green)'
         return (
           <div key={label}>
-            <div style={{ fontSize:9, color:'var(--text-3)', marginBottom:2 }}>{label}</div>
+            <div style={lbl}>{label}</div>
             <div style={{ fontSize:12, fontWeight:600, color }}>{expired?`${Math.abs(dl)}d ago`:`${dl}d left`}</div>
             <div style={{ fontSize:9, color:'var(--text-3)', marginTop:1 }}>{formatDate(date)}</div>
           </div>
         )
       })}
-      {horizonItems.length>0 && (fundamental||fundamental===null) && <div style={{ width:1, background:'var(--border)', alignSelf:'stretch', margin:'0 4px' }} />}
+
+      {horizonItems.length>0 && <div style={{ width:1, background:'var(--border)', alignSelf:'stretch', margin:'0 4px' }} />}
+
       {fundamental===undefined && <span style={{ fontSize:11, color:'var(--text-3)', alignSelf:'center' }}>Click "Fetch fundamentals" to load data for {ticker}</span>}
       {fundamental===null      && <span style={{ fontSize:11, color:'var(--red)',    alignSelf:'center' }}>Fundamentals unavailable for {ticker}</span>}
-      {fundItems.map(({ label, value }) => (
-        <div key={label}>
-          <div style={{ fontSize:9, color:'var(--text-3)', marginBottom:2 }}>{label}</div>
-          <div style={{ fontSize:12, color:'var(--text)', fontWeight:500 }}>{value}</div>
+
+      {fundamental && <>
+        <div><div style={lbl}>Sector</div>     <div style={val}>{fundamental.sector    || '--'}</div></div>
+        <div><div style={lbl}>Industry</div>   <div style={val}>{fundamental.industry   || '--'}</div></div>
+        <div><div style={lbl}>Market Cap</div> <div style={val}>{fmtMarketCap(fundamental.marketCap)}</div></div>
+        <div><div style={lbl}>Forward P/E</div><div style={val}>{fundamental.forwardPE  ? fundamental.forwardPE.toFixed(2) : '--'}</div></div>
+        <div><div style={lbl}>Beta</div>       <div style={val}>{fundamental.beta        ? fundamental.beta.toFixed(2)      : '--'}</div></div>
+        <div><div style={lbl}>Last Dividend</div><div style={val}>{fundamental.lastDividend ? `$${fundamental.lastDividend}` : '--'}</div></div>
+        <div><div style={lbl}>CIK (SEC)</div>  <div style={{ fontSize:'var(--fs-xs)', color:'var(--text)', fontWeight:500, fontFamily:'monospace' }}>{fundamental.cik || '--'}</div></div>
+
+        <div style={{ width:1, background:'var(--border)', alignSelf:'stretch', margin:'0 4px' }} />
+
+        {/* Website */}
+        <div>
+          <div style={lbl}>Website</div>
+          {fundamental.website
+            ? <a href={fundamental.website} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize:'var(--fs-sm)', color:'var(--accent)', fontWeight:500, textDecoration:'none' }}
+                onClick={e => e.stopPropagation()}
+              >
+                🔗 {fundamental.website.replace(/^https?:\/\/(www\.)?/, '')}
+              </a>
+            : <span style={val}>--</span>
+          }
         </div>
-      ))}
+
+        {/* Description */}
+        {fundamental.description && (
+          <div>
+            <div style={lbl}>Description</div>
+            <button
+              style={{ fontSize:'var(--fs-xxs)', padding:'3px 8px', borderRadius:6, border:'1.5px solid var(--border-blue)', background:'var(--surface)', color:'var(--accent)', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}
+              onClick={e => { e.stopPropagation(); onShowDesc() }}
+            >
+              📄 Read more
+            </button>
+          </div>
+        )}
+      </>}
     </div>
   )
 }

@@ -12,16 +12,20 @@ function Th({ w, date, children }) {
   )
 }
 
-export default function StockTable({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, fundamentals, groupBySector, filterSector, sortBySector, onOverrideChange }) {
+export default function StockTable({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, fundamentals, groupBySector, filterSector, filterIndustry, sortBySector, onOverrideChange }) {
   const base = stocks.find(s => s.base)?.base
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
   const [collapsed, setCollapsed] = useState({})
   const toggleGroup = (sector) => setCollapsed(prev => ({ ...prev, [sector]: !prev[sector] }))
 
   const filtered = useMemo(() => {
-    if (filterSector === 'all') return stocks
-    return stocks.filter(s => fundamentals[s.t]?.sector === filterSector)
-  }, [stocks, filterSector, fundamentals])
+    return stocks.filter(s => {
+      const f = fundamentals[s.t]
+      if (filterSector   !== 'all' && f?.sector   !== filterSector)   return false
+      if (filterIndustry !== 'all' && f?.industry !== filterIndustry) return false
+      return true
+    })
+  }, [stocks, filterSector, filterIndustry, fundamentals])
 
   const sorted = useMemo(() => {
     if (!sortBySector) return filtered
@@ -58,16 +62,17 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
     />
   )
 
-  const colSpan = 15
+  const colSpan = 16
 
   return (
     <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflowX:'auto', marginBottom:'1.5rem' }}>
-      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed', minWidth:1180 }}>
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed', minWidth:1280 }}>
         <thead>
           <tr>
             <Th w={56}>Ticker</Th>
             <Th w={110}>Company</Th>
-            <Th w={90}>Sector</Th>
+            <Th w={88}>Sector</Th>
+            <Th w={100}>Industry</Th>
             <Th w={40}>Cur.</Th>
             <Th w={76}>Base date</Th>
             <Th w={76}>Base price</Th>
@@ -88,8 +93,8 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
           )}
           {groups && Object.entries(groups).map(([sector, sectorStocks]) => (
             <>
-              <tr key={`group-${sector}`} style={{ background:'var(--blue-bg)', borderBottom:'1px solid var(--blue-bdr)' }}>
-                <td colSpan={colSpan} style={{ padding:'6px 10px', fontSize:11, fontWeight:600, color:'var(--blue)', cursor:'pointer', userSelect:'none' }} onClick={() => toggleGroup(sector)}>
+              <tr key={`group-${sector}`} style={{ background:'var(--pill-bg)', borderBottom:'1px solid var(--border-blue)' }}>
+                <td colSpan={colSpan} style={{ padding:'6px 10px', fontSize:11, fontWeight:600, color:'var(--accent)', cursor:'pointer', userSelect:'none' }} onClick={() => toggleGroup(sector)}>
                   {collapsed[sector] ? '▶' : '▼'} {sector}
                   <span style={{ fontSize:10, color:'var(--text-3)', marginLeft:8, fontWeight:400 }}>{sectorStocks.length} stock{sectorStocks.length > 1 ? 's' : ''}</span>
                 </td>

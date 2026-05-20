@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.3.0
+# Openbank Price Prediction — v4.4.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,32 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.4.0 — Industry column + expanded fundamentals panel
+**Date:** May 2026
+
+**New:**
+- **Industry column** added to the main table — new column between Sector and Cur.
+- **Industry filter dropdown** in SectorControls — same filter/group/sort
+  pattern as Sector. Resets to "All industries" when Sector filter changes.
+  Only shows industries matching the selected sector.
+- **Expanded panel** — 5 new fields from FMP `/stable/profile`:
+  - **Beta** — volatility vs S&P500
+  - **Last Dividend** — most recent dividend per share (prefixed with $)
+  - **CIK (SEC)** — SEC identifier in monospace font
+  - **Website** — clickable link opening company site in new tab
+  - **Description** — 📄 Read more button opens a dedicated modal overlay
+    with full company description. Closes on ✕, Escape, or click outside.
+- FMP fetch updated to extract: `website`, `lastDividend`, `cik`, `description`
+
+**Files changed:**
+- `src/hooks/useFundamentals.js` — 4 new fields from FMP profile
+- `src/App.jsx` — `filterIndustry` state, `industries` computed, reset on import
+- `src/components/SectorControls.jsx` — industry dropdown
+- `src/components/StockTable.jsx` — Industry column header, colSpan 16, minWidth 1280
+- `src/components/StockRow.jsx` — industry cell, description modal, new panel fields
+
+---
 
 ### v4.3.0 — Design system v5
 **Date:** May 2026
@@ -690,3 +716,4 @@ regardless of CORS headers on the target server.
 | v4.2.0           | 2026-05  | React only                | Dark/light mode toggle + Email modal overlay     |
 | v4.2.1           | 2026-05  | React only                | Full light theme + 7-col mobile email            |
 | v4.3.0           | 2026-05  | React only                | Design system v5 — azul marino dark + btn roles  |
+| v4.4.0           | 2026-05  | React only                | Industry column + expanded fundamentals panel     |
