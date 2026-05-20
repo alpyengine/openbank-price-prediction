@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.2.1
+# Openbank Price Prediction — v4.3.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,27 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.3.0 — Design system v5
+**Date:** May 2026
+
+**New:**
+- Full adoption of personal design system v5 across all components
+- **Dark mode** — azul marino (`#273550`) replacing pure black. Surfaces
+  `#2e3f60` / `#364970`, text `#eef2fa` (near white), muted `#96aece`
+- **Light mode** — `#f0f2f5` background, white surfaces, text `#1a1f2e`,
+  font size base 15px (up from 14px) for better readability
+- **Button system** — five distinct roles:
+  Toggle (blue border square), Neutral (grey), Blue outline, Green fill, Clear (red text)
+- Default mode changed to light
+- CSS variables renamed to design-v5 convention
+- Cards: `border-radius: 12px` + `box-shadow: var(--shadow)`
+
+**Files changed:**
+- `src/styles/global.css` — full design-v5 palette
+- All components updated with new tokens and button styles
+
+---
 
 ### v4.2.1 — Full light theme + mobile-compatible email
 **Date:** May 2026
@@ -668,3 +689,4 @@ regardless of CORS headers on the target server.
 | v4.1.9           | 2026-05  | React only                | Default recipient email pre-filled               |
 | v4.2.0           | 2026-05  | React only                | Dark/light mode toggle + Email modal overlay     |
 | v4.2.1           | 2026-05  | React only                | Full light theme + 7-col mobile email            |
+| v4.3.0           | 2026-05  | React only                | Design system v5 — azul marino dark + btn roles  |

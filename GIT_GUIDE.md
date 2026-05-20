@@ -819,6 +819,34 @@ git push origin v4.2.1
 
 
 # ===========================================================================
+# STEP 31 — v4.3.0  Design system v5
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.3.0/. .
+
+git status
+git add .
+
+git commit -m "feat: design system v5 — azul marino dark mode and button roles (v4.3.0)
+
+- Dark mode: azul marino #273550 (not black), surfaces #2e3f60/#364970
+  Text #eef2fa near white, muted #96aece visible, th headers #d8e4f8
+- Light mode: #f0f2f5 bg, white surfaces, text #1a1f2e, base font 15px
+- Button roles: toggle (blue border square), neutral (grey), blue outline,
+  green fill (fetch/csv), clear (red text transparent bg)
+- Default mode changed to light
+- CSS vars: --surface/--surface2/--text-2/--text-3/--border-blue etc.
+- Cards: border-radius 12px + box-shadow
+- All components updated: Header FetchBar FundamentalsBar SummaryCards
+  HorizonTabs SectorControls ImportBox StockTable StockRow global.css"
+
+git tag -a v4.3.0 -m "v4.3.0: design system v5"
+git push origin main
+git push origin v4.3.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -894,6 +922,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.1.9/         -> v4.1.9
 #    /Users/alex/Downloads/openbank-price-prediction_v4.2.0/         -> v4.2.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.2.1/         -> v4.2.1
+#    /Users/alex/Downloads/openbank-price-prediction_v4.3.0/         -> v4.3.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

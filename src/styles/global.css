@@ -1,65 +1,85 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── Dark theme (default) ─────────────────────────────────────────────────── */
-:root, [data-theme="dark"] {
-  --bg:          #0d1117;
-  --bg-2:        #161b22;
-  --bg-3:        #21262d;
-  --border:      #30363d;
-  --border-2:    #21262d;
-  --text:        #e6edf3;
-  --text-2:      #8b949e;
-  --text-3:      #484f58;
-  --green:       #3fb950;
-  --green-bg:    #1a4a2e;
-  --green-bdr:   #238636;
-  --blue:        #58a6ff;
-  --blue-bg:     #0d2136;
-  --blue-bdr:    #1f6feb;
-  --amber:       #d29922;
-  --amber-bg:    #3d2d00;
-  --red:         #f85149;
-  --red-bg:      #3d1515;
-  --font-mono:   'SF Mono', 'Fira Code', monospace;
-  --radius:      6px;
-  --radius-lg:   8px;
+/* ── Design v5 — Light theme (default) ───────────────────────────────────── */
+:root, [data-theme="light"] {
+  --bg:             #f0f2f5;
+  --surface:        #ffffff;
+  --surface2:       #f4f5f8;
+  --border:         rgba(0,0,0,0.09);
+  --border-blue:    rgba(29,78,216,0.45);
+  --border-green:   rgba(22,163,74,0.4);
+  --border-red:     rgba(220,38,38,0.35);
+  --text:           #1a1f2e;
+  --text-2:         #4b5563;
+  --text-3:         #6b7280;
+  --th-bg:          #eef0f6;
+  --th-text:        #374151;
+  --accent:         #1d4ed8;
+  --green:          #16a34a;
+  --green-bg:       #dcfce7;
+  --green-bdr:      rgba(22,163,74,0.4);
+  --red:            #dc2626;
+  --red-bg:         #fee2e2;
+  --red-bdr:        rgba(220,38,38,0.35);
+  --amber:          #b45309;
+  --amber-bg:       #fef3c7;
+  --blue:           #1d4ed8;
+  --blue-bg:        #e0e7ff;
+  --blue-bdr:       rgba(29,78,216,0.45);
+  --pill-bg:        #e0e7ff;
+  --pill-text:      #3730a3;
+  --shadow:         0 1px 4px rgba(0,0,0,0.07);
+  --fs-base:        15px;
+  --fs-sm:          13px;
+  --fs-xs:          12px;
+  --fs-xxs:         11.5px;
+  --radius:         8px;
+  --radius-lg:      12px;
 }
 
-/* ── Light theme ──────────────────────────────────────────────────────────── */
-[data-theme="light"] {
-  --bg:          #f6f8fa;
-  --bg-2:        #ffffff;
-  --bg-3:        #eaeef2;
-  --border:      #d0d7de;
-  --border-2:    #eaeef2;
-  --text:        #1f2328;
-  --text-2:      #656d76;
-  --text-3:      #9198a1;
-  --green:       #1a7f37;
-  --green-bg:    #dafbe1;
-  --green-bdr:   #2da44e;
-  --blue:        #0969da;
-  --blue-bg:     #ddf4ff;
-  --blue-bdr:    #0969da;
-  --amber:       #9a6700;
-  --amber-bg:    #fff8c5;
-  --red:         #cf222e;
-  --red-bg:      #ffebe9;
-  --red-bdr:     #cf222e;
+/* ── Design v5 — Dark theme (azul marino, NO negro) ──────────────────────── */
+[data-theme="dark"] {
+  --bg:             #273550;
+  --surface:        #2e3f60;
+  --surface2:       #364970;
+  --border:         rgba(160,195,255,0.15);
+  --border-blue:    rgba(122,184,250,0.45);
+  --border-green:   rgba(52,211,153,0.3);
+  --border-red:     rgba(248,113,113,0.3);
+  --text:           #eef2fa;
+  --text-2:         #cad6f0;
+  --text-3:         #96aece;
+  --th-bg:          #293858;
+  --th-text:        #d8e4f8;
+  --accent:         #7ab8fa;
+  --green:          #34d399;
+  --green-bg:       #083325;
+  --green-bdr:      rgba(52,211,153,0.3);
+  --red:            #f87171;
+  --red-bg:         #7f1d1d;
+  --red-bdr:        rgba(248,113,113,0.3);
+  --amber:          #fbbf24;
+  --amber-bg:       #3d2d00;
+  --blue:           #7ab8fa;
+  --blue-bg:        #1e3175;
+  --blue-bdr:       rgba(122,184,250,0.45);
+  --pill-bg:        #1e3175;
+  --pill-text:      #c8d8ff;
+  --shadow:         0 1px 4px rgba(0,0,0,0.3);
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
   padding: 1.5rem;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--fs-base);
+  line-height: 1.55;
   transition: background 0.2s, color 0.2s;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-2); }
+::-webkit-scrollbar-track { background: var(--surface); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -78,9 +98,9 @@ body {
 }
 
 .modal-box {
-  background: var(--bg-2);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 680px;
   max-height: 90vh;

@@ -47,7 +47,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
   return (
     <>
-      <tr style={{ borderBottom: expanded ? 'none' : '1px solid var(--border-2)', cursor:'pointer' }} onClick={() => setExpanded(v=>!v)}>
+      <tr style={{ borderBottom: expanded ? 'none' : '1px solid var(--border)', cursor:'pointer' }} onClick={() => setExpanded(v=>!v)}>
 
         <td style={{ ...td, fontWeight:600, fontSize:12, color:'var(--text)' }}>
           <span style={{ marginRight:4, fontSize:9, color:'var(--text-3)' }}>{expanded?'▼':'▶'}</span>
@@ -142,7 +142,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
       </tr>
 
       {expanded && (
-        <tr style={{ borderBottom:'1px solid var(--border-2)' }}>
+        <tr style={{ borderBottom:'1px solid var(--border)' }}>
           <td colSpan={15} style={{ padding:'0 10px 10px 32px', background:'var(--bg)' }}>
             <FundamentalsPanel fundamental={fundamental} ticker={stock.t} tg={tg} />
           </td>
@@ -211,7 +211,7 @@ function DateTag({ status }) {
 }
 
 function Badge({ type, children }) {
-  const cfg = { hit:{ bg:'var(--green-bg)', color:'var(--green)' }, close:{ bg:'var(--amber-bg)', color:'var(--amber)' }, miss:{ bg:'var(--red-bg)', color:'var(--red)' }, wait:{ bg:'var(--bg-3)', color:'var(--text-2)' } }
+  const cfg = { hit:{ bg:'var(--green-bg)', color:'var(--green)' }, close:{ bg:'var(--amber-bg)', color:'var(--amber)' }, miss:{ bg:'var(--red-bg)', color:'var(--red)' }, wait:{ bg:'var(--surface2)', color:'var(--text-2)' } }
   const c = cfg[type]
   return <span style={{ display:'inline-flex', fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:20, background:c.bg, color:c.color }}>{children}</span>
 }

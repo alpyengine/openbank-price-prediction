@@ -228,7 +228,7 @@ export default function EmailPreview({ stocks, horizon, autoPrices, histPrices, 
               autoFocus
             />
             <button
-              style={{ fontSize:12, padding:'7px 16px', borderRadius:6, cursor: sending?'not-allowed':'pointer', fontFamily:'inherit', border:'1px solid var(--green-bdr)', background:'var(--green-bg)', color:'var(--green)', flexShrink:0, fontWeight:600, opacity: sending?0.4:1 }}
+              style={{ fontSize:12, padding:'7px 16px', borderRadius:6, cursor: sending?'not-allowed':'pointer', fontFamily:'inherit', border:'1px solid var(--border-green)', background:'var(--green-bg)', color:'var(--green)', flexShrink:0, fontWeight:600, opacity: sending?0.4:1 }}
               disabled={sending}
               onClick={handleSend}
             >
@@ -244,7 +244,7 @@ export default function EmailPreview({ stocks, horizon, autoPrices, histPrices, 
           )}
 
           <div style={{ display:'flex', gap:8, marginTop:12 }}>
-            <button style={{ fontSize:12, padding:'6px 14px', borderRadius:6, cursor:'pointer', fontFamily:'inherit', border:'1px solid var(--blue-bdr)', background:'var(--blue-bg)', color:'var(--blue)' }} onClick={handleCopy}>Copy HTML</button>
+            <button style={{ fontSize:12, padding:'6px 14px', borderRadius:6, cursor:'pointer', fontFamily:'inherit', border:'1px solid var(--border-blue)', background:'var(--blue-bg)', color:'var(--blue)' }} onClick={handleCopy}>Copy HTML</button>
             <button style={{ fontSize:12, padding:'6px 14px', borderRadius:6, cursor:'pointer', fontFamily:'inherit', border:'1px solid var(--border)', background:'transparent', color:'var(--text)' }} onClick={onClose}>Close</button>
           </div>
         </div>

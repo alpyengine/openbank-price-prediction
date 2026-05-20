@@ -5,7 +5,7 @@ import { fmtMarketCap } from '../hooks/useFundamentals.js'
 
 function Th({ w, date, children }) {
   return (
-    <th style={{ background:'var(--bg-2)', fontWeight:500, fontSize:11, color:'var(--text-2)', padding:'8px 10px', textAlign:'left', borderBottom:'1px solid var(--border)', verticalAlign:'bottom', whiteSpace:'nowrap', width:w }}>
+    <th style={{ background:'var(--surface)', fontWeight:500, fontSize:11, color:'var(--text-2)', padding:'8px 10px', textAlign:'left', borderBottom:'1px solid var(--border)', verticalAlign:'bottom', whiteSpace:'nowrap', width:w }}>
       {children}
       {date && <span style={{ display:'block', fontSize:9, fontWeight:400, color:'var(--text-3)' }}>{formatDate(date)}</span>}
     </th>
@@ -61,7 +61,7 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
   const colSpan = 15
 
   return (
-    <div style={{ border:'1px solid var(--border)', borderRadius:8, overflowX:'auto', marginBottom:'1.5rem' }}>
+    <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflowX:'auto', marginBottom:'1.5rem' }}>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed', minWidth:1180 }}>
         <thead>
           <tr>

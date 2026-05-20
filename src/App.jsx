@@ -19,7 +19,7 @@ export default function App() {
   const [horizon,      setHorizon]      = useState('best')
   const [overrides,    setOverrides]    = useState({})
   const [showEmail,    setShowEmail]    = useState(false)
-  const [darkMode,     setDarkMode]     = useState(true)
+  const [darkMode,     setDarkMode]     = useState(false)
 
   // Apply theme to document root
   useEffect(() => {
