@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { usePriceFetch }     from './hooks/usePriceFetch.js'
 import { useFundamentals }   from './hooks/useFundamentals.js'
+import { useHistory }        from './hooks/useHistory.js'
 import { DEFAULT_STOCKS }    from './utils/stocks.js'
 import { targetDates, dateStatus } from './utils/dates.js'
 
@@ -13,6 +14,7 @@ import HorizonTabs      from './components/HorizonTabs.jsx'
 import StockTable       from './components/StockTable.jsx'
 import ImportBox        from './components/ImportBox.jsx'
 import EmailPreview     from './components/EmailPreview.jsx'
+import AccuracyChart    from './components/AccuracyChart.jsx'
 
 export default function App() {
   const [stocks,       setStocks]       = useState(DEFAULT_STOCKS)
@@ -38,6 +40,12 @@ export default function App() {
     fetchCurrentBatch, fetchHistoricalForHorizon,
     reset: resetPrices,
   } = usePriceFetch()
+
+  const {
+    history, stats, loading: histLoading, saving: histSaving,
+    log: histLog, configured: histConfigured,
+    load: loadHistory, saveBatch,
+  } = useHistory()
 
   const {
     fundamentals, loading: fundLoading, log: fundLog,
@@ -180,6 +188,17 @@ export default function App() {
       />
 
       <ImportBox onImport={handleImport} />
+
+      <AccuracyChart
+        stats={stats}
+        history={history}
+        loading={histLoading}
+        saving={histSaving}
+        log={histLog}
+        configured={histConfigured}
+        onLoad={loadHistory}
+        onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon })}
+      />
 
       {showEmail && (
         <EmailPreview

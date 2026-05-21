@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.4.0
+# Openbank Price Prediction — v4.5.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -119,6 +119,48 @@ openbank-price-prediction/
 ---
 
 ## Changelog
+
+### v4.5.0 — Accuracy tracking with GitHub persistence
+**Date:** May 2026
+
+**New:**
+- **Accuracy chart** — line chart showing HIT rate % per horizon (1M/3M/6M/12M)
+  over time, one data point per saved batch
+- **5 KPI cards** — Total evaluated, Overall HIT rate, Best horizon, Worst
+  horizon, Batches tracked
+- **Breakdown table** — HIT/CLOSE/MISS counts and rates per horizon with
+  color-coded accuracy bars (green/amber/red segments)
+- **Batch history table** — all saved batches with date, counts, HIT rate
+  and save timestamp
+- **GitHub persistence** — results saved to private repo `openbank-price-data`
+  via GitHub API (PUT `/repos/:owner/:repo/contents/:path`)
+  - `Load history` button — fetches `data/history.json` from GitHub
+  - `Save batch results` button — evaluates current stocks and commits results
+  - Each save creates a new commit in the data repo with message
+    `data: update history.json (N batches)`
+- **Storage abstraction layer** — `src/services/storage.js` isolates all
+  GitHub API calls. Future migration to Supabase only requires changing
+  this file — the rest of the app is unaffected
+- **`useHistory` hook** — manages load/save/compute stats lifecycle
+- Graceful degradation — if GitHub not configured, shows setup instructions
+- Two new env variables: `VITE_GITHUB_TOKEN`, `VITE_GITHUB_REPO`
+
+**Architecture:**
+```
+App → useHistory → storage.js → GitHub API → openbank-price-data (private repo)
+                                           → data/history.json
+```
+
+**Files added:**
+- `src/services/storage.js` — GitHub API abstraction layer
+- `src/hooks/useHistory.js` — history load/save/stats hook
+- `src/components/AccuracyChart.jsx` — chart + tables + KPI cards
+
+**Files changed:**
+- `src/App.jsx` — useHistory, AccuracyChart wired in
+- `.env.example` — VITE_GITHUB_TOKEN, VITE_GITHUB_REPO
+
+---
 
 ### v4.4.0 — Industry column + expanded fundamentals panel
 **Date:** May 2026
@@ -717,3 +759,4 @@ regardless of CORS headers on the target server.
 | v4.2.1           | 2026-05  | React only                | Full light theme + 7-col mobile email            |
 | v4.3.0           | 2026-05  | React only                | Design system v5 — azul marino dark + btn roles  |
 | v4.4.0           | 2026-05  | React only                | Industry column + expanded fundamentals panel     |
+| v4.5.0           | 2026-05  | React only                | Accuracy chart + GitHub persistence              |

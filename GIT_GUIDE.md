@@ -872,6 +872,40 @@ git push origin v4.4.0
 
 
 # ===========================================================================
+# STEP 33 — v4.5.0  Accuracy chart + GitHub persistence
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.5.0/. .
+
+# IMPORTANT: add GitHub vars to .env (not committed to git):
+# echo "VITE_GITHUB_TOKEN=your_pat_here" >> .env
+# echo "VITE_GITHUB_REPO=alpyengine/openbank-price-data" >> .env
+
+git status
+git add .
+
+git commit -m "feat: accuracy chart and GitHub persistence (v4.5.0)
+
+- Accuracy line chart: HIT rate % per horizon (1M/3M/6M/12M) over time
+- 5 KPI cards: total evaluated, overall hit rate, best/worst horizon, batches
+- Breakdown table: HIT/CLOSE/MISS per horizon with color-coded bars
+- Batch history table with save timestamps
+- GitHub persistence via PUT /repos/:owner/:repo/contents/data/history.json
+  Load history button: fetches from private openbank-price-data repo
+  Save batch button: evaluates stocks and commits results to data repo
+- Storage abstraction layer: src/services/storage.js
+  Future migration to Supabase only requires changing this file
+- useHistory hook: manages load/save/stats lifecycle
+- Graceful degradation if GitHub not configured
+- New env vars: VITE_GITHUB_TOKEN, VITE_GITHUB_REPO"
+
+git tag -a v4.5.0 -m "v4.5.0: accuracy chart and GitHub persistence"
+git push origin main
+git push origin v4.5.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -949,6 +983,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.2.1/         -> v4.2.1
 #    /Users/alex/Downloads/openbank-price-prediction_v4.3.0/         -> v4.3.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.4.0/         -> v4.4.0
+#    /Users/alex/Downloads/openbank-price-prediction_v4.5.0/         -> v4.5.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
