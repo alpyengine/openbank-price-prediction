@@ -906,6 +906,28 @@ git push origin v4.5.0
 
 
 # ===========================================================================
+# STEP 34 — v4.5.1  Docs: accuracy tracking setup guide in README
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.5.1/. .
+
+git status
+git add .
+
+git commit -m "docs: accuracy tracking setup guide in README (v4.5.1)
+
+- Added Accuracy tracking section with architecture diagram
+- Step-by-step setup: private repo, PAT, .env variables
+- Usage flow: Load history, Save batch results, chart updates
+- Note on future Supabase migration path"
+
+git tag -a v4.5.1 -m "v4.5.1: docs accuracy tracking setup"
+git push origin main
+git push origin v4.5.1
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -984,6 +1006,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.3.0/         -> v4.3.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.4.0/         -> v4.4.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.0/         -> v4.5.0
+#    /Users/alex/Downloads/openbank-price-prediction_v4.5.1/         -> v4.5.1
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

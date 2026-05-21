@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.5.0
+# Openbank Price Prediction — v4.5.1
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -118,7 +118,61 @@ openbank-price-prediction/
 
 ---
 
+## Accuracy tracking (v4.5.0+)
+
+The app tracks prediction accuracy over time by saving batch results to a private GitHub repo.
+
+### How it works
+
+```
+App → useHistory → storage.js → GitHub API → openbank-price-data (private repo)
+                                            → data/history.json
+```
+
+Each save commits `data/history.json` with all evaluated predictions.
+The accuracy chart shows HIT rate % per horizon (1M/3M/6M/12M) over time.
+
+### Setup (one time)
+
+1. Create a private GitHub repo named `openbank-price-data` (empty, no README)
+2. Create a Personal Access Token at `github.com/settings/tokens`
+   — Type: Classic · Scope: `repo` (full)
+3. Add to your `.env`:
+```
+VITE_GITHUB_TOKEN=ghp_your_token_here
+VITE_GITHUB_REPO=yourusername/openbank-price-data
+```
+
+### Usage
+
+1. Import CSV → Fetch prices
+2. Click **↓ Load history** — loads previous batches from GitHub
+3. Click **↑ Save batch results** — evaluates and commits current batch
+4. The accuracy chart and KPI cards update automatically
+
+### Future migration
+
+Persistence is fully abstracted in `src/services/storage.js`.
+Migrating to Supabase only requires rewriting that file.
+
+---
+
 ## Changelog
+
+### v4.5.1 — Docs: accuracy tracking setup guide in README
+**Date:** May 2026
+
+**Changed:**
+- Added dedicated "Accuracy tracking" section to README with:
+  - Architecture diagram showing data flow to GitHub
+  - Step-by-step setup instructions (repo + PAT + .env)
+  - Usage flow (Load history → Save batch → chart updates)
+  - Note on future Supabase migration path
+
+**Files changed:**
+- `README.md` — new Accuracy tracking section
+
+---
 
 ### v4.5.0 — Accuracy tracking with GitHub persistence
 **Date:** May 2026
@@ -760,3 +814,4 @@ regardless of CORS headers on the target server.
 | v4.3.0           | 2026-05  | React only                | Design system v5 — azul marino dark + btn roles  |
 | v4.4.0           | 2026-05  | React only                | Industry column + expanded fundamentals panel     |
 | v4.5.0           | 2026-05  | React only                | Accuracy chart + GitHub persistence              |
+| v4.5.1           | 2026-05  | React only                | Docs: accuracy tracking setup guide in README    |
