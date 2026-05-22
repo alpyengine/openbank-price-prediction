@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { loadHistory, saveHistory, buildBatchId, isStorageConfigured } from '../services/storage.js'
 import { formatDate, today as getToday } from '../utils/dates.js'
 import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
@@ -38,11 +38,16 @@ export function useHistory() {
   const [log,      setLog]      = useState('')
   const configured = isStorageConfigured()
 
+  // ── Auto-load on mount ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (configured) load(true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Load from GitHub ────────────────────────────────────────────────────────
-  const load = useCallback(async () => {
+  const load = useCallback(async (auto = false) => {
     if (!configured) { setLog('GitHub not configured — add VITE_GITHUB_TOKEN and VITE_GITHUB_REPO to .env'); return }
     setLoading(true)
-    setLog('Loading history from GitHub...')
+    setLog(auto ? 'Auto-loading history...' : 'Loading history from GitHub...')
     const data = await loadHistory()
     if (data) {
       setHistory(data)
@@ -112,7 +117,27 @@ export function useHistory() {
     const existing = current.batches.filter(b => b.id !== batchId)
     const updated  = { batches: [newBatch, ...existing] }
 
-    const ok = await saveHistory(updated)
+    // Build horizon status — true if ALL stocks in that horizon have a real price (not awaiting)
+    const HORIZONS = ['1M', '3M', '6M', '12M']
+    const horizonStatus = {}
+    for (const h of HORIZONS) {
+      const hResults = results.filter(r => r.horizon === h)
+      horizonStatus[h] = hResults.length > 0 && hResults.every(r => r.verdict !== 'awaiting')
+    }
+
+    // Compute HIT rate for evaluated horizons only
+    const evaluated = results.filter(r => r.verdict !== 'awaiting')
+    const hits      = evaluated.filter(r => r.verdict === 'hit').length
+    const hitRate   = evaluated.length ? Math.round(hits / evaluated.length * 100) : null
+
+    const batchMeta = {
+      batchDate: firstBase ? formatDate(firstBase) : formatDate(getToday()),
+      stocks:    stocks.length,
+      horizonStatus,
+      hitRate,
+    }
+
+    const ok = await saveHistory(updated, batchMeta)
     if (ok) {
       setHistory(updated)
       setLog(`Batch ${batchId} saved — ${results.length} predictions`)

@@ -71,7 +71,7 @@ export async function loadHistory() {
 
 // ── Public: save history ──────────────────────────────────────────────────────
 
-export async function saveHistory(history) {
+export async function saveHistory(history, batchMeta) {
   if (!GITHUB_TOKEN || !GITHUB_REPO) {
     console.warn('[storage] GitHub credentials not configured')
     return false
@@ -79,10 +79,26 @@ export async function saveHistory(history) {
   try {
     const file    = await getFileSha()
     const content = encode(JSON.stringify(history, null, 2))
-    const count   = history.batches?.length ?? 0
+
+    // Build descriptive commit message
+    const today   = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' }).replace(/\//g, '/')
+    let message
+
+    if (batchMeta) {
+      const { batchDate, stocks, horizonStatus, hitRate } = batchMeta
+      // horizonStatus: { '1M': true/false, '3M': true/false, ... } — true = evaluated with real price
+      const hStr = ['1M','3M','6M','12M']
+        .map(h => `${h}${horizonStatus[h] ? '✓' : '⏳'}`)
+        .join(' ')
+      const hitStr = hitRate != null ? ` · HIT ${hitRate}%` : ''
+      message = `data: batch ${batchDate} · updated ${today} · ${hStr} · ${stocks} stocks${hitStr}`
+    } else {
+      const count = history.batches?.length ?? 0
+      message = `data: update history.json (${count} batch${count !== 1 ? 'es' : ''})`
+    }
 
     const body = {
-      message: `data: update history.json (${count} batch${count !== 1 ? 'es' : ''})`,
+      message,
       content,
       ...(file?.sha ? { sha: file.sha } : {}),
     }

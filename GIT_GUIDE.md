@@ -928,6 +928,30 @@ git push origin v4.5.1
 
 
 # ===========================================================================
+# STEP 35 — v4.5.2  Auto-load history + descriptive commit messages
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.5.2/. .
+
+git status
+git add .
+
+git commit -m "feat: auto-load history and descriptive commit messages (v4.5.2)
+
+- History auto-loads from GitHub on app startup (no manual Load needed)
+- Commit message format:
+  data: batch DD/MM/YYYY · updated DD/MM/YYYY · 1M✓ 3M⏳ 6M⏳ 12M⏳ · N stocks · HIT N%
+  Checkmark = horizon evaluated with real historical price
+  Hourglass = horizon still open, provisional price used
+  HIT rate omitted if no horizons evaluated yet"
+
+git tag -a v4.5.2 -m "v4.5.2: auto-load and descriptive commit messages"
+git push origin main
+git push origin v4.5.2
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1007,6 +1031,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.4.0/         -> v4.4.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.0/         -> v4.5.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.1/         -> v4.5.1
+#    /Users/alex/Downloads/openbank-price-prediction_v4.5.2/         -> v4.5.2
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

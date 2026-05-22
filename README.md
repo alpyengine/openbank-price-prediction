@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.5.1
+# Openbank Price Prediction — v4.5.2
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,33 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v4.5.2 — Auto-load history + descriptive commit messages
+**Date:** May 2026
+
+**New:**
+- **Auto-load on startup** — history loads automatically from GitHub when
+  the app opens. No need to click "Load history" manually. Shows
+  "Auto-loading history..." in the log while fetching.
+- **Descriptive commit messages** — each save to GitHub now generates a
+  detailed commit message:
+  ```
+  data: batch 18/03/2026 · updated 21/05/2026 · 1M✓ 3M⏳ 6M⏳ 12M⏳ · 5 stocks · HIT 67%
+  ```
+  - `batch DD/MM/YYYY` — screenshot date (base date of the CSV)
+  - `updated DD/MM/YYYY` — date the save was triggered
+  - `1M✓ 3M⏳` — ✓ = horizon evaluated with real price · ⏳ = still open
+  - `N stocks` — number of stocks in the batch
+  - `HIT N%` — hit rate of evaluated horizons (omitted if none evaluated yet)
+
+**Files changed:**
+- `src/hooks/useHistory.js` — useEffect auto-load, batchMeta computation,
+  horizonStatus per horizon, hitRate calculation
+- `src/services/storage.js` — saveHistory accepts batchMeta, builds
+  descriptive commit message from batch date, update date, horizon status,
+  stocks count and hit rate
+
+---
 
 ### v4.5.1 — Docs: accuracy tracking setup guide in README
 **Date:** May 2026
@@ -815,3 +842,4 @@ regardless of CORS headers on the target server.
 | v4.4.0           | 2026-05  | React only                | Industry column + expanded fundamentals panel     |
 | v4.5.0           | 2026-05  | React only                | Accuracy chart + GitHub persistence              |
 | v4.5.1           | 2026-05  | React only                | Docs: accuracy tracking setup guide in README    |
+| v4.5.2           | 2026-05  | React only                | Auto-load history + descriptive commit messages  |
