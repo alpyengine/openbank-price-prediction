@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.5.3
+# Openbank Price Prediction — v4.5.4
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,25 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v4.5.4 — Bugfix: Twelve Data rate limit with large batches
+**Date:** May 2026
+
+**Fixed:**
+- Fetching 16+ tickers in a single API call exceeded Twelve Data free tier
+  limit of 8 requests/minute → 429 error, all prices failed
+- Root cause: `fetchCurrentPrices` sent all tickers in one request,
+  consuming N credits at once (1 credit per ticker)
+- Fix: split tickers into chunks of 8 with a 62-second pause between chunks
+- Log now shows chunk progress for batches over 8 tickers:
+  `Fetching 16 tickers in 2 batches of 8 (rate limit: 8/min)...`
+- For batches ≤ 8 tickers: single request, no pause, same behaviour as before
+
+**Files changed:**
+- `src/hooks/usePriceFetch.js` — CHUNK_SIZE=8 constant, chunked fetch loop,
+  62s inter-chunk pause, updated log message
+
+---
 
 ### v4.5.3 — Bugfix: duplicate HORIZONS declaration in useHistory
 **Date:** May 2026
@@ -859,3 +878,4 @@ regardless of CORS headers on the target server.
 | v4.5.1           | 2026-05  | React only                | Docs: accuracy tracking setup guide in README    |
 | v4.5.2           | 2026-05  | React only                | Auto-load history + descriptive commit messages  |
 | v4.5.3           | 2026-05  | React only                | Bugfix: duplicate HORIZONS declaration           |
+| v4.5.4           | 2026-05  | React only                | Bugfix: Twelve Data rate limit with 16+ tickers  |

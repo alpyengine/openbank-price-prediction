@@ -973,6 +973,29 @@ git push origin v4.5.3
 
 
 # ===========================================================================
+# STEP 37 — v4.5.4  Bugfix: Twelve Data rate limit with 16+ tickers
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.5.4/. .
+
+git status
+git add .
+
+git commit -m "fix: Twelve Data rate limit exceeded with 16+ tickers (v4.5.4)
+
+- 429 error when fetching 16 tickers: exceeded 8 req/min free tier limit
+- fetchCurrentPrices now splits tickers into chunks of 8
+- 62s pause between chunks to respect rate limit
+- Log shows chunk progress for batches over 8 tickers
+- Batches of 8 or fewer: single request, no change in behaviour"
+
+git tag -a v4.5.4 -m "v4.5.4: fix rate limit for large batches"
+git push origin main
+git push origin v4.5.4
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1054,6 +1077,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.1/         -> v4.5.1
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.2/         -> v4.5.2
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.3/         -> v4.5.3
+#    /Users/alex/Downloads/openbank-price-prediction_v4.5.4/         -> v4.5.4
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

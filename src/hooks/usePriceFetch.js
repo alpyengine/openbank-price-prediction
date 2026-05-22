@@ -47,28 +47,50 @@ async function fetchWithTimeout(url) {
 }
 
 // ── Current price (today) ─────────────────────────────────────────────────────
-// Fetches all tickers in one batch request → { TICKER: { price } }
+// Fetches tickers in chunks of 8 (free tier limit: 8 req/min)
+// with a 62s pause between chunks to avoid rate limit 429.
+
+const CHUNK_SIZE = 8
 
 async function fetchCurrentPrices(tickers) {
-  const symbols = tickers.join(',')
-  const url     = `${BASE_URL}/price?symbol=${encodeURIComponent(symbols)}&apikey=${API_KEY}`
-  const data    = await fetchWithTimeout(url)
+  const result = {}
 
-  // Normalise: single ticker returns { price } directly, multiple returns { TICKER: { price } }
-  if (tickers.length === 1) {
-    if (data.code || data.status === 'error') throw new Error(data.message || 'API error')
-    return { [tickers[0]]: parseFloat(data.price) }
+  // Split into chunks of CHUNK_SIZE
+  const chunks = []
+  for (let i = 0; i < tickers.length; i += CHUNK_SIZE) {
+    chunks.push(tickers.slice(i, i + CHUNK_SIZE))
   }
 
-  const result = {}
-  for (const tk of tickers) {
-    const entry = data[tk]
-    if (!entry || entry.code || entry.status === 'error') {
-      result[tk] = null
+  for (let ci = 0; ci < chunks.length; ci++) {
+    const chunk   = chunks[ci]
+    const symbols = chunk.join(',')
+    const url     = `${BASE_URL}/price?symbol=${encodeURIComponent(symbols)}&apikey=${API_KEY}`
+    const data    = await fetchWithTimeout(url)
+
+    // Normalise: single ticker returns { price } directly, multiple returns { TICKER: { price } }
+    if (chunk.length === 1) {
+      if (data.code || data.status === 'error') {
+        result[chunk[0]] = null
+      } else {
+        result[chunk[0]] = parseFloat(data.price)
+      }
     } else {
-      result[tk] = parseFloat(entry.price)
+      for (const tk of chunk) {
+        const entry = data[tk]
+        if (!entry || entry.code || entry.status === 'error') {
+          result[tk] = null
+        } else {
+          result[tk] = parseFloat(entry.price)
+        }
+      }
+    }
+
+    // Pause 62s between chunks to respect 8 req/min rate limit
+    if (ci < chunks.length - 1) {
+      await new Promise(r => setTimeout(r, 62000))
     }
   }
+
   return result
 }
 
@@ -121,10 +143,17 @@ export function usePriceFetch() {
   const fetchCurrentBatch = useCallback(async (stocks) => {
     if (!stocks.length) return
     setFetching(true)
-    setLog('Fetching current prices...')
+
+    const tickers  = stocks.map(s => s.t)
+    const chunks   = Math.ceil(tickers.length / CHUNK_SIZE)
+    const multiChunk = chunks > 1
+
+    setLog(multiChunk
+      ? `Fetching ${tickers.length} tickers in ${chunks} batches of ${CHUNK_SIZE} (rate limit: 8/min)...`
+      : 'Fetching current prices...'
+    )
 
     try {
-      const tickers = stocks.map(s => s.t)
       const prices  = await fetchCurrentPrices(tickers)
 
       const newPrices = {}
