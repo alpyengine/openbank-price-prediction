@@ -952,6 +952,27 @@ git push origin v4.5.2
 
 
 # ===========================================================================
+# STEP 36 — v4.5.3  Bugfix: duplicate HORIZONS declaration in useHistory
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.5.3/. .
+
+git status
+git add .
+
+git commit -m "fix: duplicate HORIZONS declaration in useHistory (v4.5.3)
+
+- const HORIZONS declared twice inside saveBatch function
+  esbuild error: The symbol HORIZONS has already been declared
+- Fix: moved HORIZONS to module scope outside all functions"
+
+git tag -a v4.5.3 -m "v4.5.3: fix duplicate HORIZONS declaration"
+git push origin main
+git push origin v4.5.3
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1032,6 +1053,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.0/         -> v4.5.0
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.1/         -> v4.5.1
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.2/         -> v4.5.2
+#    /Users/alex/Downloads/openbank-price-prediction_v4.5.3/         -> v4.5.3
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

@@ -3,6 +3,8 @@ import { loadHistory, saveHistory, buildBatchId, isStorageConfigured } from '../
 import { formatDate, today as getToday } from '../utils/dates.js'
 import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
 
+const HORIZONS = ['1M', '3M', '6M', '12M']
+
 /**
  * useHistory — manages the accuracy history
  *
@@ -70,8 +72,7 @@ export function useHistory() {
     setSaving(true)
     setLog('Evaluating and saving batch...')
 
-    const HORIZONS = ['1M', '3M', '6M', '12M']
-    const KEYS     = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
+    const KEYS = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
 
     // Collect all results across all horizons
     const results = []
@@ -118,7 +119,6 @@ export function useHistory() {
     const updated  = { batches: [newBatch, ...existing] }
 
     // Build horizon status — true if ALL stocks in that horizon have a real price (not awaiting)
-    const HORIZONS = ['1M', '3M', '6M', '12M']
     const horizonStatus = {}
     for (const h of HORIZONS) {
       const hResults = results.filter(r => r.horizon === h)

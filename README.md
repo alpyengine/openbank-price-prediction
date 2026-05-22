@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.5.2
+# Openbank Price Prediction — v4.5.3
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,21 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v4.5.3 — Bugfix: duplicate HORIZONS declaration in useHistory
+**Date:** May 2026
+
+**Fixed:**
+- `const HORIZONS` declared twice inside `saveBatch` — once in the original
+  block and once in the `batchMeta` block added in v4.5.2
+  esbuild threw: `The symbol "HORIZONS" has already been declared`
+- Fix: moved `HORIZONS` to module scope (top of file, outside all functions)
+  so it is shared across the entire module
+
+**Files changed:**
+- `src/hooks/useHistory.js` — HORIZONS moved to module scope
+
+---
 
 ### v4.5.2 — Auto-load history + descriptive commit messages
 **Date:** May 2026
@@ -843,3 +858,4 @@ regardless of CORS headers on the target server.
 | v4.5.0           | 2026-05  | React only                | Accuracy chart + GitHub persistence              |
 | v4.5.1           | 2026-05  | React only                | Docs: accuracy tracking setup guide in README    |
 | v4.5.2           | 2026-05  | React only                | Auto-load history + descriptive commit messages  |
+| v4.5.3           | 2026-05  | React only                | Bugfix: duplicate HORIZONS declaration           |
