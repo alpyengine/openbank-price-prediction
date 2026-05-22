@@ -36,7 +36,7 @@ export default function App() {
 
   const {
     autoPrices, histPrices,
-    fetching, log,
+    fetching, log, chunkProgress,
     fetchCurrentBatch, fetchHistoricalForHorizon,
     reset: resetPrices,
   } = usePriceFetch()
@@ -133,6 +133,7 @@ export default function App() {
       <FetchBar
         log={log}
         fetching={fetching}
+        chunkProgress={chunkProgress}
         horizonExpired={horizonExpired}
         horizon={horizon}
         onFetch={() => fetchCurrentBatch(stocks)}

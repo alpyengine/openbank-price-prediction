@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.5.4
+# Openbank Price Prediction — v4.5.5
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,31 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v4.5.5 — Segmented progress bar for multi-chunk fetch
+**Date:** May 2026
+
+**New:**
+- Visual progress bar in FetchBar for batches over 8 tickers (multi-chunk)
+- **Segmented design** — one segment per batch (B1 B2 B3…):
+  - Blue `B1…` — currently fetching
+  - Green `B1 ✓` — batch completed
+  - Amber `B1 ⏳` — waiting due to rate limit
+  - Grey — pending
+- **Green bar** — advances as each batch completes
+- **Amber countdown bar** — shows seconds remaining during 62s rate limit pause,
+  with label `Rate limit — waiting before batch N… · Xs`
+- Progress is hidden for batches ≤ 8 tickers (single chunk, no pause)
+- `chunkProgress` state added to `usePriceFetch` hook, emitted in real time
+  during fetch and countdown loops
+
+**Files changed:**
+- `src/hooks/usePriceFetch.js` — chunkProgress state, per-second countdown
+  emitted during inter-chunk pause, returned from hook
+- `src/components/FetchBar.jsx` — segmented progress bar, countdown bar
+- `src/App.jsx` — passes chunkProgress to FetchBar
+
+---
 
 ### v4.5.4 — Bugfix: Twelve Data rate limit with large batches
 **Date:** May 2026
@@ -879,3 +904,4 @@ regardless of CORS headers on the target server.
 | v4.5.2           | 2026-05  | React only                | Auto-load history + descriptive commit messages  |
 | v4.5.3           | 2026-05  | React only                | Bugfix: duplicate HORIZONS declaration           |
 | v4.5.4           | 2026-05  | React only                | Bugfix: Twelve Data rate limit with 16+ tickers  |
+| v4.5.5           | 2026-05  | React only                | Segmented progress bar for multi-chunk fetch      |

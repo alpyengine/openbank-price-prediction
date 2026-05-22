@@ -996,6 +996,30 @@ git push origin v4.5.4
 
 
 # ===========================================================================
+# STEP 38 — v4.5.5  Segmented progress bar for multi-chunk fetch
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.5.5/openbank_v41/. .
+
+git status
+git add .
+
+git commit -m "feat: segmented progress bar for multi-chunk fetch (v4.5.5)
+
+- FetchBar shows segmented batch progress for batches over 8 tickers
+- Segments: blue (fetching) green (done) amber (rate limit wait) grey (pending)
+- Green bar advances as each batch completes
+- Amber countdown bar with seconds remaining during 62s rate limit pause
+- chunkProgress state added to usePriceFetch, emitted per-second during wait
+- Hidden for single-chunk batches (8 or fewer tickers)"
+
+git tag -a v4.5.5 -m "v4.5.5: segmented progress bar for multi-chunk fetch"
+git push origin main
+git push origin v4.5.5
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1078,6 +1102,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.2/         -> v4.5.2
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.3/         -> v4.5.3
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.4/         -> v4.5.4
+#    /Users/alex/Downloads/openbank-price-prediction_v4.5.5/         -> v4.5.5
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

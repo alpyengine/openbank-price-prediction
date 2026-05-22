@@ -134,45 +134,82 @@ async function fetchHistoricalPrice(ticker, targetDate) {
 //   log         — status string
 
 export function usePriceFetch() {
-  const [autoPrices, setAutoPrices] = useState({})
-  const [histPrices, setHistPrices] = useState({})
-  const [fetching,   setFetching]   = useState(false)
-  const [log,        setLog]        = useState('Import stocks, then click Fetch')
+  const [autoPrices,    setAutoPrices]    = useState({})
+  const [histPrices,    setHistPrices]    = useState({})
+  const [fetching,      setFetching]      = useState(false)
+  const [log,           setLog]           = useState('Import stocks, then click Fetch')
+  const [chunkProgress, setChunkProgress] = useState(null)
+  // chunkProgress: { total: N, done: N, waiting: bool, waitSecs: N, waitTotal: N } | null
 
   // ── fetchCurrentBatch ───────────────────────────────────────────────────────
   const fetchCurrentBatch = useCallback(async (stocks) => {
     if (!stocks.length) return
     setFetching(true)
+    setChunkProgress(null)
 
     const tickers  = stocks.map(s => s.t)
-    const chunks   = Math.ceil(tickers.length / CHUNK_SIZE)
-    const multiChunk = chunks > 1
+    const nChunks  = Math.ceil(tickers.length / CHUNK_SIZE)
+    const multiChunk = nChunks > 1
 
     setLog(multiChunk
-      ? `Fetching ${tickers.length} tickers in ${chunks} batches of ${CHUNK_SIZE} (rate limit: 8/min)...`
-      : 'Fetching current prices...'
+      ? `Fetching ${tickers.length} tickers in ${nChunks} batches of ${CHUNK_SIZE}…`
+      : 'Fetching current prices…'
     )
 
+    if (multiChunk) {
+      setChunkProgress({ total: nChunks, done: 0, waiting: false, waitSecs: 0, waitTotal: 62 })
+    }
+
     try {
-      const prices  = await fetchCurrentPrices(tickers)
+      const result = {}
+      const chunks = []
+      for (let i = 0; i < tickers.length; i += CHUNK_SIZE) chunks.push(tickers.slice(i, i + CHUNK_SIZE))
+
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const chunk   = chunks[ci]
+        const symbols = chunk.join(',')
+        const url     = `${BASE_URL}/price?symbol=${encodeURIComponent(symbols)}&apikey=${API_KEY}`
+        const data    = await fetchWithTimeout(url)
+
+        if (chunk.length === 1) {
+          result[chunk[0]] = (data.code || data.status === 'error') ? null : parseFloat(data.price)
+        } else {
+          for (const tk of chunk) {
+            const entry = data[tk]
+            result[tk] = (!entry || entry.code || entry.status === 'error') ? null : parseFloat(entry.price)
+          }
+        }
+
+        if (multiChunk) {
+          setChunkProgress({ total: nChunks, done: ci + 1, waiting: false, waitSecs: 0, waitTotal: 62 })
+        }
+
+        // Pause between chunks with countdown
+        if (ci < chunks.length - 1) {
+          const WAIT = 62
+          for (let s = WAIT; s > 0; s--) {
+            setChunkProgress({ total: nChunks, done: ci + 1, waiting: true, waitSecs: s, waitTotal: WAIT })
+            await new Promise(r => setTimeout(r, 1000))
+          }
+          setChunkProgress({ total: nChunks, done: ci + 1, waiting: false, waitSecs: 0, waitTotal: 62 })
+        }
+      }
 
       const newPrices = {}
       const failed    = []
       for (const s of stocks) {
-        const p = prices[s.t]
-        if (p != null && !isNaN(p)) {
-          newPrices[s.t] = p
-        } else {
-          newPrices[s.t] = null
-          failed.push(s.t)
-        }
+        const p = result[s.t]
+        if (p != null && !isNaN(p)) newPrices[s.t] = p
+        else { newPrices[s.t] = null; failed.push(s.t) }
       }
       setAutoPrices(newPrices)
       const ok = stocks.length - failed.length
       setLog(`${ok}/${stocks.length} current prices loaded${failed.length ? ' | Failed: ' + failed.join(', ') : ''}`)
+      setChunkProgress(null)
 
     } catch (err) {
       setLog('Fetch error: ' + classifyError(err))
+      setChunkProgress(null)
     } finally {
       setFetching(false)
     }
@@ -239,6 +276,7 @@ export function usePriceFetch() {
     histPrices,
     fetching,
     log,
+    chunkProgress,
     fetchCurrentBatch,
     fetchHistoricalForHorizon,
     reset,
