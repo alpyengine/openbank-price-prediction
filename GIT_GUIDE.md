@@ -1020,6 +1020,29 @@ git push origin v4.5.5
 
 
 # ===========================================================================
+# STEP 39 — v4.5.6  Bugfix: horizon status in commit + ZIP structure
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.5.6/. .
+
+git status
+git add .
+
+git commit -m "fix: horizon status in commit message and ZIP structure (v4.5.6)
+
+- horizonStatus now uses dateStatus === past instead of verdict !== awaiting
+  Only marks a horizon as closed when its target date has actually passed
+  Result: 1M✓ 3M⏳ 6M⏳ 12M⏳ for March batch saved in May 2026
+- ZIP packaging fixed: files at root level, no openbank_v41 subfolder
+  cp -r Downloads/openbank-price-prediction_vX.X.X/. . works as always"
+
+git tag -a v4.5.6 -m "v4.5.6: fix horizon status and ZIP structure"
+git push origin main
+git push origin v4.5.6
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1103,6 +1126,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.3/         -> v4.5.3
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.4/         -> v4.5.4
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.5/         -> v4.5.5
+#    /Users/alex/Downloads/openbank-price-prediction_v4.5.6/         -> v4.5.6
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

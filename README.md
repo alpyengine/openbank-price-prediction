@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.5.5
+# Openbank Price Prediction — v4.5.6
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,28 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v4.5.6 — Bugfix: horizon status in commit message + ZIP structure
+**Date:** May 2026
+
+**Fixed:**
+- Commit message showed all horizons as `✓` even when target dates had not
+  yet passed — e.g. `1M✓ 3M✓ 6M✓ 12M✓` for a March batch saved in May
+  Root cause: `horizonStatus` checked `verdict !== 'awaiting'` which is true
+  for any stock with a current price, even provisional ones
+  Fix: `horizonStatus[h]` is now `true` only if the horizon target date
+  has already passed (`dateStatus(tgtDate) === 'past'`), meaning the
+  historical close price is definitively available
+  Result: `1M✓ 3M⏳ 6M⏳ 12M⏳` for a March 2026 batch saved in May 2026
+- ZIP packaging fixed — files now at root level of ZIP (not inside
+  `openbank_v41/` subfolder), consistent with all previous versions
+  `cp -r /Users/alex/Downloads/openbank-price-prediction_vX.X.X/. .`
+
+**Files changed:**
+- `src/hooks/useHistory.js` — horizonStatus uses dateStatus === 'past',
+  added targetDates and dateStatus to imports
+
+---
 
 ### v4.5.5 — Segmented progress bar for multi-chunk fetch
 **Date:** May 2026
@@ -905,3 +927,4 @@ regardless of CORS headers on the target server.
 | v4.5.3           | 2026-05  | React only                | Bugfix: duplicate HORIZONS declaration           |
 | v4.5.4           | 2026-05  | React only                | Bugfix: Twelve Data rate limit with 16+ tickers  |
 | v4.5.5           | 2026-05  | React only                | Segmented progress bar for multi-chunk fetch      |
+| v4.5.6           | 2026-05  | React only                | Bugfix: horizon status in commit + ZIP structure  |

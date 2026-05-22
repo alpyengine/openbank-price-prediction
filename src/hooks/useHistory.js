@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadHistory, saveHistory, buildBatchId, isStorageConfigured } from '../services/storage.js'
-import { formatDate, today as getToday } from '../utils/dates.js'
+import { formatDate, today as getToday, targetDates, dateStatus } from '../utils/dates.js'
 import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
 
 const HORIZONS = ['1M', '3M', '6M', '12M']
@@ -118,11 +118,19 @@ export function useHistory() {
     const existing = current.batches.filter(b => b.id !== batchId)
     const updated  = { batches: [newBatch, ...existing] }
 
-    // Build horizon status — true if ALL stocks in that horizon have a real price (not awaiting)
+    // Build horizon status — ✓ only if target date has already passed
+    // (real historical close available), not just if verdict !== awaiting
+    const HKEYS = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
+    const firstStock = stocks.find(s => s.base)
     const horizonStatus = {}
     for (const h of HORIZONS) {
-      const hResults = results.filter(r => r.horizon === h)
-      horizonStatus[h] = hResults.length > 0 && hResults.every(r => r.verdict !== 'awaiting')
+      if (firstStock) {
+        const tg      = targetDates(firstStock.base)
+        const tgtDate = tg[HKEYS[h]]
+        horizonStatus[h] = tgtDate ? dateStatus(tgtDate) === 'past' : false
+      } else {
+        horizonStatus[h] = false
+      }
     }
 
     // Compute HIT rate for evaluated horizons only
