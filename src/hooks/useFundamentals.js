@@ -28,11 +28,22 @@ async function fetchWithTimeout(url) {
   }
 }
 
-// FMP: GET /stable/profile?symbol=TER&apikey=KEY
-// Returns array — take first element
+// Strip .US suffix for US markets — FMP uses bare ticker for NYSE/NASDAQ
+// European suffixes (.DE, .AS, .PA, .L) are kept as FMP supports them
+function fmpSymbol(ticker) {
+  return ticker.replace(/\.US$/i, '')
+}
+
+// Strip .US suffix for Twelve Data — also strip EU suffixes as TD uses bare tickers
+function tdSymbol(ticker) {
+  return ticker.replace(/\.(US|DE|AS|PA|L|MC)$/i, '')
+}
+
+// FMP: GET /stable/profile?symbol=TER&apikey=KEY (or IFX.DE for EU)
 async function fetchFMPProfile(ticker) {
-  const url  = `${FMP_URL}/profile?symbol=${encodeURIComponent(ticker)}&apikey=${FMP_KEY}`
-  const data = await fetchWithTimeout(url)
+  const symbol = fmpSymbol(ticker)
+  const url    = `${FMP_URL}/profile?symbol=${encodeURIComponent(symbol)}&apikey=${FMP_KEY}`
+  const data   = await fetchWithTimeout(url)
   if (!Array.isArray(data) || !data.length) throw new Error('FMP: no data')
   const p = data[0]
   return {
@@ -48,10 +59,10 @@ async function fetchFMPProfile(ticker) {
 }
 
 // Twelve Data: GET /statistics?symbol=TER&apikey=KEY
-// Returns forwardPE from valuations_metrics
 async function fetchTDForwardPE(ticker) {
-  const url  = `${TD_URL}/statistics?symbol=${encodeURIComponent(ticker)}&apikey=${TD_KEY}`
-  const data = await fetchWithTimeout(url)
+  const symbol = tdSymbol(ticker)
+  const url    = `${TD_URL}/statistics?symbol=${encodeURIComponent(symbol)}&apikey=${TD_KEY}`
+  const data   = await fetchWithTimeout(url)
   if (data?.status === 'error') throw new Error(data.message || 'TD error')
   return data?.statistics?.valuations_metrics?.forward_pe || null
 }

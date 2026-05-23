@@ -1245,6 +1245,28 @@ git push origin v5.0.6
 
 
 # ===========================================================================
+# STEP 48 — v5.0.7  Bugfix: FMP and TD fundamentals failing for .US tickers
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.0.7/. .
+
+git status
+git add .
+
+git commit -m "fix: FMP and TD fundamentals failing for .US tickers (v5.0.7)
+
+- FMP called with NEM.US instead of NEM → empty response
+- TD statistics called with NEM.US instead of NEM → error
+- fmpSymbol(): strips .US only, keeps EU suffixes (FMP supports IFX.DE)
+- tdSymbol() in useFundamentals: strips all suffixes (TD uses bare tickers)"
+
+git tag -a v5.0.7 -m "v5.0.7: fix FMP and TD fundamentals for .US tickers"
+git push origin main
+git push origin v5.0.7
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1337,6 +1359,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.4/         -> v5.0.4
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.5/         -> v5.0.5
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.6/         -> v5.0.6
+#    /Users/alex/Downloads/openbank-price-prediction_v5.0.7/         -> v5.0.7
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

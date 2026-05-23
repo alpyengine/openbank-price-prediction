@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.0.6
+# Openbank Price Prediction — v5.0.7
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,34 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.0.7 — Bugfix: FMP and TD fundamentals failing for .US tickers
+**Date:** May 2026
+
+**Fixed:**
+- FMP `/stable/profile` was called with `NEM.US` instead of `NEM`
+  returning empty `[]` for all US market tickers
+- Twelve Data `/statistics` was also called with `NEM.US` instead of `NEM`
+- Root cause: both functions passed the raw ticker without stripping
+  the `.US` suffix introduced in v5.0.5
+- Fix: added `fmpSymbol()` — strips `.US` only, keeps EU suffixes
+  (FMP natively supports `IFX.DE`, `SAP.DE` etc.)
+- Fix: added `tdSymbol()` to useFundamentals — strips ALL suffixes
+  (TD uses bare tickers for both US and EU markets)
+
+**Symbol routing after fix:**
+```
+NEM.US  → FMP: NEM    (strip .US)
+IFX.DE  → FMP: IFX.DE (keep EU suffix — FMP supports it)
+NEM.US  → TD:  NEM    (strip .US)
+IFX.DE  → TD:  IFX    (strip .DE — TD uses bare tickers)
+```
+
+**Files changed:**
+- `src/hooks/useFundamentals.js` — fmpSymbol(), tdSymbol() helpers,
+  applied to fetchFMPProfile and fetchTDForwardPE
+
+---
 
 ### v5.0.6 — Ticker display without suffix + column overlap fix
 **Date:** May 2026
@@ -1209,3 +1237,4 @@ regardless of CORS headers on the target server.
 | v5.0.4           | 2026-05  | React + Supabase          | Load batch directly from history into stock table |
 | v5.0.5           | 2026-05  | React + Supabase          | Alpha Vantage for EU markets (.DE .AS .PA .L)     |
 | v5.0.6           | 2026-05  | React + Supabase          | Ticker display without suffix + column overlap fix |
+| v5.0.7           | 2026-05  | React + Supabase          | Bugfix: FMP and TD fundamentals failing for .US    |
