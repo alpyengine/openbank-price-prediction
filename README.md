@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.5.6
+# Openbank Price Prediction — v4.5.7
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,25 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v4.5.7 — Interactive horizon toggle in accuracy chart
+**Date:** May 2026
+
+**New:**
+- Legend buttons in the accuracy chart are now interactive — click any
+  horizon (1M / 3M / 6M / 12M) to show or hide its line
+- Active horizons: colored border + line color, full opacity
+- Inactive horizons: grey border, faded, dashed line on chart
+- At least one horizon always stays active (cannot deselect all)
+- Chart redraws instantly on toggle — no data refetch needed
+- Works correctly in both dark and light mode
+
+**Files changed:**
+- `src/components/AccuracyChart.jsx` — `activeHorizons` state + `toggleHorizon`,
+  Legend converted to interactive pill buttons, Chart filters by activeHorizons
+  (inactive = faint dashed line, no dot labels)
+
+---
 
 ### v4.5.6 — Bugfix: horizon status in commit message + ZIP structure
 **Date:** May 2026
@@ -928,3 +947,4 @@ regardless of CORS headers on the target server.
 | v4.5.4           | 2026-05  | React only                | Bugfix: Twelve Data rate limit with 16+ tickers  |
 | v4.5.5           | 2026-05  | React only                | Segmented progress bar for multi-chunk fetch      |
 | v4.5.6           | 2026-05  | React only                | Bugfix: horizon status in commit + ZIP structure  |
+| v4.5.7           | 2026-05  | React only                | Interactive horizon toggle in accuracy chart      |

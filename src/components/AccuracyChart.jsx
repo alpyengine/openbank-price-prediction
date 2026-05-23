@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const HORIZONS = ['1M', '3M', '6M', '12M']
 const H_COLORS = {
@@ -9,6 +9,17 @@ const H_COLORS = {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AccuracyChart({ stats, history, loading, saving, log, configured, onLoad, onSave }) {
+  const [activeHorizons, setActiveHorizons] = useState(['1M','3M','6M','12M'])
+
+  const toggleHorizon = (h) => {
+    setActiveHorizons(prev => {
+      if (prev.includes(h)) {
+        if (prev.length === 1) return prev  // keep at least one active
+        return prev.filter(x => x !== h)
+      }
+      return [...prev, h]
+    })
+  }
 
   if (!configured) {
     return (
@@ -70,15 +81,15 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
 
         {/* Line chart */}
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden', boxShadow:'var(--shadow)', marginBottom:14 }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', borderBottom:'1px solid var(--border)' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', borderBottom:'1px solid var(--border)', flexWrap:'wrap', gap:8 }}>
             <div>
               <div style={{ fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--text)' }}>HIT rate by horizon over time</div>
               <div style={{ fontSize:'var(--fs-xxs)', color:'var(--text-3)', marginTop:2 }}>% of predictions that reached target price on expiry date</div>
             </div>
-            <Legend />
+            <Legend activeHorizons={activeHorizons} onToggle={toggleHorizon} />
           </div>
           <div style={{ padding:'16px' }}>
-            <Chart chartData={stats.chartData} chartLabels={stats.chartLabels} />
+            <Chart chartData={stats.chartData} chartLabels={stats.chartLabels} activeHorizons={activeHorizons} />
           </div>
         </div>
 
@@ -164,7 +175,7 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
 
 // ── Canvas chart ──────────────────────────────────────────────────────────────
 
-function Chart({ chartData, chartLabels }) {
+function Chart({ chartData, chartLabels, activeHorizons }) {
   const canvasRef = useRef(null)
 
   useEffect(() => {
@@ -174,10 +185,10 @@ function Chart({ chartData, chartLabels }) {
     const W   = canvas.width
     const H   = canvas.height
     const dark = document.getElementById('root')?.dataset?.theme === 'dark'
-    const colors = dark ? H_COLORS.dark : H_COLORS.light
-    const textColor  = dark ? '#96aece' : '#6b7280'
-    const gridColor  = dark ? 'rgba(160,195,255,0.12)' : 'rgba(0,0,0,0.07)'
-    const dotCenter  = dark ? '#2e3f60' : '#ffffff'
+    const colors    = dark ? H_COLORS.dark : H_COLORS.light
+    const textColor = dark ? '#96aece' : '#6b7280'
+    const gridColor = dark ? 'rgba(160,195,255,0.12)' : 'rgba(0,0,0,0.07)'
+    const dotCenter = dark ? '#2e3f60' : '#ffffff'
 
     ctx.clearRect(0, 0, W, H)
 
@@ -209,12 +220,17 @@ function Chart({ chartData, chartLabels }) {
       ctx.fillText(label, x, H - 10)
     })
 
-    // Lines + dots per horizon
+    // Lines + dots — only for active horizons
     chartData.forEach((points, hi) => {
-      const color = colors[hi]
-      ctx.strokeStyle = color
-      ctx.lineWidth = 2.5
-      ctx.lineJoin = 'round'
+      const horizonName = HORIZONS[hi]
+      const isActive    = activeHorizons.includes(horizonName)
+      const color       = colors[hi]
+
+      // Draw inactive as faint dashed line
+      ctx.strokeStyle = isActive ? color : (dark ? 'rgba(150,174,206,0.2)' : 'rgba(0,0,0,0.1)')
+      ctx.lineWidth   = isActive ? 2.5 : 1
+      ctx.setLineDash(isActive ? [] : [4, 4])
+      ctx.lineJoin    = 'round'
       ctx.beginPath()
       let started = false
       points.forEach((v, i) => {
@@ -224,21 +240,24 @@ function Chart({ chartData, chartLabels }) {
         if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
       })
       ctx.stroke()
+      ctx.setLineDash([])
 
-      // Dots + value labels
-      points.forEach((v, i) => {
-        if (v === null) return
-        const x = pad.left + i * slotW + slotW / 2
-        const y = pad.top + cH - (v / 100 * cH)
-        ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fillStyle = color; ctx.fill()
-        ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI*2); ctx.fillStyle = dotCenter; ctx.fill()
-        ctx.fillStyle = color
-        ctx.font = 'bold 11px system-ui'
-        ctx.textAlign = 'center'
-        ctx.fillText(v + '%', x, y - 10)
-      })
+      // Dots + value labels — only for active
+      if (isActive) {
+        points.forEach((v, i) => {
+          if (v === null) return
+          const x = pad.left + i * slotW + slotW / 2
+          const y = pad.top + cH - (v / 100 * cH)
+          ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fillStyle = color; ctx.fill()
+          ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI*2); ctx.fillStyle = dotCenter; ctx.fill()
+          ctx.fillStyle = color
+          ctx.font = 'bold 11px system-ui'
+          ctx.textAlign = 'center'
+          ctx.fillText(v + '%', x, y - 10)
+        })
+      }
     })
-  }, [chartData, chartLabels])
+  }, [chartData, chartLabels, activeHorizons])
 
   return <canvas ref={canvasRef} width={900} height={300} style={{ width:'100%', height:'auto' }} />
 }
@@ -279,21 +298,35 @@ function AccBar({ hit, close, miss, total, color }) {
   )
 }
 
-function Legend() {
-  const items = [
-    { label:'1M', color:H_COLORS.light[0] },
-    { label:'3M', color:H_COLORS.light[1] },
-    { label:'6M', color:H_COLORS.light[2] },
-    { label:'12M',color:H_COLORS.light[3] },
-  ]
+function Legend({ activeHorizons, onToggle }) {
+  const dark = document.getElementById('root')?.dataset?.theme === 'dark'
+  const colors = dark ? H_COLORS.dark : H_COLORS.light
   return (
-    <div style={{ display:'flex', gap:12, alignItems:'center' }}>
-      {items.map(({ label, color }) => (
-        <div key={label} style={{ display:'flex', alignItems:'center', gap:5 }}>
-          <div style={{ width:20, height:3, borderRadius:2, background:color }} />
-          <span style={{ fontSize:'var(--fs-xxs)', color:'var(--text-3)', fontWeight:600 }}>{label}</span>
-        </div>
-      ))}
+    <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+      {HORIZONS.map((h, i) => {
+        const active = activeHorizons.includes(h)
+        const color  = colors[i]
+        return (
+          <button
+            key={h}
+            onClick={() => onToggle(h)}
+            title={active ? `Hide ${h}` : `Show ${h}`}
+            style={{
+              display:'flex', alignItems:'center', gap:6,
+              fontSize:'var(--fs-xxs)', fontWeight:600,
+              padding:'4px 10px', borderRadius:20, cursor:'pointer',
+              fontFamily:'inherit', transition:'all .15s',
+              border: active ? `1.5px solid ${color}` : '1.5px solid var(--border)',
+              background: active ? 'transparent' : 'var(--surface2)',
+              color: active ? color : 'var(--text-3)',
+              opacity: active ? 1 : 0.5,
+            }}
+          >
+            <div style={{ width:16, height:3, borderRadius:2, background: active ? color : 'var(--text-3)', transition:'background .15s' }} />
+            {h}
+          </button>
+        )
+      })}
     </div>
   )
 }

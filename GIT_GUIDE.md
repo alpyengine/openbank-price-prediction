@@ -1043,6 +1043,28 @@ git push origin v4.5.6
 
 
 # ===========================================================================
+# STEP 40 — v4.5.7  Interactive horizon toggle in accuracy chart
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v4.5.7/. .
+
+git status
+git add .
+
+git commit -m "feat: interactive horizon toggle in accuracy chart (v4.5.7)
+
+- Legend buttons toggle horizon lines on/off
+- Active: colored border and line — Inactive: grey, faded, dashed line
+- At least one horizon stays active at all times
+- Chart redraws instantly, works in dark and light mode"
+
+git tag -a v4.5.7 -m "v4.5.7: interactive horizon toggle in accuracy chart"
+git push origin main
+git push origin v4.5.7
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1127,6 +1149,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.4/         -> v4.5.4
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.5/         -> v4.5.5
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.6/         -> v4.5.6
+#    /Users/alex/Downloads/openbank-price-prediction_v4.5.7/         -> v4.5.7
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
