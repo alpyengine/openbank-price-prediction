@@ -197,14 +197,19 @@ function computed(history) {
 
   // Per-batch summary for the table
   const batchSummary = history.batches.map(b => {
-    const res      = b.results
+    const res       = b.results
     const evaluated = res.filter(r => r.verdict !== 'awaiting')
-    const hit      = evaluated.filter(r => r.verdict === 'hit').length
-    const close    = evaluated.filter(r => r.verdict === 'close').length
-    const miss     = evaluated.filter(r => r.verdict === 'miss').length
-    const awaiting = res.filter(r => r.verdict === 'awaiting').length
-    const hitRate  = evaluated.length ? Math.round(hit / evaluated.length * 100) : null
-    return { id: b.id, date: b.date, savedAt: b.savedAt, stocks: b.stocks, evaluated: evaluated.length, hit, close, miss, awaiting, hitRate }
+    const hit       = evaluated.filter(r => r.verdict === 'hit').length
+    const close     = evaluated.filter(r => r.verdict === 'close').length
+    const miss      = evaluated.filter(r => r.verdict === 'miss').length
+    const awaiting  = res.filter(r => r.verdict === 'awaiting').length
+    const hitRate   = evaluated.length ? Math.round(hit / evaluated.length * 100) : null
+    return {
+      id: b.id, date: b.date,
+      savedAt: b.savedAt, updatedAt: b.updatedAt,
+      stocks: b.stocks, evaluated: evaluated.length,
+      hit, close, miss, awaiting, hitRate,
+    }
   })
 
   // Chart data — hit% per horizon per batch (chronological)

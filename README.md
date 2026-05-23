@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.0.1
+# Openbank Price Prediction — v5.0.2
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -159,22 +159,99 @@ Migrating to Supabase only requires rewriting that file.
 
 ## Changelog
 
+### v5.0.2 — updated_at column + batch history improvements
+**Date:** May 2026
+
+**New:**
+- `updated_at` column added to Supabase `batches` table — tracks when a
+  batch was last re-saved (e.g. after a horizon expires and real price fetched)
+- Distinction between `saved_at` (first save) and `updated_at` (last update):
+  - `saved_at` — set once by Supabase when the row is first created
+  - `updated_at` — set by the app on every save, so it always reflects
+    the most recent update
+- **Batch history table** now shows two columns:
+  - **First saved** — `saved_at` from Supabase
+  - **Last updated** — `updated_at`, highlighted in blue when different
+    from `saved_at` (meaning the batch has been updated at least once)
+
+**Supabase migration (run once in SQL Editor):**
+```sql
+ALTER TABLE batches ADD COLUMN updated_at TIMESTAMPTZ DEFAULT now();
+```
+
+**Logic clarification — upsert behaviour:**
+Each batch has one row identified by its date ID (`"2026-03-17"`).
+Re-saving the same batch overwrites the row — no intermediate history is kept.
+Only the latest state is stored. This is intentional — what matters for
+accuracy is the final evaluated result when each horizon expires, not
+intermediate provisional states.
+
+**Files changed:**
+- `src/services/storage.js` — `updated_at` included in upsert row,
+  `updatedAt` mapped in loadHistory
+- `src/hooks/useHistory.js` — `updatedAt` included in batchSummary
+- `src/components/AccuracyChart.jsx` — First saved + Last updated columns
+  in batch history table
+
+---
+
 ### v5.0.1 — Bugfix: batch ID malformed in Supabase
 **Date:** May 2026
 
 **Fixed:**
 - Batch ID saved as `"undefined-undefined-17 Mar 2026"` instead of `"2026-03-17"`
-- Root cause: `buildBatchId(formatDate(firstBase))` — `formatDate` returns
-  `"17 Mar 2026"` but `buildBatchId` expects `"DD/MM/YYYY"`
-- Fix: build `batchDateStr` directly from the Date object without going
-  through `formatDate`:
+- Root cause: `formatDate()` returns `"17 Mar 2026"` (human readable) but
+  `buildBatchId` expects `"DD/MM/YYYY"` — splitting by `/` returned undefined parts
+- Fix: build `batchDateStr` directly from the Date object:
   ```js
+  // Before (broken):
+  buildBatchId(formatDate(firstBase))  // "17 Mar 2026" → "undefined-undefined-..."
+
+  // After (correct):
   const batchDateStr = `${DD}/${MM}/${YYYY}`  // "17/03/2026"
-  const batchId = buildBatchId(batchDateStr)  // "2026-03-17"
+  buildBatchId(batchDateStr)                  // "2026-03-17" ✓
   ```
-- `date` field in Supabase also fixed to use `"DD/MM/YYYY"` format
-- Malformed rows must be deleted from Supabase before testing:
+- Malformed rows deleted from Supabase via:
   `DELETE /rest/v1/batches?id=like.undefined*`
+
+**Supabase table structure explained:**
+```sql
+CREATE TABLE batches (
+  id             TEXT PRIMARY KEY,  -- Unique batch ID: "2026-03-17"
+                                    -- PRIMARY KEY = no duplicates
+                                    -- Same ID on re-save = update, not insert
+  date           TEXT NOT NULL,     -- Human readable date: "17/03/2026"
+                                    -- NOT NULL = required field
+  saved_at       TIMESTAMPTZ        -- Exact save timestamp, auto-set by Supabase
+                 DEFAULT now(),     -- Example: "2026-05-23T10:30:00Z"
+  stocks         INTEGER,           -- Number of stocks in batch (e.g. 16)
+  results        JSONB              -- Array of all evaluated predictions
+                 DEFAULT '[]',      -- JSONB = structured JSON stored in PostgreSQL
+                                    -- Contains: ticker, horizon, verdict, prices...
+  horizon_status JSONB              -- Per-horizon expiry status
+                 DEFAULT '{}',      -- true = date passed (real historical price)
+                                    -- false = date still open (provisional price)
+                                    -- Example: {"1M":true,"3M":false,...}
+  hit_rate       INTEGER            -- % of predictions that hit target
+                                    -- Only counts expired horizons
+                                    -- Example: 44 means 44%
+);
+
+-- Row Level Security — required for browser access with anon key
+ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
+
+-- Open policy for development — restricts by user in v6 (auth)
+CREATE POLICY "allow_all" ON batches
+  FOR ALL          -- applies to SELECT, INSERT, UPDATE, DELETE
+  USING (true)     -- anyone can read
+  WITH CHECK (true); -- anyone can write
+```
+
+**How to view data in Supabase:**
+1. Go to your project at `supabase.com/dashboard`
+2. Click **Table Editor** in the left menu
+3. Click the **batches** table
+4. Rows appear in a visual grid — updates in real time after each Save
 
 **Files changed:**
 - `src/hooks/useHistory.js` — batchDateStr built from Date object directly
@@ -1019,3 +1096,4 @@ regardless of CORS headers on the target server.
 | v4.5.7           | 2026-05  | React only                | Interactive horizon toggle in accuracy chart      |
 | v5.0.0           | 2026-05  | React + Supabase          | Migrate persistence to Supabase PostgreSQL        |
 | v5.0.1           | 2026-05  | React + Supabase          | Bugfix: batch ID malformed in Supabase            |
+| v5.0.2           | 2026-05  | React + Supabase          | updated_at column + batch history improvements    |

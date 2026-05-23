@@ -140,7 +140,7 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'var(--fs-sm)' }}>
               <thead>
                 <tr>
-                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','Saved at'].map(h => (
+                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated'].map(h => (
                     <th key={h} style={{ padding:'9px 12px', textAlign:'left', fontSize:'var(--fs-xs)', fontWeight:700, color:'var(--th-text)', background:'var(--th-bg)', borderBottom:'1.5px solid var(--border)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -160,6 +160,9 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
                     </td>
                     <td style={{ padding:'10px 12px', fontSize:'var(--fs-xxs)', color:'var(--text-3)' }}>
                       {b.savedAt ? new Date(b.savedAt).toLocaleDateString('en-GB') : '—'}
+                    </td>
+                    <td style={{ padding:'10px 12px', fontSize:'var(--fs-xxs)', color: b.updatedAt && b.updatedAt !== b.savedAt ? 'var(--accent)' : 'var(--text-3)' }}>
+                      {b.updatedAt ? new Date(b.updatedAt).toLocaleDateString('en-GB') : '—'}
                     </td>
                   </tr>
                 ))}

@@ -47,13 +47,14 @@ export async function loadHistory() {
 
     // Convert flat rows → { batches: [...] } shape used by the app
     const batches = rows.map(row => ({
-      id:             row.id,
-      date:           row.date,
-      savedAt:        row.saved_at,
-      stocks:         row.stocks,
-      results:        row.results ?? [],
-      horizonStatus:  row.horizon_status ?? {},
-      hitRate:        row.hit_rate,
+      id:            row.id,
+      date:          row.date,
+      savedAt:       row.saved_at,
+      updatedAt:     row.updated_at,
+      stocks:        row.stocks,
+      results:       row.results ?? [],
+      horizonStatus: row.horizon_status ?? {},
+      hitRate:       row.hit_rate,
     }))
 
     return { batches }
@@ -83,6 +84,7 @@ export async function saveHistory(history, batchMeta) {
       results:        batch.results,
       horizon_status: batch.horizonStatus ?? {},
       hit_rate:       batch.hitRate ?? null,
+      updated_at:     new Date().toISOString(),
     }
 
     // Upsert — insert if new, update if same id

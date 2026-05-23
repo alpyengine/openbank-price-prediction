@@ -1121,6 +1121,32 @@ git push origin v5.0.1
 
 
 # ===========================================================================
+# STEP 43 — v5.0.2  updated_at column + batch history improvements
+# ===========================================================================
+
+# IMPORTANT: run this in Supabase SQL Editor before testing:
+# ALTER TABLE batches ADD COLUMN updated_at TIMESTAMPTZ DEFAULT now();
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.0.2/. .
+
+git status
+git add .
+
+git commit -m "feat: updated_at column and batch history improvements (v5.0.2)
+
+- updated_at sent on every upsert to track last re-save
+- saved_at = first save (Supabase auto), updated_at = last update (app)
+- Batch history table: First saved + Last updated columns
+- Last updated highlighted in blue when different from first saved
+- README: upsert logic clarification and Supabase migration SQL"
+
+git tag -a v5.0.2 -m "v5.0.2: updated_at and batch history"
+git push origin main
+git push origin v5.0.2
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1208,6 +1234,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.7/         -> v4.5.7
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.0/         -> v5.0.0
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.1/         -> v5.0.1
+#    /Users/alex/Downloads/openbank-price-prediction_v5.0.2/         -> v5.0.2
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
