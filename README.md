@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.0.3
+# Openbank Price Prediction — v5.0.4
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,38 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.0.4 — Load batch directly from history into stock table
+**Date:** May 2026
+
+**New:**
+- **↑ Load button** on each row of the batch history table
+- Click loads that batch's stocks directly into the main stock table —
+  no CSV download or reimport needed
+- Stocks are reconstructed from the saved results in Supabase:
+  ticker, company, base price, base date, and all 4 target prices
+- After loading: prices reset, horizon resets to "best", filters reset
+- Page scrolls automatically to the top so the loaded stocks are visible
+- Button shows `✓ Loaded` for 1.2s after click as visual confirmation
+- Batch history acts as a **session history** — resume any previous
+  batch with one click, then Fetch prices and Save to update
+
+**Flow:**
+```
+App opens → auto-load history from Supabase
+Batch history table → click ↑ Load on any row
+→ stocks load into main table (no CSV needed)
+→ Fetch prices → evaluate horizons
+→ Save batch results → Supabase updated
+```
+
+**Files changed:**
+- `src/App.jsx` — `handleLoadBatch` reconstructs stocks from batch results,
+  passed to AccuracyChart as `onLoadBatch`
+- `src/components/AccuracyChart.jsx` — `onLoadBatch` prop, `loadingBatch`
+  state, Load button column in batch history table
+
+---
 
 ### v5.0.3 — Column help modals in stock table
 **Date:** May 2026
@@ -1119,3 +1151,4 @@ regardless of CORS headers on the target server.
 | v5.0.1           | 2026-05  | React + Supabase          | Bugfix: batch ID malformed in Supabase            |
 | v5.0.2           | 2026-05  | React + Supabase          | updated_at column + batch history improvements    |
 | v5.0.3           | 2026-05  | React + Supabase          | Column help modals in stock table                 |
+| v5.0.4           | 2026-05  | React + Supabase          | Load batch directly from history into stock table |

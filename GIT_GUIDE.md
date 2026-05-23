@@ -1171,6 +1171,30 @@ git push origin v5.0.3
 
 
 # ===========================================================================
+# STEP 45 — v5.0.4  Load batch directly from history into stock table
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.0.4/. .
+
+git status
+git add .
+
+git commit -m "feat: load batch directly from history into stock table (v5.0.4)
+
+- Load button on each batch history row
+- Reconstructs stocks from Supabase results — no CSV needed
+- Resets prices, horizon, filters on load
+- Page scrolls to top automatically
+- Button shows Loaded confirmation for 1.2s
+- Batch history acts as session history — resume any batch with one click"
+
+git tag -a v5.0.4 -m "v5.0.4: load batch from history"
+git push origin main
+git push origin v5.0.4
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1260,6 +1284,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.1/         -> v5.0.1
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.2/         -> v5.0.2
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.3/         -> v5.0.3
+#    /Users/alex/Downloads/openbank-price-prediction_v5.0.4/         -> v5.0.4
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

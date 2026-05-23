@@ -8,17 +8,24 @@ const H_COLORS = {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function AccuracyChart({ stats, history, loading, saving, log, configured, onLoad, onSave }) {
+export default function AccuracyChart({ stats, history, loading, saving, log, configured, onLoad, onSave, onLoadBatch }) {
   const [activeHorizons, setActiveHorizons] = useState(['1M','3M','6M','12M'])
+  const [loadingBatch,   setLoadingBatch]   = useState(null)
 
   const toggleHorizon = (h) => {
     setActiveHorizons(prev => {
       if (prev.includes(h)) {
-        if (prev.length === 1) return prev  // keep at least one active
+        if (prev.length === 1) return prev
         return prev.filter(x => x !== h)
       }
       return [...prev, h]
     })
+  }
+
+  const handleLoadBatch = (batch) => {
+    setLoadingBatch(batch.id)
+    onLoadBatch(batch)
+    setTimeout(() => setLoadingBatch(null), 1200)
   }
 
   if (!configured) {
@@ -140,32 +147,47 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'var(--fs-sm)' }}>
               <thead>
                 <tr>
-                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated'].map(h => (
+                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated',''].map(h => (
                     <th key={h} style={{ padding:'9px 12px', textAlign:'left', fontSize:'var(--fs-xs)', fontWeight:700, color:'var(--th-text)', background:'var(--th-bg)', borderBottom:'1.5px solid var(--border)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {stats.batchSummary.map((b, i) => (
-                  <tr key={b.id} style={{ borderBottom: i < stats.batchSummary.length-1 ? '1px solid var(--border)' : 'none', background: i%2===1?'var(--surface2)':'transparent' }}>
-                    <td style={{ padding:'10px 12px', fontWeight:600, color:'var(--text)' }}>{b.date}</td>
-                    <td style={{ padding:'10px 12px', color:'var(--text-2)' }}>{b.stocks}</td>
-                    <td style={{ padding:'10px 12px', color:'var(--text-2)' }}>{b.evaluated}</td>
-                    <td style={{ padding:'10px 12px' }}><VerdictTag type="hit">{b.hit}</VerdictTag></td>
-                    <td style={{ padding:'10px 12px' }}><VerdictTag type="close">{b.close}</VerdictTag></td>
-                    <td style={{ padding:'10px 12px' }}><VerdictTag type="miss">{b.miss}</VerdictTag></td>
-                    <td style={{ padding:'10px 12px' }}><VerdictTag type="await">{b.awaiting}</VerdictTag></td>
-                    <td style={{ padding:'10px 12px', fontWeight:700, color: b.hitRate >= 60 ? 'var(--green)' : b.hitRate >= 40 ? 'var(--amber)' : b.hitRate != null ? 'var(--red)' : 'var(--text-3)' }}>
-                      {b.hitRate != null ? b.hitRate + '%' : '—'}
-                    </td>
-                    <td style={{ padding:'10px 12px', fontSize:'var(--fs-xxs)', color:'var(--text-3)' }}>
-                      {b.savedAt ? new Date(b.savedAt).toLocaleDateString('en-GB') : '—'}
-                    </td>
-                    <td style={{ padding:'10px 12px', fontSize:'var(--fs-xxs)', color: b.updatedAt && b.updatedAt !== b.savedAt ? 'var(--accent)' : 'var(--text-3)' }}>
-                      {b.updatedAt ? new Date(b.updatedAt).toLocaleDateString('en-GB') : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {stats.batchSummary.map((b, i) => {
+                  const batch    = history.batches.find(x => x.id === b.id)
+                  const isLoading = loadingBatch === b.id
+                  return (
+                    <tr key={b.id} style={{ borderBottom: i < stats.batchSummary.length-1 ? '1px solid var(--border)' : 'none', background: i%2===1?'var(--surface2)':'transparent' }}>
+                      <td style={{ padding:'10px 12px', fontWeight:600, color:'var(--text)' }}>{b.date}</td>
+                      <td style={{ padding:'10px 12px', color:'var(--text-2)' }}>{b.stocks}</td>
+                      <td style={{ padding:'10px 12px', color:'var(--text-2)' }}>{b.evaluated}</td>
+                      <td style={{ padding:'10px 12px' }}><VerdictTag type="hit">{b.hit}</VerdictTag></td>
+                      <td style={{ padding:'10px 12px' }}><VerdictTag type="close">{b.close}</VerdictTag></td>
+                      <td style={{ padding:'10px 12px' }}><VerdictTag type="miss">{b.miss}</VerdictTag></td>
+                      <td style={{ padding:'10px 12px' }}><VerdictTag type="await">{b.awaiting}</VerdictTag></td>
+                      <td style={{ padding:'10px 12px', fontWeight:700, color: b.hitRate >= 60 ? 'var(--green)' : b.hitRate >= 40 ? 'var(--amber)' : b.hitRate != null ? 'var(--red)' : 'var(--text-3)' }}>
+                        {b.hitRate != null ? b.hitRate + '%' : '—'}
+                      </td>
+                      <td style={{ padding:'10px 12px', fontSize:'var(--fs-xxs)', color:'var(--text-3)' }}>
+                        {b.savedAt ? new Date(b.savedAt).toLocaleDateString('en-GB') : '—'}
+                      </td>
+                      <td style={{ padding:'10px 12px', fontSize:'var(--fs-xxs)', color: b.updatedAt && b.updatedAt !== b.savedAt ? 'var(--accent)' : 'var(--text-3)' }}>
+                        {b.updatedAt ? new Date(b.updatedAt).toLocaleDateString('en-GB') : '—'}
+                      </td>
+                      <td style={{ padding:'8px 12px' }}>
+                        {batch && (
+                          <button
+                            onClick={() => handleLoadBatch(batch)}
+                            disabled={isLoading}
+                            style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:600, border:'1.5px solid var(--border-blue)', background: isLoading ? 'var(--green-bg)' : 'var(--surface)', color: isLoading ? 'var(--green)' : 'var(--accent)', whiteSpace:'nowrap', transition:'all .2s' }}
+                          >
+                            {isLoading ? '✓ Loaded' : '↑ Load'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

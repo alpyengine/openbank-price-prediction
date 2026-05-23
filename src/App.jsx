@@ -106,6 +106,51 @@ export default function App() {
     resetFundamentals()
   }, [resetPrices, resetFundamentals])
 
+  // Load a saved batch directly from history into the stock table
+  const handleLoadBatch = useCallback((batch) => {
+    // Extract unique stocks from batch results
+    const seen = new Set()
+    const newStocks = []
+    for (const r of batch.results) {
+      if (seen.has(r.ticker)) continue
+      seen.add(r.ticker)
+      // Rebuild stock object from result rows
+      const rows = batch.results.filter(x => x.ticker === r.ticker)
+      const get  = (h) => rows.find(x => x.horizon === h)?.targetPrice ?? 0
+      // Parse base date from "DD/MM/YYYY" or "DD Mon YYYY"
+      let base = null
+      if (batch.date) {
+        const parts = batch.date.split('/')
+        if (parts.length === 3) {
+          base = new Date(+parts[2], +parts[1] - 1, +parts[0])
+        }
+      }
+      newStocks.push({
+        t:    r.ticker,
+        co:   r.company,
+        cu:   'USD',
+        b:    r.basePrice,
+        t1:   get('1M'),
+        t3:   get('3M'),
+        t6:   get('6M'),
+        t12:  get('12M'),
+        base: base || new Date(),
+      })
+    }
+    if (!newStocks.length) return
+    setStocks(newStocks)
+    setOverrides({})
+    setHorizon('best')
+    setFilterSector('all')
+    setFilterIndustry('all')
+    setGroupBySector(false)
+    setSortBySector(false)
+    resetPrices()
+    resetFundamentals()
+    // Scroll to top so user sees the loaded stocks
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [resetPrices, resetFundamentals])
+
   const handleOverrideChange = useCallback((ticker, value) => {
     setOverrides(prev => {
       if (value == null) { const next = { ...prev }; delete next[ticker]; return next }
@@ -199,6 +244,7 @@ export default function App() {
         configured={histConfigured}
         onLoad={loadHistory}
         onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon })}
+        onLoadBatch={handleLoadBatch}
       />
 
       {showEmail && (
