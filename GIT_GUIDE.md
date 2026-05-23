@@ -1147,6 +1147,30 @@ git push origin v5.0.2
 
 
 # ===========================================================================
+# STEP 44 — v5.0.3  Column help modals in stock table
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.0.3/. .
+
+git status
+git add .
+
+git commit -m "feat: column help modals in stock table (v5.0.3)
+
+- ? button on every column header opens a help modal
+- Modal: title, subtitle, plain-language description, real example
+- 9 definitions: Ticker, Sector, Base date, Base price, Price,
+  Override, Horizon targets, Hit?, Distance, Result
+- ColHelpModal and HelpBtn as self-contained components
+- COL_HELP dictionary — all descriptions in one place"
+
+git tag -a v5.0.3 -m "v5.0.3: column help modals"
+git push origin main
+git push origin v5.0.3
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1235,6 +1259,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.0/         -> v5.0.0
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.1/         -> v5.0.1
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.2/         -> v5.0.2
+#    /Users/alex/Downloads/openbank-price-prediction_v5.0.3/         -> v5.0.3
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

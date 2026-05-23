@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.0.2
+# Openbank Price Prediction — v5.0.3
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,27 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.0.3 — Column help modals in stock table
+**Date:** May 2026
+
+**New:**
+- Every column header now has a small `?` button that opens a help modal
+- Modal explains the column with a plain-language description and a real example
+- 9 help definitions covering all columns:
+  Ticker, Sector/Industry, Base date, Base price, Price, Override,
+  Horizon targets (shared for 1M/3M/6M/12M), Hit?, Distance, Result
+- Modal closes on ✕ button, click outside, or Escape key
+- `ColHelpModal` component — self-contained, rendered above the table
+- `HelpBtn` component — small circular `?` button inline in each header
+- `COL_HELP` dictionary — all column descriptions in one place,
+  easy to update without touching layout code
+
+**Files changed:**
+- `src/components/StockTable.jsx` — COL_HELP dictionary, HelpBtn,
+  ColHelpModal, Th updated to accept colKey and onOpen props
+
+---
 
 ### v5.0.2 — updated_at column + batch history improvements
 **Date:** May 2026
@@ -1097,3 +1118,4 @@ regardless of CORS headers on the target server.
 | v5.0.0           | 2026-05  | React + Supabase          | Migrate persistence to Supabase PostgreSQL        |
 | v5.0.1           | 2026-05  | React + Supabase          | Bugfix: batch ID malformed in Supabase            |
 | v5.0.2           | 2026-05  | React + Supabase          | updated_at column + batch history improvements    |
+| v5.0.3           | 2026-05  | React + Supabase          | Column help modals in stock table                 |
