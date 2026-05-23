@@ -1267,6 +1267,30 @@ git push origin v5.0.7
 
 
 # ===========================================================================
+# STEP 49 — v5.0.8  Batch merge + delete button in history
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.0.8/. .
+
+git status
+git add .
+
+git commit -m "feat: batch merge and delete button in history (v5.0.8)
+
+- Same base date CSVs now MERGE tickers instead of overwriting
+  Existing tickers preserved, new tickers added, duplicates replaced
+  Log: Merging 3 new tickers with 3 existing — total 6 tickers
+- Delete button in batch history: two-click confirmation (3s timeout)
+  First click: Confirm warning — second click: deletes from Supabase
+- deleteHistoryBatch in storage.js: DELETE /rest/v1/batches?id=eq.X"
+
+git tag -a v5.0.8 -m "v5.0.8: batch merge and delete"
+git push origin main
+git push origin v5.0.8
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1360,6 +1384,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.5/         -> v5.0.5
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.6/         -> v5.0.6
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.7/         -> v5.0.7
+#    /Users/alex/Downloads/openbank-price-prediction_v5.0.8/         -> v5.0.8
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

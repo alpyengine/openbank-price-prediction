@@ -44,7 +44,7 @@ export default function App() {
   const {
     history, stats, loading: histLoading, saving: histSaving,
     log: histLog, configured: histConfigured,
-    load: loadHistory, saveBatch,
+    load: loadHistory, saveBatch, deleteBatch,
   } = useHistory()
 
   const {
@@ -245,6 +245,7 @@ export default function App() {
         onLoad={loadHistory}
         onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon })}
         onLoadBatch={handleLoadBatch}
+        onDeleteBatch={deleteBatch}
       />
 
       {showEmail && (

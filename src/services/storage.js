@@ -105,6 +105,23 @@ export async function saveHistory(history, batchMeta) {
   }
 }
 
+// ── Public: delete a single batch by id ──────────────────────────────────────
+
+export async function deleteHistoryBatch(batchId) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false
+  try {
+    const res = await fetch(endpoint(`?id=eq.${encodeURIComponent(batchId)}`), {
+      method:  'DELETE',
+      headers: { ...headers(), 'Prefer': 'return=representation' },
+    })
+    if (!res.ok) throw new Error('Supabase DELETE failed: ' + res.status)
+    return true
+  } catch (err) {
+    console.error('[storage] deleteHistoryBatch error:', err)
+    return false
+  }
+}
+
 // ── Public: build batch ID from date string ───────────────────────────────────
 
 export function buildBatchId(dateStr) {

@@ -8,9 +8,11 @@ const H_COLORS = {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function AccuracyChart({ stats, history, loading, saving, log, configured, onLoad, onSave, onLoadBatch }) {
+export default function AccuracyChart({ stats, history, loading, saving, log, configured, onLoad, onSave, onLoadBatch, onDeleteBatch }) {
   const [activeHorizons, setActiveHorizons] = useState(['1M','3M','6M','12M'])
   const [loadingBatch,   setLoadingBatch]   = useState(null)
+  const [deletingBatch,  setDeletingBatch]  = useState(null)
+  const [confirmDelete,  setConfirmDelete]  = useState(null)
 
   const toggleHorizon = (h) => {
     setActiveHorizons(prev => {
@@ -26,6 +28,18 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
     setLoadingBatch(batch.id)
     onLoadBatch(batch)
     setTimeout(() => setLoadingBatch(null), 1200)
+  }
+
+  const handleDeleteBatch = async (batchId) => {
+    if (confirmDelete !== batchId) {
+      setConfirmDelete(batchId)
+      setTimeout(() => setConfirmDelete(null), 3000)
+      return
+    }
+    setConfirmDelete(null)
+    setDeletingBatch(batchId)
+    await onDeleteBatch(batchId)
+    setDeletingBatch(null)
   }
 
   if (!configured) {
@@ -147,7 +161,7 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'var(--fs-sm)' }}>
               <thead>
                 <tr>
-                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated',''].map(h => (
+                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated','',''].map(h => (
                     <th key={h} style={{ padding:'9px 12px', textAlign:'left', fontSize:'var(--fs-xs)', fontWeight:700, color:'var(--th-text)', background:'var(--th-bg)', borderBottom:'1.5px solid var(--border)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -184,6 +198,21 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
                             {isLoading ? '✓ Loaded' : '↑ Load'}
                           </button>
                         )}
+                      </td>
+                      <td style={{ padding:'8px 12px' }}>
+                        {(() => {
+                          const isDeleting = deletingBatch === b.id
+                          const isConfirm  = confirmDelete === b.id
+                          return (
+                            <button
+                              onClick={() => handleDeleteBatch(b.id)}
+                              disabled={isDeleting}
+                              style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:600, whiteSpace:'nowrap', transition:'all .2s', border: isConfirm ? '1.5px solid var(--red)' : '1px solid var(--border)', background: isConfirm ? 'var(--red-bg)' : 'transparent', color: isConfirm ? 'var(--red)' : 'var(--text-3)' }}
+                            >
+                              {isDeleting ? '…' : isConfirm ? '⚠ Confirm' : '🗑 Delete'}
+                            </button>
+                          )
+                        })()}
                       </td>
                     </tr>
                   )

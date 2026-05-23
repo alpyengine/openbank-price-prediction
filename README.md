@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.0.7
+# Openbank Price Prediction — v5.0.8
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,34 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.0.8 — Batch merge + delete button in history
+**Date:** May 2026
+
+**New:**
+- **Batch merge** — saving a CSV with the same base date as an existing batch
+  now MERGES the tickers instead of overwriting:
+  - Existing tickers not in the new CSV are preserved
+  - Tickers in the new CSV replace their existing entries (updated prices)
+  - Stock count updates to reflect total unique tickers
+  - Log shows: `Merging 3 new tickers with 3 existing — total 6 tickers…`
+- **🗑 Delete button** in batch history table — two-click confirmation:
+  - First click: button turns red showing `⚠ Confirm` (3s timeout)
+  - Second click: deletes from Supabase and removes from history table
+  - If not confirmed in 3s, reverts to normal state automatically
+
+**Use case that prompted this fix:**
+Two CSVs with the same base date (14/05/2026), 3 tickers each.
+Previously: second save overwrote the first — 3 tickers lost.
+Now: second save merges — all 6 tickers preserved in one batch.
+
+**Files changed:**
+- `src/hooks/useHistory.js` — merge logic in saveBatch, deleteBatch function
+- `src/services/storage.js` — deleteHistoryBatch (DELETE /rest/v1/batches?id=eq.X)
+- `src/components/AccuracyChart.jsx` — Delete button with 2-click confirm
+- `src/App.jsx` — deleteBatch wired through to AccuracyChart
+
+---
 
 ### v5.0.7 — Bugfix: FMP and TD fundamentals failing for .US tickers
 **Date:** May 2026
@@ -1238,3 +1266,4 @@ regardless of CORS headers on the target server.
 | v5.0.5           | 2026-05  | React + Supabase          | Alpha Vantage for EU markets (.DE .AS .PA .L)     |
 | v5.0.6           | 2026-05  | React + Supabase          | Ticker display without suffix + column overlap fix |
 | v5.0.7           | 2026-05  | React + Supabase          | Bugfix: FMP and TD fundamentals failing for .US    |
+| v5.0.8           | 2026-05  | React + Supabase          | Batch merge + delete button in history             |

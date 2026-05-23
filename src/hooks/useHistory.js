@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { loadHistory, saveHistory, buildBatchId, isStorageConfigured } from '../services/storage.js'
+import { loadHistory, saveHistory, buildBatchId, isStorageConfigured, deleteHistoryBatch } from '../services/storage.js'
 import { formatDate, today as getToday, targetDates, dateStatus } from '../utils/dates.js'
 import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
 
@@ -116,10 +116,36 @@ export function useHistory() {
       results,
     }
 
-    // Merge into existing history (replace if same batch ID)
-    const current  = history ?? { batches: [] }
-    const existing = current.batches.filter(b => b.id !== batchId)
-    const updated  = { batches: [newBatch, ...existing] }
+    // Merge into existing history — if same batch ID exists, MERGE tickers
+    // (don't overwrite — user may be adding more tickers to same date batch)
+    const current     = history ?? { batches: [] }
+    const existingBatch = current.batches.find(b => b.id === batchId)
+
+    let mergedResults = results
+    let mergedStocks  = stocks.length
+
+    if (existingBatch) {
+      // Keep existing results for tickers NOT in current batch
+      // Replace results for tickers that ARE in current batch (updated prices)
+      const currentTickers = new Set(stocks.map(s => s.t))
+      const keptResults    = existingBatch.results.filter(r => !currentTickers.has(r.ticker))
+      mergedResults        = [...keptResults, ...results]
+      // Count unique tickers
+      const uniqueTickers  = new Set(mergedResults.map(r => r.ticker))
+      mergedStocks         = uniqueTickers.size
+      setLog(`Merging ${stocks.length} new tickers with ${existingBatch.stocks} existing — total ${mergedStocks} tickers…`)
+    }
+
+    const newBatch = {
+      id:      batchId,
+      date:    batchDateStr ?? formatDate(getToday()),
+      savedAt: existingBatch?.savedAt ?? new Date().toISOString(),
+      stocks:  mergedStocks,
+      results: mergedResults,
+    }
+
+    const otherBatches = current.batches.filter(b => b.id !== batchId)
+    const updated      = { batches: [newBatch, ...otherBatches] }
 
     // Build horizon status — ✓ only if target date has already passed
     // (real historical close available), not just if verdict !== awaiting
@@ -136,14 +162,18 @@ export function useHistory() {
       }
     }
 
-    // Compute HIT rate for evaluated horizons only
-    const evaluated = results.filter(r => r.verdict !== 'awaiting')
+    // Compute HIT rate for evaluated horizons only (use mergedResults)
+    const evaluated = mergedResults.filter(r => r.verdict !== 'awaiting')
     const hits      = evaluated.filter(r => r.verdict === 'hit').length
     const hitRate   = evaluated.length ? Math.round(hits / evaluated.length * 100) : null
 
+    // Update newBatch with horizonStatus and hitRate
+    newBatch.horizonStatus = horizonStatus
+    newBatch.hitRate       = hitRate
+
     const batchMeta = {
-      batchDate: firstBase ? formatDate(firstBase) : formatDate(getToday()),
-      stocks:    stocks.length,
+      batchDate: batchDateStr ?? formatDate(getToday()),
+      stocks:    mergedStocks,
       horizonStatus,
       hitRate,
     }
@@ -159,10 +189,33 @@ export function useHistory() {
     return ok
   }, [history, configured])
 
-  // ── Computed accuracy stats ─────────────────────────────────────────────────
+  // ── Delete a batch ─────────────────────────────────────────────────────────
+  const deleteBatch = useCallback(async (batchId) => {
+    if (!configured) { setLog('Storage not configured'); return false }
+    setSaving(true)
+    setLog(`Deleting batch ${batchId}…`)
+    try {
+      const ok = await deleteHistoryBatch(batchId)
+      if (ok) {
+        setHistory(prev => {
+          if (!prev) return prev
+          return { batches: prev.batches.filter(b => b.id !== batchId) }
+        })
+        setLog(`Batch ${batchId} deleted`)
+      } else {
+        setLog(`Failed to delete batch ${batchId}`)
+      }
+      return ok
+    } catch (err) {
+      setLog('Delete error: ' + err.message)
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }, [configured])
   const stats = computed(history)
 
-  return { history, stats, loading, saving, log, configured, load, saveBatch }
+  return { history, stats, loading, saving, log, configured, load, saveBatch, deleteBatch }
 }
 
 // ── Compute accuracy stats from history ───────────────────────────────────────
