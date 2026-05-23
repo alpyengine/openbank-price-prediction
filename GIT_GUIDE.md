@@ -1096,6 +1096,31 @@ git push origin v5.0.0
 
 
 # ===========================================================================
+# STEP 42 — v5.0.1  Bugfix: batch ID malformed in Supabase
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.0.1/. .
+
+# Before testing — delete malformed rows from Supabase:
+# curl -X DELETE "https://yyenwzljojxbqtzcbchk.supabase.co/rest/v1/batches?id=like.undefined*" \
+#   -H "apikey: YOUR_ANON_KEY" -H "Authorization: Bearer YOUR_ANON_KEY"
+
+git status
+git add .
+
+git commit -m "fix: batch ID malformed undefined-undefined in Supabase (v5.0.1)
+
+- buildBatchId received formatDate output (17 Mar 2026) instead of DD/MM/YYYY
+- Fix: build batchDateStr directly from Date object getDate/getMonth/getFullYear
+- date field also corrected to DD/MM/YYYY format"
+
+git tag -a v5.0.1 -m "v5.0.1: fix batch ID malformed in Supabase"
+git push origin main
+git push origin v5.0.1
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1182,6 +1207,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.6/         -> v4.5.6
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.7/         -> v4.5.7
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.0/         -> v5.0.0
+#    /Users/alex/Downloads/openbank-price-prediction_v5.0.1/         -> v5.0.1
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

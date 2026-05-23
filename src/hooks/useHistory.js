@@ -101,13 +101,16 @@ export function useHistory() {
 
     // Build batch ID from first stock's base date
     const firstBase = stocks.find(s => s.base)?.base
-    const batchId   = firstBase
-      ? buildBatchId(formatDate(firstBase))
-      : buildBatchId(null)
+
+    // buildBatchId expects "DD/MM/YYYY" — convert Date object directly
+    const batchDateStr = firstBase
+      ? `${String(firstBase.getDate()).padStart(2,'0')}/${String(firstBase.getMonth()+1).padStart(2,'0')}/${firstBase.getFullYear()}`
+      : null
+    const batchId = buildBatchId(batchDateStr)
 
     const newBatch = {
       id:      batchId,
-      date:    firstBase ? formatDate(firstBase) : formatDate(getToday()),
+      date:    batchDateStr ?? formatDate(getToday()),
       savedAt: new Date().toISOString(),
       stocks:  stocks.length,
       results,

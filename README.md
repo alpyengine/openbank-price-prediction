@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.0.0
+# Openbank Price Prediction — v5.0.1
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,28 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.0.1 — Bugfix: batch ID malformed in Supabase
+**Date:** May 2026
+
+**Fixed:**
+- Batch ID saved as `"undefined-undefined-17 Mar 2026"` instead of `"2026-03-17"`
+- Root cause: `buildBatchId(formatDate(firstBase))` — `formatDate` returns
+  `"17 Mar 2026"` but `buildBatchId` expects `"DD/MM/YYYY"`
+- Fix: build `batchDateStr` directly from the Date object without going
+  through `formatDate`:
+  ```js
+  const batchDateStr = `${DD}/${MM}/${YYYY}`  // "17/03/2026"
+  const batchId = buildBatchId(batchDateStr)  // "2026-03-17"
+  ```
+- `date` field in Supabase also fixed to use `"DD/MM/YYYY"` format
+- Malformed rows must be deleted from Supabase before testing:
+  `DELETE /rest/v1/batches?id=like.undefined*`
+
+**Files changed:**
+- `src/hooks/useHistory.js` — batchDateStr built from Date object directly
+
+---
 
 ### v5.0.0 — Supabase persistence (PostgreSQL)
 **Date:** May 2026
@@ -996,3 +1018,4 @@ regardless of CORS headers on the target server.
 | v4.5.6           | 2026-05  | React only                | Bugfix: horizon status in commit + ZIP structure  |
 | v4.5.7           | 2026-05  | React only                | Interactive horizon toggle in accuracy chart      |
 | v5.0.0           | 2026-05  | React + Supabase          | Migrate persistence to Supabase PostgreSQL        |
+| v5.0.1           | 2026-05  | React + Supabase          | Bugfix: batch ID malformed in Supabase            |
