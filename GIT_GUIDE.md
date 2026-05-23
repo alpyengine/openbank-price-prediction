@@ -1195,6 +1195,34 @@ git push origin v5.0.4
 
 
 # ===========================================================================
+# STEP 46 — v5.0.5  Alpha Vantage for EU markets
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.0.5/. .
+
+# IMPORTANT: add Alpha Vantage key to .env:
+# echo "VITE_ALPHA_VANTAGE_KEY=Y2PVUMC7ZSZHB9NC" >> .env
+
+git status
+git add .
+
+git commit -m "feat: Alpha Vantage integration for European markets (v5.0.5)
+
+- Auto-detection by ticker suffix: .US → Twelve Data, .DE/.AS/.PA/.L → Alpha Vantage
+- fetchCurrentPrices_AV: GLOBAL_QUOTE, 1.2s pause between tickers
+- fetchHistoricalPrice_AV: TIME_SERIES_DAILY, closest day on or before target
+- tdSymbol: strips .US suffix for Twelve Data compatibility
+- Log shows which provider was used
+- CSV tickers now always include market suffix (AIXA.DE, TER.US)
+- New env var: VITE_ALPHA_VANTAGE_KEY"
+
+git tag -a v5.0.5 -m "v5.0.5: Alpha Vantage for EU markets"
+git push origin main
+git push origin v5.0.5
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1285,6 +1313,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.2/         -> v5.0.2
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.3/         -> v5.0.3
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.4/         -> v5.0.4
+#    /Users/alex/Downloads/openbank-price-prediction_v5.0.5/         -> v5.0.5
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.0.4
+# Openbank Price Prediction — v5.0.5
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,45 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.0.5 — Alpha Vantage integration for European markets
+**Date:** May 2026
+
+**New:**
+- **Alpha Vantage API** integrated as second price provider for EU markets
+- **Auto-detection by ticker suffix** — no config needed, fully automatic:
+  - `.US` → Twelve Data (NYSE/NASDAQ, 8 req/min, unlimited)
+  - `.DE` `.AS` `.PA` `.L` `.MC` → Alpha Vantage (EU markets, 1 req/s, 25/day)
+- **Current prices** — `GLOBAL_QUOTE` endpoint, 1.2s pause between tickers
+- **Historical prices** — `TIME_SERIES_DAILY` endpoint, finds closest trading
+  day on or before the target date (handles weekends and holidays)
+- **Log shows provider** — `5/5 prices loaded via Alpha Vantage` or `via Twelve Data`
+- **Segmented progress bar** adapts to Alpha Vantage (one dot per ticker,
+  no chunk wait — different rate limit pattern)
+- **CSV format updated** — tickers now always include market suffix:
+  `AIXA.DE`, `TER.US`, `ASML.AS` etc. Skills updated accordingly.
+- New env variable: `VITE_ALPHA_VANTAGE_KEY`
+
+**Alpha Vantage free tier limits:**
+- 25 requests/day total
+- 1 request/second (no burst)
+- Covers: Xetra (.DE), Amsterdam (.AS), Paris (.PA), London (.L)
+- Does NOT cover: Madrid BME (.MC) — ACS not found in AV
+
+**Ticker suffix → API routing:**
+```
+TER.US   → tdSymbol("TER") → Twelve Data /price?symbol=TER
+AIXA.DE  → Alpha Vantage GLOBAL_QUOTE?symbol=AIXA.DE
+ASML.AS  → Alpha Vantage GLOBAL_QUOTE?symbol=ASML.AS
+```
+
+**Files changed:**
+- `src/hooks/usePriceFetch.js` — full rewrite: detectProvider, getSuffix,
+  fetchCurrentPrices_TD, fetchCurrentPrices_AV, fetchHistoricalPrice_TD,
+  fetchHistoricalPrice_AV, tdSymbol helper
+- `.env.example` — VITE_ALPHA_VANTAGE_KEY added
+
+---
 
 ### v5.0.4 — Load batch directly from history into stock table
 **Date:** May 2026
@@ -1152,3 +1191,4 @@ regardless of CORS headers on the target server.
 | v5.0.2           | 2026-05  | React + Supabase          | updated_at column + batch history improvements    |
 | v5.0.3           | 2026-05  | React + Supabase          | Column help modals in stock table                 |
 | v5.0.4           | 2026-05  | React + Supabase          | Load batch directly from history into stock table |
+| v5.0.5           | 2026-05  | React + Supabase          | Alpha Vantage for EU markets (.DE .AS .PA .L)     |
