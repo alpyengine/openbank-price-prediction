@@ -87,11 +87,12 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
       <tr style={{ borderBottom: expanded ? 'none' : '1px solid var(--border)', cursor:'pointer' }} onClick={() => setExpanded(v=>!v)}>
 
-        <td style={{ ...td, fontWeight:600, fontSize:12, color:'var(--text)' }}>
+        <td style={{ ...td, fontWeight:600, fontSize:12, color:'var(--text)', whiteSpace:'nowrap' }}>
           <span style={{ marginRight:4, fontSize:9, color:'var(--text-3)' }}>{expanded?'▼':'▶'}</span>
-          {stock.t}
+          {stock.t.split('.')[0]}
+          <div style={{ fontSize:9, color:'var(--text-3)', fontWeight:400, marginTop:1 }}>{stock.t.includes('.') ? stock.t.split('.').pop() : 'US'}</div>
         </td>
-        <td style={{ ...td, fontSize:11, color:'var(--text-2)' }}>{stock.co}</td>
+        <td style={{ ...td, fontSize:11, color:'var(--text-2)', wordBreak:'break-word', minWidth:80 }}>{stock.co}</td>
         <td style={{ ...td, fontSize:11, color:fundColor }}>{sectorText}</td>
         <td style={{ ...td, fontSize:11, color:fundColor }}>{industryText}</td>
         <td style={{ ...td, fontSize:11, color:'var(--text-3)' }}>{stock.cu}</td>

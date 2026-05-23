@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.0.5
+# Openbank Price Prediction — v5.0.6
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,22 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.0.6 — Ticker display without suffix + column overlap fix
+**Date:** May 2026
+
+**Fixed:**
+- Ticker column showed full ticker with suffix (`TER.US`, `AIXA.DE`) — now
+  shows only the clean ticker (`TER`, `AIXA`) with the market suffix shown
+  as small grey text below (`US`, `DE`) for reference
+- Ticker and Company columns were overlapping — widths increased
+- Suffix preserved internally for API routing — only the display changes
+
+**Files changed:**
+- `src/components/StockRow.jsx` — split ticker display: name + suffix label
+- `src/components/StockTable.jsx` — Ticker 68px, Company 120px
+
+---
 
 ### v5.0.5 — Alpha Vantage integration for European markets
 **Date:** May 2026
@@ -1192,3 +1208,4 @@ regardless of CORS headers on the target server.
 | v5.0.3           | 2026-05  | React + Supabase          | Column help modals in stock table                 |
 | v5.0.4           | 2026-05  | React + Supabase          | Load batch directly from history into stock table |
 | v5.0.5           | 2026-05  | React + Supabase          | Alpha Vantage for EU markets (.DE .AS .PA .L)     |
+| v5.0.6           | 2026-05  | React + Supabase          | Ticker display without suffix + column overlap fix |

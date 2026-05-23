@@ -194,8 +194,8 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed', minWidth:1280 }}>
           <thead>
             <tr>
-              <Th w={56}  colKey="ticker"    onOpen={setHelpCol}>Ticker</Th>
-              <Th w={110} colKey="ticker"    onOpen={setHelpCol}>Company</Th>
+              <Th w={68}  colKey="ticker"    onOpen={setHelpCol}>Ticker</Th>
+              <Th w={120} colKey="ticker"    onOpen={setHelpCol}>Company</Th>
               <Th w={88}  colKey="sector"    onOpen={setHelpCol}>Sector</Th>
               <Th w={100} colKey="sector"    onOpen={setHelpCol}>Industry</Th>
               <Th w={40}>Cur.</Th>

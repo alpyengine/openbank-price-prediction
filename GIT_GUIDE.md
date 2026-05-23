@@ -1223,6 +1223,28 @@ git push origin v5.0.5
 
 
 # ===========================================================================
+# STEP 47 — v5.0.6  Ticker display without suffix + column overlap fix
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.0.6/. .
+
+git status
+git add .
+
+git commit -m "fix: ticker display without suffix and column overlap (v5.0.6)
+
+- Ticker shows TER instead of TER.US, AIXA instead of AIXA.DE
+- Market suffix shown as small grey label below ticker (US, DE, etc.)
+- Suffix preserved internally for API routing
+- Ticker column 68px, Company 120px to prevent overlap"
+
+git tag -a v5.0.6 -m "v5.0.6: ticker display and column overlap fix"
+git push origin main
+git push origin v5.0.6
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1314,6 +1336,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.3/         -> v5.0.3
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.4/         -> v5.0.4
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.5/         -> v5.0.5
+#    /Users/alex/Downloads/openbank-price-prediction_v5.0.6/         -> v5.0.6
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
