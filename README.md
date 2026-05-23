@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v4.5.7
+# Openbank Price Prediction — v5.0.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,53 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.0.0 — Supabase persistence (PostgreSQL)
+**Date:** May 2026
+
+**Changed:**
+- Persistence backend migrated from GitHub JSON to **Supabase (PostgreSQL)**
+- Only `src/services/storage.js` changed — the rest of the app is unaffected
+- Data now stored in a `batches` table with proper SQL structure:
+  - `id` TEXT PRIMARY KEY — batch date "YYYY-MM-DD"
+  - `date` TEXT — "DD/MM/YYYY"
+  - `saved_at` TIMESTAMPTZ — auto-set by Supabase
+  - `stocks` INTEGER — number of stocks in batch
+  - `results` JSONB — array of all predictions
+  - `horizon_status` JSONB — `{ "1M": true, "3M": false, ... }`
+  - `hit_rate` INTEGER — 0-100
+- Upsert via `Prefer: resolution=merge-duplicates` — same batch ID
+  updates the existing row instead of creating a duplicate
+- Data accessible from any device with the Supabase anon key
+- GitHub credentials (VITE_GITHUB_TOKEN, VITE_GITHUB_REPO) no longer needed
+  for persistence — kept in .env for backward compatibility only
+- Two new env variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+
+**Supabase setup (one time):**
+```sql
+CREATE TABLE batches (
+  id              TEXT PRIMARY KEY,
+  date            TEXT NOT NULL,
+  saved_at        TIMESTAMPTZ DEFAULT now(),
+  stocks          INTEGER,
+  results         JSONB NOT NULL DEFAULT '[]',
+  horizon_status  JSONB NOT NULL DEFAULT '{}',
+  hit_rate        INTEGER
+);
+ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all" ON batches FOR ALL USING (true) WITH CHECK (true);
+```
+
+**Architecture:**
+```
+App → useHistory → storage.js → Supabase REST API → PostgreSQL batches table
+```
+
+**Files changed:**
+- `src/services/storage.js` — full rewrite for Supabase REST API
+- `.env.example` — added VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+
+---
 
 ### v4.5.7 — Interactive horizon toggle in accuracy chart
 **Date:** May 2026
@@ -948,3 +995,4 @@ regardless of CORS headers on the target server.
 | v4.5.5           | 2026-05  | React only                | Segmented progress bar for multi-chunk fetch      |
 | v4.5.6           | 2026-05  | React only                | Bugfix: horizon status in commit + ZIP structure  |
 | v4.5.7           | 2026-05  | React only                | Interactive horizon toggle in accuracy chart      |
+| v5.0.0           | 2026-05  | React + Supabase          | Migrate persistence to Supabase PostgreSQL        |

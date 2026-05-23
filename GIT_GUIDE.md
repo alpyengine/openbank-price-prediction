@@ -1065,6 +1065,37 @@ git push origin v4.5.7
 
 
 # ===========================================================================
+# STEP 41 — v5.0.0  Supabase persistence (PostgreSQL)
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.0.0/. .
+
+# IMPORTANT: add Supabase vars to .env:
+# echo "VITE_SUPABASE_URL=https://yyenwzljojxbqtzcbchk.supabase.co" >> .env
+# echo "VITE_SUPABASE_ANON_KEY=eyJ..." >> .env
+
+git status
+git add .
+
+git commit -m "feat: migrate persistence to Supabase PostgreSQL (v5.0.0)
+
+- storage.js rewritten for Supabase REST API
+- Data stored in batches table (id, date, saved_at, stocks, results JSONB,
+  horizon_status JSONB, hit_rate)
+- Upsert via Prefer: resolution=merge-duplicates (same id = update)
+- loadHistory: GET /rest/v1/batches?order=date.desc → { batches }
+- saveHistory: POST with merge-duplicates → upsert single batch
+- Works from any device — no GitHub token needed for persistence
+- New env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+- Public API unchanged: loadHistory saveHistory buildBatchId isStorageConfigured"
+
+git tag -a v5.0.0 -m "v5.0.0: Supabase PostgreSQL persistence"
+git push origin main
+git push origin v5.0.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1150,6 +1181,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.5/         -> v4.5.5
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.6/         -> v4.5.6
 #    /Users/alex/Downloads/openbank-price-prediction_v4.5.7/         -> v4.5.7
+#    /Users/alex/Downloads/openbank-price-prediction_v5.0.0/         -> v5.0.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

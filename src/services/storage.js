@@ -1,68 +1,62 @@
 /**
  * storage.js — Persistence abstraction layer
  *
- * Current backend: GitHub API (private repo)
- * Future backends: Supabase, Node API — only this file changes.
+ * v4.x backend: GitHub API (private repo)
+ * v5.x backend: Supabase (PostgreSQL)
  *
- * Public API:
+ * Public API (unchanged between versions):
  *   loadHistory()           → { batches: [...] } | null
- *   saveHistory(history)    → true | false
- *   buildBatchId(date)      → string "YYYY-MM-DD"
+ *   saveHistory(history, batchMeta) → true | false
+ *   buildBatchId(dateStr)   → string "YYYY-MM-DD"
+ *   isStorageConfigured()   → boolean
  */
 
-const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN
-const GITHUB_REPO  = import.meta.env.VITE_GITHUB_REPO   // "username/repo"
-const FILE_PATH    = 'data/history.json'
-const API_BASE     = 'https://api.github.com'
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const TABLE             = 'batches'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function headers() {
   return {
-    'Authorization': `Bearer ${GITHUB_TOKEN}`,
-    'Accept':        'application/vnd.github+json',
     'Content-Type':  'application/json',
-    'X-GitHub-Api-Version': '2022-11-28',
+    'apikey':        SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    'Prefer':        'return=representation',
   }
 }
 
-function encode(str) {
-  return btoa(unescape(encodeURIComponent(str)))
-}
-
-function decode(b64) {
-  return decodeURIComponent(escape(atob(b64)))
-}
-
-// ── Get current file SHA (needed to update an existing file) ─────────────────
-
-async function getFileSha() {
-  try {
-    const res = await fetch(`${API_BASE}/repos/${GITHUB_REPO}/contents/${FILE_PATH}`, {
-      headers: headers(),
-      cache: 'no-store',
-    })
-    if (res.status === 404) return null   // file doesn't exist yet
-    if (!res.ok) throw new Error('GitHub GET failed: ' + res.status)
-    const data = await res.json()
-    return { sha: data.sha, content: decode(data.content.replace(/\n/g, '')) }
-  } catch (err) {
-    console.error('[storage] getFileSha error:', err)
-    return null
-  }
+function endpoint(query = '') {
+  return `${SUPABASE_URL}/rest/v1/${TABLE}${query}`
 }
 
 // ── Public: load history ──────────────────────────────────────────────────────
 
 export async function loadHistory() {
-  if (!GITHUB_TOKEN || !GITHUB_REPO) {
-    console.warn('[storage] GitHub credentials not configured')
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn('[storage] Supabase credentials not configured')
     return null
   }
   try {
-    const file = await getFileSha()
-    if (!file) return { batches: [] }
-    return JSON.parse(file.content)
+    const res  = await fetch(endpoint('?order=date.desc'), {
+      headers: { ...headers(), 'Prefer': 'return=representation' },
+      cache: 'no-store',
+    })
+    if (!res.ok) throw new Error('Supabase GET failed: ' + res.status)
+    const rows = await res.json()
+
+    // Convert flat rows → { batches: [...] } shape used by the app
+    const batches = rows.map(row => ({
+      id:             row.id,
+      date:           row.date,
+      savedAt:        row.saved_at,
+      stocks:         row.stocks,
+      results:        row.results ?? [],
+      horizonStatus:  row.horizon_status ?? {},
+      hitRate:        row.hit_rate,
+    }))
+
+    return { batches }
   } catch (err) {
     console.error('[storage] loadHistory error:', err)
     return null
@@ -70,48 +64,37 @@ export async function loadHistory() {
 }
 
 // ── Public: save history ──────────────────────────────────────────────────────
+// Saves a single batch via upsert (insert or update if same id)
 
 export async function saveHistory(history, batchMeta) {
-  if (!GITHUB_TOKEN || !GITHUB_REPO) {
-    console.warn('[storage] GitHub credentials not configured')
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn('[storage] Supabase credentials not configured')
     return false
   }
   try {
-    const file    = await getFileSha()
-    const content = encode(JSON.stringify(history, null, 2))
+    // Find the batch that was just saved (first in array = most recent)
+    const batch = history.batches[0]
+    if (!batch) return false
 
-    // Build descriptive commit message
-    const today   = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' }).replace(/\//g, '/')
-    let message
-
-    if (batchMeta) {
-      const { batchDate, stocks, horizonStatus, hitRate } = batchMeta
-      // horizonStatus: { '1M': true/false, '3M': true/false, ... } — true = evaluated with real price
-      const hStr = ['1M','3M','6M','12M']
-        .map(h => `${h}${horizonStatus[h] ? '✓' : '⏳'}`)
-        .join(' ')
-      const hitStr = hitRate != null ? ` · HIT ${hitRate}%` : ''
-      message = `data: batch ${batchDate} · updated ${today} · ${hStr} · ${stocks} stocks${hitStr}`
-    } else {
-      const count = history.batches?.length ?? 0
-      message = `data: update history.json (${count} batch${count !== 1 ? 'es' : ''})`
+    const row = {
+      id:             batch.id,
+      date:           batch.date,
+      stocks:         batch.stocks,
+      results:        batch.results,
+      horizon_status: batch.horizonStatus ?? {},
+      hit_rate:       batch.hitRate ?? null,
     }
 
-    const body = {
-      message,
-      content,
-      ...(file?.sha ? { sha: file.sha } : {}),
-    }
-
-    const res = await fetch(`${API_BASE}/repos/${GITHUB_REPO}/contents/${FILE_PATH}`, {
-      method:  'PUT',
-      headers: headers(),
-      body:    JSON.stringify(body),
+    // Upsert — insert if new, update if same id
+    const res = await fetch(endpoint(), {
+      method:  'POST',
+      headers: { ...headers(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      body:    JSON.stringify(row),
     })
 
     if (!res.ok) {
       const err = await res.json()
-      throw new Error(err.message || 'GitHub PUT failed: ' + res.status)
+      throw new Error(err.message || 'Supabase POST failed: ' + res.status)
     }
     return true
   } catch (err) {
@@ -123,7 +106,6 @@ export async function saveHistory(history, batchMeta) {
 // ── Public: build batch ID from date string ───────────────────────────────────
 
 export function buildBatchId(dateStr) {
-  // dateStr: "DD/MM/YYYY" → "YYYY-MM-DD"
   if (!dateStr) return new Date().toISOString().split('T')[0]
   const [d, m, y] = dateStr.split('/')
   return `${y}-${m}-${d}`
@@ -132,5 +114,5 @@ export function buildBatchId(dateStr) {
 // ── Public: check if configured ───────────────────────────────────────────────
 
 export function isStorageConfigured() {
-  return !!(GITHUB_TOKEN && GITHUB_REPO)
+  return !!(SUPABASE_URL && SUPABASE_ANON_KEY)
 }
