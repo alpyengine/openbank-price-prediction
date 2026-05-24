@@ -1405,6 +1405,57 @@ git push origin v5.2.0
 
 
 # ===========================================================================
+# STEP 52 — v5.2.1  UI fixes and fundamentals improvements
+# ===========================================================================
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.2.1
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.2.1
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.1/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "fix: UI fixes and fundamentals improvements (v5.2.1)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.2.1 -m "v5.2.1: UI fixes"
+# git push origin v5.2.1
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.1/. .
+
+git status
+git add .
+
+git commit -m "fix: UI fixes and fundamentals improvements (v5.2.1)
+
+- Forward P/E removed — not available on free tier APIs
+- CIK (SEC) now a clickable link to SEC EDGAR 10-K filings
+- Zero-line chart for market comparison with negative values:
+    all positive: bars from left, % in green outside
+    any negative: center zero line, bars left/right, % in green/red
+- Collapse all button above stock table
+- Financial Services and Insurance variants mapped to XLF"
+
+git tag -a v5.2.1 -m "v5.2.1: UI fixes and fundamentals improvements"
+git push origin main
+git push origin v5.2.1
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -1507,6 +1558,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.8/         -> v5.0.8
 #    /Users/alex/Downloads/openbank-price-prediction_v5.1.0/         -> v5.1.0
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.0/         -> v5.2.0
+#    /Users/alex/Downloads/openbank-price-prediction_v5.2.1/         -> v5.2.1
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

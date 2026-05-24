@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.0
+# Openbank Price Prediction — v5.2.1
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,24 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.1 — UI fixes and fundamentals improvements
+**Date:** May 2026
+
+**Changed:**
+- **Forward P/E removed** — not available on free tier (TD `/statistics` = Pro, FMP `eps` = null)
+- **CIK (SEC) as clickable link** → opens SEC EDGAR 10-K filings page
+- **Zero-line chart** for market comparison when any value is negative:
+  all positive → bars from left · any negative → center zero line, bars left/right
+- **Collapse all button** above stock table — closes all expanded rows at once
+- **Financial Services → XLF** added to sector ETF mapping (covers Insurance variants too)
+
+**Files changed:**
+- `src/components/StockRow.jsx` — Forward P/E removed, CIK link, zero-line bars, collapseAll
+- `src/components/StockTable.jsx` — collapseAll state, Collapse all button
+- `src/hooks/useMarketData.js` — expanded SECTOR_ETF for Financial Services
+
+---
 
 ### v5.2.0 — Market comparison: SP500 + sector ETF (US batches)
 **Date:** May 2026
@@ -1340,3 +1358,4 @@ regardless of CORS headers on the target server.
 | v5.0.8           | 2026-05  | React + Supabase          | Batch merge + delete button in history             |
 | v5.1.0           | 2026-05  | React + Supabase          | Notes per stock — free text in expanded panel      |
 | v5.2.0           | 2026-05  | React + Supabase          | Market comparison SP500 + sector ETF (US batches)  |
+| v5.2.1           | 2026-05  | React + Supabase          | UI fixes: zero-line, CIK link, collapse all        |

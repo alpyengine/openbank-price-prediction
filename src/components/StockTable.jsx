@@ -138,6 +138,9 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
   const [collapsed,    setCollapsed]    = useState({})
   const [helpCol,      setHelpCol]      = useState(null)
+  const [collapseAll,  setCollapseAll]  = useState(0)  // increment to trigger collapse
+
+  const handleCollapseAll = () => setCollapseAll(v => v + 1)
 
   const toggleGroup = (sector) => setCollapsed(prev => ({ ...prev, [sector]: !prev[sector] }))
 
@@ -184,6 +187,7 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
       note={notes?.[stock.t] || ''}
       onNoteChange={onNoteChange}
       marketData={marketData}
+      collapseAll={collapseAll}
     />
   )
 
@@ -193,6 +197,15 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
   return (
     <>
       <ColHelpModal colKey={helpCol} onClose={() => setHelpCol(null)} />
+      {/* Collapse all button */}
+      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:6 }}>
+        <button
+          onClick={handleCollapseAll}
+          style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-3)', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}
+        >
+          ↑ Collapse all
+        </button>
+      </div>
       <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflowX:'auto', marginBottom:'1.5rem' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed', minWidth:1280 }}>
           <thead>

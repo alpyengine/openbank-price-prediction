@@ -4,10 +4,13 @@ import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey 
 import { fmtMarketCap } from '../hooks/useFundamentals.js'
 import { SECTOR_ETF } from '../hooks/useMarketData.js'
 
-const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData }) {
+const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData, collapseAll }) {
   const [expanded,     setExpanded]     = useState(false)
   const [showDesc,     setShowDesc]     = useState(false)
   const [noteVal,      setNoteVal]      = useState(note || '')
+
+  // Collapse when parent requests it
+  useEffect(() => { if (collapseAll) setExpanded(false) }, [collapseAll])
 
   const best      = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
   const tgt       = getTarget(stock, horizon)
@@ -254,54 +257,74 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
         </span>
       </div>
 
-      {/* Ranked bars — Option D exact style */}
+      {/* Ranked bars — zero line when negatives present */}
       <div style={{ maxWidth:460, display:'flex', flexDirection:'column', gap:5 }}>
-        {rows.map((row) => {
-          const barWidth = row.pct != null ? Math.abs(row.pct) / maxPct * 100 : 0
-          const isStock  = row.isStock
-          const pctColor = row.pct == null ? 'var(--text-3)' : row.pct >= 0 ? 'var(--green)' : 'var(--red)'
-
-          return (
-            <div key={row.key} style={{ display:'flex', alignItems:'center', gap:10 }}>
-              {/* Name */}
-              <div style={{
-                width:150, flexShrink:0,
-                fontSize:12, fontWeight: isStock ? 700 : 500,
-                color: isStock ? 'var(--accent)' : 'var(--text-2)',
-                display:'flex', alignItems:'center', gap:4,
-              }}>
-                {isStock && <span style={{ fontSize:9 }}>▶</span>}
-                {row.label}
-              </div>
-              {/* Bar track */}
-              <div style={{ flex:1, height:14, borderRadius:4, overflow:'hidden', background:'var(--surface2)', position:'relative' }}>
-                <div style={{
-                  height:'100%',
-                  width: barWidth + '%',
-                  borderRadius:4,
-                  background: isStock ? 'var(--accent)' : 'rgba(156,163,175,0.6)',
-                  display:'flex', alignItems:'center', justifyContent:'flex-end',
-                  paddingRight: barWidth > 35 ? 6 : 0,
-                  transition:'width .4s ease',
-                }}>
-                  {barWidth > 35 && (
-                    <span style={{ fontSize:11, fontWeight:700, color:'#fff', whiteSpace:'nowrap' }}>
+        {(() => {
+          const hasNeg = rows.some(r => r.pct < 0)
+          if (!hasNeg) {
+            // All positive — bars from left, % inside or outside
+            return rows.map((row) => {
+              const barWidth = row.pct != null ? Math.abs(row.pct) / maxPct * 100 : 0
+              const isStock  = row.isStock
+              const pctColor = row.pct >= 0 ? 'var(--green)' : 'var(--red)'
+              return (
+                <div key={row.key} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div style={{ width:150, flexShrink:0, fontSize:12, fontWeight: isStock ? 700 : 500, color: isStock ? 'var(--accent)' : 'var(--text-2)', display:'flex', alignItems:'center', gap:4 }}>
+                    {isStock && <span style={{ fontSize:9 }}>▶</span>}
+                    {row.label}
+                  </div>
+                  <div style={{ flex:1, height:14, borderRadius:4, background:'var(--surface2)', position:'relative', overflow:'visible' }}>
+                    <div style={{ height:'100%', width: barWidth + '%', borderRadius:4, background: isStock ? 'var(--accent)' : 'rgba(156,163,175,0.6)', transition:'width .4s ease' }} />
+                    <span style={{ position:'absolute', left: barWidth + '%', top:'50%', transform:'translateY(-50%)', marginLeft:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap' }}>
                       {fmt(row.pct)}
                     </span>
-                  )}
+                  </div>
                 </div>
-                {barWidth <= 35 && row.pct != null && (
-                  <span style={{
-                    position:'absolute', left: barWidth + '%', top:'50%', transform:'translateY(-50%)',
-                    marginLeft:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap',
-                  }}>
-                    {fmt(row.pct)}
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
+              )
+            })
+          } else {
+            // Has negatives — zero line in center
+            const absMax = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
+            const zeroPct = 50  // center of track
+            return rows.map((row) => {
+              const isStock  = row.isStock
+              const isPos    = row.pct >= 0
+              const barPct   = Math.abs(row.pct) / absMax * 50  // max 50% of track width
+              const pctColor = isPos ? 'var(--green)' : 'var(--red)'
+              return (
+                <div key={row.key} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div style={{ width:150, flexShrink:0, fontSize:12, fontWeight: isStock ? 700 : 500, color: isStock ? 'var(--accent)' : 'var(--text-2)', display:'flex', alignItems:'center', gap:4 }}>
+                    {isStock && <span style={{ fontSize:9 }}>▶</span>}
+                    {row.label}
+                  </div>
+                  <div style={{ flex:1, height:14, borderRadius:4, background:'var(--surface2)', position:'relative', overflow:'visible' }}>
+                    {/* Bar: grows right from center if positive, left if negative */}
+                    <div style={{
+                      position:'absolute', top:0, height:'100%', borderRadius:4,
+                      background: isStock ? 'var(--accent)' : 'rgba(156,163,175,0.6)',
+                      left:  isPos ? zeroPct + '%' : (zeroPct - barPct) + '%',
+                      width: barPct + '%',
+                      transition:'all .4s ease',
+                    }} />
+                    {/* Zero line */}
+                    <div style={{ position:'absolute', top:0, bottom:0, left:'50%', width:1, background:'var(--text-3)', opacity:0.4 }} />
+                    {/* % label */}
+                    <span style={{
+                      position:'absolute', top:'50%', transform:'translateY(-50%)',
+                      left:  isPos ? (zeroPct + barPct) + '%' : undefined,
+                      right: !isPos ? (50 - (zeroPct - barPct)) + '%' : undefined,
+                      marginLeft: isPos ? 6 : undefined,
+                      marginRight: !isPos ? 6 : undefined,
+                      fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap',
+                    }}>
+                      {fmt(row.pct)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })
+          }
+        })()}
       </div>
 
       {/* Beat/Lagged badges */}
@@ -366,10 +389,22 @@ function FundamentalsPanel({ fundamental, ticker, tg, onShowDesc }) {
         <div><div style={lbl}>Sector</div>     <div style={val}>{fundamental.sector    || '--'}</div></div>
         <div><div style={lbl}>Industry</div>   <div style={val}>{fundamental.industry   || '--'}</div></div>
         <div><div style={lbl}>Market Cap</div> <div style={val}>{fmtMarketCap(fundamental.marketCap)}</div></div>
-        <div><div style={lbl}>Forward P/E</div><div style={val}>{fundamental.forwardPE  ? fundamental.forwardPE.toFixed(2) : '--'}</div></div>
-        <div><div style={lbl}>Beta</div>       <div style={val}>{fundamental.beta        ? fundamental.beta.toFixed(2)      : '--'}</div></div>
+        <div><div style={lbl}>Beta</div>       <div style={val}>{fundamental.beta ? fundamental.beta.toFixed(2) : '--'}</div></div>
         <div><div style={lbl}>Last Dividend</div><div style={val}>{fundamental.lastDividend ? `$${fundamental.lastDividend}` : '--'}</div></div>
-        <div><div style={lbl}>CIK (SEC)</div>  <div style={{ fontSize:'var(--fs-xs)', color:'var(--text)', fontWeight:500, fontFamily:'monospace' }}>{fundamental.cik || '--'}</div></div>
+        <div>
+          <div style={lbl}>CIK (SEC)</div>
+          {fundamental.cik
+            ? <a
+                href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${fundamental.cik}&type=10-K`}
+                target="_blank" rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ fontSize:'var(--fs-xs)', color:'var(--accent)', fontWeight:500, fontFamily:'monospace', textDecoration:'none' }}
+              >
+                🔗 {fundamental.cik}
+              </a>
+            : <span style={val}>--</span>
+          }
+        </div>
 
         <div style={{ width:1, background:'var(--border)', alignSelf:'stretch', margin:'0 4px' }} />
 

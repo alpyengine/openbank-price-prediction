@@ -20,7 +20,11 @@ export const SECTOR_ETF = {
   // Financials
   'Financials':                          'XLF',
   'Financial Services':                  'XLF',
+  'Financial':                           'XLF',
   'Banks':                               'XLF',
+  'Insurance':                           'XLF',
+  'Insurance - Life':                    'XLF',
+  'Insurance - Property & Casualty':     'XLF',
   // Healthcare
   'Healthcare':                          'XLV',
   'Health Care':                         'XLV',
