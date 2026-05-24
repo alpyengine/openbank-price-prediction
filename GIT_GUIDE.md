@@ -1456,6 +1456,58 @@ git push origin v5.2.1
 
 
 # ===========================================================================
+# STEP 53 — v5.2.2  Market comparison bar fixes and rate limit
+# ===========================================================================
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.2.2
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.2.2
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.2/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "fix: market comparison bar fixes and rate limit (v5.2.2)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.2.2 -m "v5.2.2: bar fixes and rate limit"
+# git push origin v5.2.2
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.2/. .
+
+git status
+git add .
+
+git commit -m "fix: market comparison bar fixes and rate limit (v5.2.2)
+
+- Rate limit: pause between market data symbols increased to 20s
+  (2 TD credits per symbol + 2s internal gap = safe within 8 req/min)
+- Bar colors: positive=green, negative=red for both stock and indices
+  Stock bar solid green/red, index bars use transparent tint
+- Stock bar blue outline (1.5px) to distinguish from index rows
+- Bar height reduced 14px → 10px, gap 5px → 4px
+- Zero-line mode: negative % label now left of bar, positive right
+- Toggle button: Expand all / Collapse all alternates correctly"
+
+git tag -a v5.2.2 -m "v5.2.2: market comparison bar fixes and rate limit"
+git push origin main
+git push origin v5.2.2
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -1559,6 +1611,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.1.0/         -> v5.1.0
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.0/         -> v5.2.0
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.1/         -> v5.2.1
+#    /Users/alex/Downloads/openbank-price-prediction_v5.2.2/         -> v5.2.2
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

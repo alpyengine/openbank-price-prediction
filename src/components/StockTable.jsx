@@ -138,9 +138,13 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
   const [collapsed,    setCollapsed]    = useState({})
   const [helpCol,      setHelpCol]      = useState(null)
-  const [collapseAll,  setCollapseAll]  = useState(0)  // increment to trigger collapse
+  const [allExpanded,  setAllExpanded]  = useState(false)
+  const [collapseAll,  setCollapseAll]  = useState(0)
 
-  const handleCollapseAll = () => setCollapseAll(v => v + 1)
+  const handleToggleAll = () => {
+    setAllExpanded(v => !v)
+    setCollapseAll(v => v + 1)
+  }
 
   const toggleGroup = (sector) => setCollapsed(prev => ({ ...prev, [sector]: !prev[sector] }))
 
@@ -188,6 +192,7 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
       onNoteChange={onNoteChange}
       marketData={marketData}
       collapseAll={collapseAll}
+      allExpanded={allExpanded}
     />
   )
 
@@ -200,10 +205,10 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
       {/* Collapse all button */}
       <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:6 }}>
         <button
-          onClick={handleCollapseAll}
+          onClick={handleToggleAll}
           style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-3)', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}
         >
-          ↑ Collapse all
+          {allExpanded ? '↑ Collapse all' : '↓ Expand all'}
         </button>
       </div>
       <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflowX:'auto', marginBottom:'1.5rem' }}>

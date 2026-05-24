@@ -167,7 +167,7 @@ export function useMarketData() {
 
       // All symbols to fetch: SPY + unique ETFs
       const allSymbols = ['SPY', ...sectorsNeeded]
-      setLog(`Fetching SPY + ${sectorsNeeded.size} sector ETF${sectorsNeeded.size !== 1 ? 's' : ''} — ~${12 * allSymbols.length}s total…`)
+      setLog(`Fetching SPY + ${sectorsNeeded.size} sector ETF${sectorsNeeded.size !== 1 ? 's' : ''} — ~${22 * allSymbols.length}s total…`)
 
       for (let i = 0; i < allSymbols.length; i++) {
         const symbol = allSymbols[i]
@@ -188,11 +188,12 @@ export function useMarketData() {
           else result.etfs[symbol] = null
           setLog(`⚠ ${symbol} unavailable — ${err.message}`)
         }
-        // 10s pause between symbols to avoid rate limit
-        // Each symbol uses 2 TD credits; free tier = 8/min
+        // 20s pause between symbols — each symbol uses 2 TD credits
+        // (time_series + price) with 2s between them = 4 credits per ~22s
+        // Free tier: 8 req/min — 20s gap keeps well within limit
         if (i < allSymbols.length - 1) {
-          setLog(`Waiting 10s before next symbol…`)
-          await sleep(10000)
+          setLog(`Waiting 20s before next symbol (${i + 2}/${allSymbols.length})…`)
+          await sleep(20000)
         }
       }
 

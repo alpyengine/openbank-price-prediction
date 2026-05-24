@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.1
+# Openbank Price Prediction — v5.2.2
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,31 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.2 — Market comparison bar fixes and rate limit
+**Date:** May 2026
+
+**Fixed:**
+- **Rate limit** — pause between market data symbols increased from 10s to 20s.
+  Each symbol uses 2 TD credits (time_series + price); 20s gap keeps well
+  within the 8 req/min free tier limit. Log shows countdown to next symbol.
+- **Bar colors** — positive bars now green, negative bars red (both for stock
+  and indices). Stock bar uses solid green/red; index bars use transparent tint.
+- **Stock bar outline** — blue outline (1.5px) distinguishes the stock row
+  visually from index rows in all modes.
+- **Smaller bars** — height reduced from 14px to 10px, gap from 5px to 4px.
+- **Negative label position** — in zero-line mode, negative % now appears to
+  the left of the bar (outside), positive % to the right.
+- **Toggle button** — "Collapse all / Expand all" now alternates between
+  collapsing and expanding all stock rows. State tracked with `allExpanded`.
+
+**Files changed:**
+- `src/components/StockRow.jsx` — bar height 10px, green/red colors,
+  blue outline for stock, negative label left, collapseAll/allExpanded useEffect
+- `src/components/StockTable.jsx` — allExpanded state, toggle button label
+- `src/hooks/useMarketData.js` — 20s pause between symbols, updated log
+
+---
 
 ### v5.2.1 — UI fixes and fundamentals improvements
 **Date:** May 2026
@@ -1359,3 +1384,4 @@ regardless of CORS headers on the target server.
 | v5.1.0           | 2026-05  | React + Supabase          | Notes per stock — free text in expanded panel      |
 | v5.2.0           | 2026-05  | React + Supabase          | Market comparison SP500 + sector ETF (US batches)  |
 | v5.2.1           | 2026-05  | React + Supabase          | UI fixes: zero-line, CIK link, collapse all        |
+| v5.2.2           | 2026-05  | React + Supabase          | Bar fixes: colors, outline, size, rate limit 20s   |
