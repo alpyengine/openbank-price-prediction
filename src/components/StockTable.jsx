@@ -133,7 +133,7 @@ function ColHelpModal({ colKey, onClose }) {
 }
 
 // ── Main StockTable ───────────────────────────────────────────────────────────
-export default function StockTable({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, fundamentals, groupBySector, filterSector, filterIndustry, sortBySector, onOverrideChange }) {
+export default function StockTable({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, fundamentals, groupBySector, filterSector, filterIndustry, sortBySector, onOverrideChange, notes, onNoteChange }) {
   const base = stocks.find(s => s.base)?.base
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
   const [collapsed,    setCollapsed]    = useState({})
@@ -181,6 +181,8 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
       horizonExpired={horizonExpired}
       fundamental={fundamentals[stock.t]}
       onOverrideChange={onOverrideChange}
+      note={notes?.[stock.t] || ''}
+      onNoteChange={onNoteChange}
     />
   )
 

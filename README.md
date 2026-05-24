@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.0.8
+# Openbank Price Prediction — v5.1.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,36 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.1.0 — Notes per stock
+**Date:** May 2026
+
+**New:**
+- **📝 Notes field** in the expanded panel of each stock row
+- Free-text area for adding manual context per ticker
+- Saves automatically when the field loses focus (onBlur)
+- Persisted in Supabase — stored in the `results` JSONB field
+  alongside the 1M result row (no new table needed)
+- Notes restored automatically when loading a batch from history
+- Placeholder text: `Add notes for TER… (saved automatically on blur)`
+- Notes reset when importing a new CSV
+
+**How notes are stored:**
+```json
+{ "ticker": "TER.US", "horizon": "1M", "note": "High volatility — wait for correction", ... }
+```
+Note is stored only on the 1M result row per ticker to avoid duplication.
+When loading a batch, notes are extracted from 1M rows across all tickers.
+
+**Files changed:**
+- `src/components/StockRow.jsx` — noteVal state, textarea in expanded panel,
+  onBlur save, useEffect sync from prop
+- `src/components/StockTable.jsx` — notes and onNoteChange props passed to StockRow
+- `src/hooks/useHistory.js` — notes param in saveBatch, note field in results
+- `src/App.jsx` — notes state, handleNoteChange, reset on import,
+  restore on loadBatch, passed to StockTable and saveBatch
+
+---
 
 ### v5.0.8 — Batch merge + delete button in history
 **Date:** May 2026
@@ -1267,3 +1297,4 @@ regardless of CORS headers on the target server.
 | v5.0.6           | 2026-05  | React + Supabase          | Ticker display without suffix + column overlap fix |
 | v5.0.7           | 2026-05  | React + Supabase          | Bugfix: FMP and TD fundamentals failing for .US    |
 | v5.0.8           | 2026-05  | React + Supabase          | Batch merge + delete button in history             |
+| v5.1.0           | 2026-05  | React + Supabase          | Notes per stock — free text in expanded panel      |

@@ -20,6 +20,7 @@ export default function App() {
   const [stocks,       setStocks]       = useState(DEFAULT_STOCKS)
   const [horizon,      setHorizon]      = useState('best')
   const [overrides,    setOverrides]    = useState({})
+  const [notes,        setNotes]        = useState({})  // { ticker: noteText }
   const [showEmail,    setShowEmail]    = useState(false)
   const [darkMode,     setDarkMode]     = useState(false)
 
@@ -94,9 +95,14 @@ export default function App() {
   }, [stocks, fundamentals, filterSector])
 
   // Handlers
+  const handleNoteChange = useCallback((ticker, text) => {
+    setNotes(prev => ({ ...prev, [ticker]: text }))
+  }, [])
+
   const handleImport = useCallback((newStocks) => {
     setStocks(newStocks)
     setOverrides({})
+    setNotes({})
     setHorizon('best')
     setFilterSector('all')
     setFilterIndustry('all')
@@ -140,6 +146,12 @@ export default function App() {
     if (!newStocks.length) return
     setStocks(newStocks)
     setOverrides({})
+    // Restore notes from saved batch results
+    const restoredNotes = {}
+    for (const r of batch.results) {
+      if (r.note && !restoredNotes[r.ticker]) restoredNotes[r.ticker] = r.note
+    }
+    setNotes(restoredNotes)
     setHorizon('best')
     setFilterSector('all')
     setFilterIndustry('all')
@@ -231,6 +243,8 @@ export default function App() {
         filterIndustry={filterIndustry}
         sortBySector={sortBySector}
         onOverrideChange={handleOverrideChange}
+        notes={notes}
+        onNoteChange={handleNoteChange}
       />
 
       <ImportBox onImport={handleImport} />
@@ -243,7 +257,7 @@ export default function App() {
         log={histLog}
         configured={histConfigured}
         onLoad={loadHistory}
-        onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon })}
+        onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes })}
         onLoadBatch={handleLoadBatch}
         onDeleteBatch={deleteBatch}
       />

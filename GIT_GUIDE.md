@@ -1291,6 +1291,29 @@ git push origin v5.0.8
 
 
 # ===========================================================================
+# STEP 50 — v5.1.0  Notes per stock
+# ===========================================================================
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.1.0/. .
+
+git status
+git add .
+
+git commit -m "feat: notes per stock in expanded panel (v5.1.0)
+
+- Free-text notes field in expanded panel for each stock
+- Auto-saves on blur, persisted in Supabase results JSONB
+- Notes stored on 1M result row, restored when loading batch from history
+- Notes reset on new CSV import
+- No new Supabase table needed"
+
+git tag -a v5.1.0 -m "v5.1.0: notes per stock"
+git push origin main
+git push origin v5.1.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 
@@ -1385,6 +1408,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.6/         -> v5.0.6
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.7/         -> v5.0.7
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.8/         -> v5.0.8
+#    /Users/alex/Downloads/openbank-price-prediction_v5.1.0/         -> v5.1.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

@@ -64,9 +64,9 @@ export function useHistory() {
   // ── Evaluate current stocks and save batch ─────────────────────────────────
   const saveBatch = useCallback(async ({
     stocks, autoPrices, histPrices, overrides,
-    horizonExpired, horizon,
+    horizonExpired, horizon, notes,
   }) => {
-    if (!configured) { setLog('GitHub not configured'); return false }
+    if (!configured) { setLog('Storage not configured'); return false }
     if (!stocks.length) { setLog('No stocks to save'); return false }
 
     setSaving(true)
@@ -74,13 +74,12 @@ export function useHistory() {
 
     const KEYS = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
 
-    // Collect all results across all horizons
+    // Collect all results across all horizons — include note per ticker
     const results = []
     for (const stock of stocks) {
       for (const h of HORIZONS) {
-        const hExpired = horizonExpired  // simplified — use per-stock logic if needed
         const { price: p } = getEffectivePrice(
-          stock.t, h, autoPrices, histPrices, overrides, hExpired
+          stock.t, h, autoPrices, histPrices, overrides, horizonExpired
         )
         const tgt     = getTarget(stock, h)
         const tgtDate = getTargetDate(stock, h)
@@ -95,6 +94,7 @@ export function useHistory() {
           targetPrice: tgt,
           priceOnDate: p ?? null,
           targetDate:  tgtDate ? formatDate(tgtDate) : null,
+          note:        h === '1M' ? (notes?.[stock.t] || '') : undefined,
         })
       }
     }
@@ -107,14 +107,6 @@ export function useHistory() {
       ? `${String(firstBase.getDate()).padStart(2,'0')}/${String(firstBase.getMonth()+1).padStart(2,'0')}/${firstBase.getFullYear()}`
       : null
     const batchId = buildBatchId(batchDateStr)
-
-    const newBatch = {
-      id:      batchId,
-      date:    batchDateStr ?? formatDate(getToday()),
-      savedAt: new Date().toISOString(),
-      stocks:  stocks.length,
-      results,
-    }
 
     // Merge into existing history — if same batch ID exists, MERGE tickers
     // (don't overwrite — user may be adding more tickers to same date batch)

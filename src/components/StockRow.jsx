@@ -3,9 +3,10 @@ import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js
 import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey } from '../utils/stocks.js'
 import { fmtMarketCap } from '../hooks/useFundamentals.js'
 
-const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange }) {
+const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange }) {
   const [expanded,     setExpanded]     = useState(false)
   const [showDesc,     setShowDesc]     = useState(false)
+  const [noteVal,      setNoteVal]      = useState(note || '')
 
   const best      = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
   const tgt       = getTarget(stock, horizon)
@@ -41,7 +42,8 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
     if (e.key==='Escape') { setVal(''); onOverrideChange(stock.t, null); e.target.blur() }
   }, [stock.t, onOverrideChange])
 
-  // Close description modal on Escape
+  // Sync note from outside (e.g. batch loaded from history)
+  useEffect(() => { setNoteVal(note || '') }, [note])
   useEffect(() => {
     if (!showDesc) return
     const handler = (e) => { if (e.key === 'Escape') setShowDesc(false) }
@@ -185,6 +187,20 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
         <tr style={{ borderBottom:'1px solid var(--border)' }}>
           <td colSpan={16} style={{ padding:'0 10px 10px 32px', background:'var(--surface2)' }}>
             <FundamentalsPanel fundamental={fundamental} ticker={stock.t} tg={tg} onShowDesc={() => setShowDesc(true)} />
+            {/* Notes field */}
+            <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--border)' }}>
+              <div style={{ fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5, fontWeight:700 }}>
+                📝 Notes
+              </div>
+              <textarea
+                value={noteVal}
+                onChange={e => setNoteVal(e.target.value)}
+                onBlur={() => onNoteChange && onNoteChange(stock.t, noteVal)}
+                onClick={e => e.stopPropagation()}
+                placeholder={`Add notes for ${stock.t.split('.')[0]}… (saved automatically on blur)`}
+                style={{ width:'100%', maxWidth:600, height:64, fontSize:'var(--fs-xs)', fontFamily:'inherit', padding:'7px 10px', border:'1px solid var(--border)', borderRadius:'var(--radius)', background:'var(--surface)', color:'var(--text)', resize:'vertical', outline:'none', lineHeight:1.6 }}
+              />
+            </div>
           </td>
         </tr>
       )}
