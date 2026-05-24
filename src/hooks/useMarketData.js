@@ -177,20 +177,30 @@ function detectBatchMarket(stocks) {
   return 'US'
 }
 
-// ── Fetch one symbol (auto provider) ─────────────────────────────────────────
+// ── Fetch one symbol — reuse basePrice if already saved ───────────────────────
 
-async function fetchSymbolData(symbol, date, provider = 'td') {
-  if (provider === 'av') {
-    const basePrice    = await fetchPriceOnDate_AV(symbol, date)
-    await sleep(1200)
-    const currentPrice = await fetchCurrentPrice_AV(symbol)
-    return { basePrice, currentPrice, changePct: pctChange(basePrice, currentPrice) }
-  } else {
-    const basePrice    = await fetchPriceOnDate_TD(symbol, date)
-    await sleep(2000)
-    const currentPrice = await fetchCurrentPrice_TD(symbol)
-    return { basePrice, currentPrice, changePct: pctChange(basePrice, currentPrice) }
+async function fetchSymbolData(symbol, date, provider = 'td', existingEntry = null) {
+  // If basePrice already saved — skip historical fetch (saves 1 TD credit per symbol)
+  let basePrice = existingEntry?.basePrice ?? null
+  const hadBasePrice = basePrice != null
+
+  if (!hadBasePrice) {
+    // First time — fetch historical close on base date
+    if (provider === 'av') {
+      basePrice = await fetchPriceOnDate_AV(symbol, date)
+      await sleep(1200)
+    } else {
+      basePrice = await fetchPriceOnDate_TD(symbol, date)
+      await sleep(2000)
+    }
   }
+
+  // Always fetch current price — it changes every day
+  const currentPrice = provider === 'av'
+    ? await fetchCurrentPrice_AV(symbol)
+    : await fetchCurrentPrice_TD(symbol)
+
+  return { basePrice, currentPrice, changePct: pctChange(basePrice, currentPrice), hadBasePrice }
 }
 
 // ── Main hook ─────────────────────────────────────────────────────────────────
@@ -259,24 +269,39 @@ export function useMarketData() {
 
         const allSymbols = ['SPY', ...sectorsNeeded, ...industriesNeeded]
         result.benchmark = { symbol: 'SPY', label: 'S&P 500 (SPY)' }
-        setLog(`Fetching SPY + ${sectorsNeeded.size} sector + ${industriesNeeded.size} industry ETFs — ~${22 * allSymbols.length}s…`)
+        const hasCached     = !!existingMarketData
+        const secsPerSymbol = hasCached ? 8 : 22
+        const cacheNote     = hasCached ? ' (base prices cached — faster)' : ''
+        setLog(`Fetching SPY + ${sectorsNeeded.size} sector + ${industriesNeeded.size} industry ETFs — ~${secsPerSymbol * allSymbols.length}s${cacheNote}…`)
 
         for (let i = 0; i < allSymbols.length; i++) {
           const symbol = allSymbols[i]
-          setLog(`Fetching ${symbol} (${i + 1}/${allSymbols.length})…`)
+          // Get existing entry if available — to reuse basePrice
+          const existingEntry = existingMarketData
+            ? (symbol === 'SPY'
+                ? existingMarketData.spy
+                : (existingMarketData.etfs?.[symbol] ?? existingMarketData.industryEtfs?.[symbol]))
+            : null
+
+          const label = existingEntry?.basePrice != null ? `${symbol} (base cached)` : symbol
+          setLog(`Fetching ${label} (${i + 1}/${allSymbols.length})…`)
           try {
-            const entry = await fetchSymbolData(symbol, baseDate, 'td')
+            const entry = await fetchSymbolData(symbol, baseDate, 'td', existingEntry)
             if (symbol === 'SPY')                  result.spy = entry
             else if (sectorsNeeded.has(symbol))    result.etfs[symbol] = entry
             else if (industriesNeeded.has(symbol)) result.industryEtfs[symbol] = entry
-            setLog(`✓ ${symbol}: ${entry.basePrice?.toFixed(2)} → ${entry.currentPrice?.toFixed(2)} (${entry.changePct?.toFixed(2)}%)`)
+            const cached = entry.hadBasePrice ? ' (base cached)' : ''
+            setLog(`✓ ${symbol}${cached}: base ${entry.basePrice?.toFixed(2)} → now ${entry.currentPrice?.toFixed(2)} (${entry.changePct?.toFixed(2)}%)`)
           } catch (err) {
             console.warn(`[useMarketData] failed ${symbol}:`, err.message)
             setLog(`⚠ ${symbol} — ${err.message}`)
           }
           if (i < allSymbols.length - 1) {
-            setLog(`Waiting 20s before next symbol (${i + 2}/${allSymbols.length})…`)
-            await sleep(20000)
+            // If basePrice was cached, only 1 request was made (currentPrice)
+            // so we only need 8s pause instead of 20s
+            const pause = existingMarketData ? 8000 : 20000
+            setLog(`Waiting ${pause/1000}s before next symbol (${i + 2}/${allSymbols.length})…`)
+            await sleep(pause)
           }
         }
 
@@ -289,12 +314,15 @@ export function useMarketData() {
           return
         }
         result.benchmark = { symbol: idx.symbol, label: idx.label }
-        setLog(`Fetching ${idx.label} for .${market} batch…`)
+        const existingEntry = existingMarketData?.spy ?? null
+        const label = existingEntry?.basePrice != null ? `${idx.label} (base cached)` : idx.label
+        setLog(`Fetching ${label}…`)
 
         try {
-          const entry = await fetchSymbolData(idx.symbol, baseDate, idx.provider)
-          result.spy  = entry  // reuse spy slot for the local index
-          setLog(`✓ ${idx.symbol}: ${entry.basePrice?.toFixed(2)} → ${entry.currentPrice?.toFixed(2)} (${entry.changePct?.toFixed(2)}%)`)
+          const entry = await fetchSymbolData(idx.symbol, baseDate, idx.provider, existingEntry)
+          result.spy  = entry
+          const cached = entry.hadBasePrice ? ' (base cached)' : ''
+          setLog(`✓ ${idx.symbol}${cached}: base ${entry.basePrice?.toFixed(2)} → now ${entry.currentPrice?.toFixed(2)} (${entry.changePct?.toFixed(2)}%)`)
         } catch (err) {
           console.warn(`[useMarketData] failed ${idx.symbol}:`, err.message)
           setLog(`⚠ ${idx.symbol} unavailable — ${err.message}`)

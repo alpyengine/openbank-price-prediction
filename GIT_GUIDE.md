@@ -1660,6 +1660,56 @@ git push origin v5.2.5
 
 
 # ===========================================================================
+# STEP 57 — v5.2.6  Cache basePrice — skip historical fetch on re-use
+# ===========================================================================
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.2.6
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.2.6
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.6/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "feat: cache basePrice to skip historical fetch on re-use (v5.2.6)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.2.6 -m "v5.2.6: cache basePrice"
+# git push origin v5.2.6
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.6/. .
+
+git status
+git add .
+
+git commit -m "feat: cache basePrice to skip historical fetch on re-use (v5.2.6)
+
+- fetchSymbolData accepts existingEntry with saved basePrice
+- If basePrice cached: skip fetchPriceOnDate (saves 1 TD credit/symbol)
+- Only fetchCurrentPrice called on re-fetch → changePct recalculated
+- Pause reduced 20s → 8s when base cached (1 request vs 2 per symbol)
+- Log shows (base cached) label and updated estimated time
+- Works for both US (TD) and EU (AV) market data"
+
+git tag -a v5.2.6 -m "v5.2.6: cache basePrice for market data"
+git push origin main
+git push origin v5.2.6
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -1767,6 +1817,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.3/         -> v5.2.3
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.4/         -> v5.2.4
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.5/         -> v5.2.5
+#    /Users/alex/Downloads/openbank-price-prediction_v5.2.6/         -> v5.2.6
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

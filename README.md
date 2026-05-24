@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.5
+# Openbank Price Prediction — v5.2.6
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,41 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.6 — Cache basePrice for market data symbols
+**Date:** May 2026
+
+**New:**
+- **basePrice cached from Supabase** — when re-fetching market data for a
+  batch that was previously saved, `basePrice` (historical close on base date)
+  is reused from the saved `market_data` JSONB — no API call needed
+- Only `currentPrice` is fetched — saves 1 TD credit per symbol per session
+- **Pause reduced** when base is cached: 20s → 8s between symbols
+  (only 1 request per symbol instead of 2)
+- Log shows `(base cached)` label when basePrice is reused
+- Estimated time shown in log reflects cache status:
+  `~88s` first time vs `~32s` on re-fetch (4 symbols)
+
+**Credit savings per re-fetch session:**
+```
+4 symbols × 2 credits = 8 credits (before)
+4 symbols × 1 credit  = 4 credits (after)
+```
+
+**How it works:**
+```
+existingMarketData (from Supabase or memory)
+  → contains basePrice per symbol
+  → fetchSymbolData reads existingEntry?.basePrice
+  → if found: skip fetchPriceOnDate, only fetchCurrentPrice
+  → changePct recalculated with cached base + new current
+```
+
+**Files changed:**
+- `src/hooks/useMarketData.js` — fetchSymbolData accepts existingEntry,
+  skips historical fetch when basePrice cached, pause 8s vs 20s
+
+---
 
 ### v5.2.5 — Fix market data not saved in Supabase + industry ETF cleanup
 **Date:** May 2026
@@ -1481,3 +1516,4 @@ regardless of CORS headers on the target server.
 | v5.2.3           | 2026-05  | React + Supabase          | Bar outline on bar not track, negative label left  |
 | v5.2.4           | 2026-05  | React + Supabase          | Industry ETF, EU markets, market data in Supabase  |
 | v5.2.5           | 2026-05  | React + Supabase          | Fix market data not saved + industry ETF cleanup   |
+| v5.2.6           | 2026-05  | React + Supabase          | Cache basePrice — skip historical fetch on re-use  |
