@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.4
+# Openbank Price Prediction — v5.2.5
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,41 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.5 — Fix market data not saved in Supabase + industry ETF cleanup
+**Date:** May 2026
+
+**Fixed:**
+- **Market data not saved in Supabase** — root cause was that `newBatch`
+  was passed to `saveHistory` via `updated.batches[0]` before `horizonStatus`
+  and `hitRate` were assigned via mutation. Now the entire `newBatch` object
+  is built in one step with all fields present before `updated` is created.
+- **Industry ETF mapping cleaned up** — removed ETFs not available on
+  Twelve Data free tier that caused fetch errors:
+  - Removed: OGIG, CLOU, IHI, IHF, IAI, KRE, SIL, COPX, SLX, BITE, CARZ,
+    REZ, INDS, RTL, IYT
+  - Kept: SOXX, IGV, XBI, XPH, XOP, OIH, GDX, ITA, JETS, XRT, ITB, KBE
+  - `Insurance - Life` has no free-tier industry ETF → shows sector XLF only
+
+**Correct save flow:**
+```
+1. Fetch prices
+2. Fetch market data  ← marketData populated in state
+3. Save batch results ← marketData now correctly included in Supabase row
+```
+
+**Verify in Supabase:**
+```bash
+curl "https://yyenwzljojxbqtzcbchk.supabase.co/rest/v1/batches?select=id,date,market_data&order=date.desc&limit=1" \
+  -H "apikey: YOUR_KEY"
+# market_data should now be non-null after saving
+```
+
+**Files changed:**
+- `src/hooks/useHistory.js` — newBatch built atomically with all fields
+- `src/hooks/useMarketData.js` — INDUSTRY_ETF cleaned to free-tier only
+
+---
 
 ### v5.2.4 — Market data: industry ETF, EU markets, Supabase persistence
 **Date:** May 2026
@@ -1445,3 +1480,4 @@ regardless of CORS headers on the target server.
 | v5.2.2           | 2026-05  | React + Supabase          | Bar fixes: colors, outline, size, rate limit 20s   |
 | v5.2.3           | 2026-05  | React + Supabase          | Bar outline on bar not track, negative label left  |
 | v5.2.4           | 2026-05  | React + Supabase          | Industry ETF, EU markets, market data in Supabase  |
+| v5.2.5           | 2026-05  | React + Supabase          | Fix market data not saved + industry ETF cleanup   |

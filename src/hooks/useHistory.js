@@ -128,20 +128,7 @@ export function useHistory() {
       setLog(`Merging ${stocks.length} new tickers with ${existingBatch.stocks} existing — total ${mergedStocks} tickers…`)
     }
 
-    const newBatch = {
-      id:         batchId,
-      date:       batchDateStr ?? formatDate(getToday()),
-      savedAt:    existingBatch?.savedAt ?? new Date().toISOString(),
-      stocks:     mergedStocks,
-      results:    mergedResults,
-      marketData: marketData ?? existingBatch?.marketData ?? null,
-    }
-
-    const otherBatches = current.batches.filter(b => b.id !== batchId)
-    const updated      = { batches: [newBatch, ...otherBatches] }
-
-    // Build horizon status — ✓ only if target date has already passed
-    // (real historical close available), not just if verdict !== awaiting
+    // Build horizon status
     const HKEYS = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
     const firstStock = stocks.find(s => s.base)
     const horizonStatus = {}
@@ -155,14 +142,25 @@ export function useHistory() {
       }
     }
 
-    // Compute HIT rate for evaluated horizons only (use mergedResults)
+    // Compute HIT rate
     const evaluated = mergedResults.filter(r => r.verdict !== 'awaiting')
     const hits      = evaluated.filter(r => r.verdict === 'hit').length
     const hitRate   = evaluated.length ? Math.round(hits / evaluated.length * 100) : null
 
-    // Update newBatch with horizonStatus and hitRate
-    newBatch.horizonStatus = horizonStatus
-    newBatch.hitRate       = hitRate
+    // Build complete newBatch in one go — all fields present before passing to saveHistory
+    const newBatch = {
+      id:            batchId,
+      date:          batchDateStr ?? formatDate(getToday()),
+      savedAt:       existingBatch?.savedAt ?? new Date().toISOString(),
+      stocks:        mergedStocks,
+      results:       mergedResults,
+      horizonStatus,
+      hitRate,
+      marketData:    marketData ?? existingBatch?.marketData ?? null,
+    }
+
+    const otherBatches = current.batches.filter(b => b.id !== batchId)
+    const updated      = { batches: [newBatch, ...otherBatches] }
 
     const batchMeta = {
       batchDate: batchDateStr ?? formatDate(getToday()),

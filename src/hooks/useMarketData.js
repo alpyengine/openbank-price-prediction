@@ -47,7 +47,9 @@ export const SECTOR_ETF = {
   'Media':                               'XLC',
 }
 
-// ── Industry → ETF mapping (US) ──────────────────────────────────────────────
+// ── Industry → ETF mapping (US, free tier only) ───────────────────────────────
+// Only ETFs confirmed available on Twelve Data free plan
+// Removed: BITE, CARZ, REZ, INDS, RTL, SIL, COPX, SLX, OGIG, CLOU, IHI, IHF, IAI
 export const INDUSTRY_ETF = {
   // Technology
   'Semiconductors':                       'SOXX',
@@ -55,19 +57,9 @@ export const INDUSTRY_ETF = {
   'Software - Application':               'IGV',
   'Software - Infrastructure':            'IGV',
   'Software':                             'IGV',
-  'Internet Content & Information':       'OGIG',
-  'Cloud Computing':                      'CLOU',
   // Healthcare
   'Biotechnology':                        'XBI',
   'Drug Manufacturers':                   'XPH',
-  'Medical Devices':                      'IHI',
-  'Medical Instruments & Supplies':       'IHI',
-  'Health Information Services':          'IHF',
-  // Financials
-  'Banks - Regional':                     'KRE',
-  'Banks - Global':                       'KBE',
-  'Banks':                                'KBE',
-  'Asset Management':                     'IAI',
   // Energy
   'Oil & Gas E&P':                        'XOP',
   'Oil & Gas Exploration & Production':   'XOP',
@@ -75,24 +67,17 @@ export const INDUSTRY_ETF = {
   'Oil & Gas Integrated':                 'XOP',
   // Materials
   'Gold':                                 'GDX',
-  'Silver':                               'SIL',
-  'Copper':                               'COPX',
-  'Steel':                                'SLX',
+  'Metals & Mining':                      'GDX',
   // Industrials
   'Aerospace & Defense':                  'ITA',
   'Airlines':                             'JETS',
-  'Railroads':                            'IYT',
   // Consumer
-  'Retail - Discretionary':               'XRT',
   'Specialty Retail':                     'XRT',
-  'Restaurants':                          'BITE',
-  'Auto Manufacturers':                   'CARZ',
-  // Real Estate
-  'REIT - Residential':                   'REZ',
-  'REIT - Industrial':                    'INDS',
-  'REIT - Retail':                        'RTL',
   // Residential Construction
   'Residential Construction':             'ITB',
+  // Financials — banks only (KBE free tier)
+  'Banks - Regional':                     'KBE',
+  'Banks':                                'KBE',
 }
 
 // ── European market index mapping ─────────────────────────────────────────────

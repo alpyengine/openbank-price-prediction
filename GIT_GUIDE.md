@@ -1610,6 +1610,56 @@ git push origin v5.2.4
 
 
 # ===========================================================================
+# STEP 56 — v5.2.5  Fix market data not saved + industry ETF cleanup
+# ===========================================================================
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.2.5
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.2.5
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.5/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "fix: market data not saved in Supabase + industry ETF cleanup (v5.2.5)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.2.5 -m "v5.2.5: fix market data save"
+# git push origin v5.2.5
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.5/. .
+
+git status
+git add .
+
+git commit -m "fix: market data not saved in Supabase + industry ETF cleanup (v5.2.5)
+
+- newBatch built atomically — all fields (horizonStatus, hitRate, marketData)
+  set in one object literal before passing to saveHistory
+- Previously marketData was null in Supabase because newBatch was mutated
+  after updated.batches[0] reference was already captured
+- INDUSTRY_ETF cleaned: removed 15 ETFs not on Twelve Data free tier
+  Kept: SOXX, IGV, XBI, XPH, XOP, OIH, GDX, ITA, JETS, XRT, ITB, KBE"
+
+git tag -a v5.2.5 -m "v5.2.5: fix market data save and ETF cleanup"
+git push origin main
+git push origin v5.2.5
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -1716,6 +1766,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.2/         -> v5.2.2
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.3/         -> v5.2.3
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.4/         -> v5.2.4
+#    /Users/alex/Downloads/openbank-price-prediction_v5.2.5/         -> v5.2.5
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
