@@ -263,9 +263,10 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
       <div style={{ maxWidth:460, display:'flex', flexDirection:'column', gap:4 }}>
         {(() => {
           const hasNeg = rows.some(r => r.pct < 0)
-          const BAR_H  = 10  // smaller bars
+          const BAR_H  = 10
 
           if (!hasNeg) {
+            // All positive — bars from left
             return rows.map((row) => {
               const barWidth = row.pct != null ? Math.abs(row.pct) / maxPct * 100 : 0
               const isStock  = row.isStock
@@ -280,8 +281,16 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
                     {isStock && <span style={{ fontSize:9 }}>▶</span>}
                     {row.label}
                   </div>
-                  <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', position:'relative', overflow:'visible', outline: isStock ? '1.5px solid var(--accent)' : 'none', outlineOffset:1 }}>
-                    <div style={{ height:'100%', width: barWidth + '%', borderRadius:3, background: barColor, transition:'width .4s ease' }} />
+                  {/* Track — no outline here */}
+                  <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', position:'relative', overflow:'visible' }}>
+                    {/* Bar — outline on the bar itself for stock */}
+                    <div style={{
+                      height:'100%', width: barWidth + '%', borderRadius:3,
+                      background: barColor, transition:'width .4s ease',
+                      outline: isStock ? '1.5px solid var(--accent)' : 'none',
+                      outlineOffset: 1,
+                    }} />
+                    {/* % label always outside bar to the right */}
                     <span style={{ position:'absolute', left: barWidth + '%', top:'50%', transform:'translateY(-50%)', marginLeft:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap' }}>
                       {fmt(row.pct)}
                     </span>
@@ -290,38 +299,54 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
               )
             })
           } else {
-            // Has negatives — zero line in center
+            // Has negatives — zero line at center (50%)
             const absMax = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
             return rows.map((row) => {
               const isStock  = row.isStock
               const isPos    = row.pct >= 0
-              const barPct   = Math.abs(row.pct) / absMax * 50
+              const barPct   = Math.abs(row.pct) / absMax * 50  // max 50% of track
               const pctColor = isPos ? 'var(--green)' : 'var(--red)'
               const barColor = isStock
                 ? (isPos ? 'var(--green)' : 'var(--red)')
                 : (isPos ? 'rgba(34,197,94,0.35)' : 'rgba(220,38,38,0.3)')
-              const barLeft  = isPos ? 50 : (50 - barPct)
-              // label: positive → right of bar end, negative → left of bar start
-              const labelLeft  = isPos ? (50 + barPct) + '%' : undefined
-              const labelRight = !isPos ? (50 - barPct === 0 ? undefined : (50 - (50 - barPct)) + '%') : undefined
+              // Bar starts at center for positive, ends at center for negative
+              const barLeft = isPos ? 50 : (50 - barPct)
               return (
                 <div key={row.key} style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <div style={{ width:150, flexShrink:0, fontSize:12, fontWeight: isStock ? 700 : 500, color: isStock ? 'var(--accent)' : 'var(--text-2)', display:'flex', alignItems:'center', gap:4 }}>
                     {isStock && <span style={{ fontSize:9 }}>▶</span>}
                     {row.label}
                   </div>
-                  <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', position:'relative', overflow:'visible', outline: isStock ? '1.5px solid var(--accent)' : 'none', outlineOffset:1 }}>
-                    <div style={{ position:'absolute', top:0, height:'100%', borderRadius:3, background: barColor, left: barLeft + '%', width: barPct + '%', transition:'all .4s ease' }} />
+                  {/* Track */}
+                  <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', position:'relative', overflow:'visible' }}>
+                    {/* Bar — outline on bar itself for stock */}
+                    <div style={{
+                      position:'absolute', top:0, height:'100%', borderRadius:3,
+                      background: barColor,
+                      left: barLeft + '%', width: barPct + '%',
+                      transition:'all .4s ease',
+                      outline: isStock ? '1.5px solid var(--accent)' : 'none',
+                      outlineOffset: 1,
+                    }} />
                     {/* Zero line */}
                     <div style={{ position:'absolute', top:-2, bottom:-2, left:'50%', width:1.5, background:'var(--text-3)', opacity:0.5, borderRadius:1 }} />
-                    {/* % label — right of bar if positive, left of bar if negative */}
-                    {isPos && (
-                      <span style={{ position:'absolute', left: labelLeft, top:'50%', transform:'translateY(-50%)', marginLeft:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap' }}>
+                    {/* % label — positive: right of bar end, negative: left of bar start */}
+                    {isPos ? (
+                      <span style={{
+                        position:'absolute',
+                        left: (50 + barPct) + '%',
+                        top:'50%', transform:'translateY(-50%)',
+                        marginLeft:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap',
+                      }}>
                         {fmt(row.pct)}
                       </span>
-                    )}
-                    {!isPos && (
-                      <span style={{ position:'absolute', right: (50 - barLeft) + '%', top:'50%', transform:'translate(-100%, -50%)', marginRight:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap' }}>
+                    ) : (
+                      <span style={{
+                        position:'absolute',
+                        right: (100 - barLeft) + '%',
+                        top:'50%', transform:'translateY(-50%)',
+                        marginRight:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap',
+                      }}>
                         {fmt(row.pct)}
                       </span>
                     )}

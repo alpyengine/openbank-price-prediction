@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.2
+# Openbank Price Prediction — v5.2.3
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,23 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.3 — Bar outline and label position fixes
+**Date:** May 2026
+
+**Fixed:**
+- **Blue outline on bar, not track** — the stock bar outline now wraps only
+  the colored bar itself (sized to the % value), not the full track container.
+  Previously the outline spanned the entire row width regardless of bar length.
+- **Negative % label to the left** — in zero-line mode, negative values now
+  correctly show their % label to the left of the bar (outside), calculated
+  as `right: (100 - barLeft)%`. Positive values remain to the right.
+
+**Files changed:**
+- `src/components/StockRow.jsx` — outline moved from track div to bar div,
+  negative label uses `right` positioning instead of `left`
+
+---
 
 ### v5.2.2 — Market comparison bar fixes and rate limit
 **Date:** May 2026
@@ -1385,3 +1402,4 @@ regardless of CORS headers on the target server.
 | v5.2.0           | 2026-05  | React + Supabase          | Market comparison SP500 + sector ETF (US batches)  |
 | v5.2.1           | 2026-05  | React + Supabase          | UI fixes: zero-line, CIK link, collapse all        |
 | v5.2.2           | 2026-05  | React + Supabase          | Bar fixes: colors, outline, size, rate limit 20s   |
+| v5.2.3           | 2026-05  | React + Supabase          | Bar outline on bar not track, negative label left  |

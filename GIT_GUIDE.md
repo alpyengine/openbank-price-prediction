@@ -1508,6 +1508,53 @@ git push origin v5.2.2
 
 
 # ===========================================================================
+# STEP 54 — v5.2.3  Bar outline and label position fixes
+# ===========================================================================
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.2.3
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.2.3
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.3/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "fix: bar outline on bar not track, negative label left (v5.2.3)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.2.3 -m "v5.2.3: bar outline and label fixes"
+# git push origin v5.2.3
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.3/. .
+
+git status
+git add .
+
+git commit -m "fix: bar outline on bar not track, negative label left (v5.2.3)
+
+- Blue outline now on bar element (sized to % value), not the full track
+- Negative % label positioned left of bar using right: (100 - barLeft)%
+- Positive % label remains right of bar end"
+
+git tag -a v5.2.3 -m "v5.2.3: bar outline and label position fixes"
+git push origin main
+git push origin v5.2.3
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -1612,6 +1659,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.0/         -> v5.2.0
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.1/         -> v5.2.1
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.2/         -> v5.2.2
+#    /Users/alex/Downloads/openbank-price-prediction_v5.2.3/         -> v5.2.3
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
