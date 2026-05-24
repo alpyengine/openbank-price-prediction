@@ -2,8 +2,9 @@ import { memo, useState, useCallback, useEffect } from 'react'
 import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js'
 import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey } from '../utils/stocks.js'
 import { fmtMarketCap } from '../hooks/useFundamentals.js'
+import { SECTOR_ETF } from '../hooks/useMarketData.js'
 
-const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange }) {
+const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData }) {
   const [expanded,     setExpanded]     = useState(false)
   const [showDesc,     setShowDesc]     = useState(false)
   const [noteVal,      setNoteVal]      = useState(note || '')
@@ -187,6 +188,10 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
         <tr style={{ borderBottom:'1px solid var(--border)' }}>
           <td colSpan={16} style={{ padding:'0 10px 10px 32px', background:'var(--surface2)' }}>
             <FundamentalsPanel fundamental={fundamental} ticker={stock.t} tg={tg} onShowDesc={() => setShowDesc(true)} />
+
+            {/* Market comparison */}
+            {marketData && <MarketComparison stock={stock} fundamental={fundamental} marketData={marketData} autoPrice={autoPrice} />}
+
             {/* Notes field */}
             <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--border)' }}>
               <div style={{ fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5, fontWeight:700 }}>
@@ -209,6 +214,122 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 })
 
 export default StockRow
+
+function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
+  if (!marketData?.spy) return null
+
+  const sector    = fundamental?.sector
+  const etfSymbol = sector ? SECTOR_ETF[sector] : null
+  const etfData   = etfSymbol ? marketData.etfs?.[etfSymbol] : null
+
+  const stockPct = (stock.b && autoPrice && autoPrice > 0)
+    ? ((autoPrice - stock.b) / stock.b) * 100
+    : null
+  const spyPct = marketData.spy.changePct
+  const etfPct = etfData?.changePct ?? null
+
+  const fmt  = (v) => v == null ? '--' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
+  const ticker   = stock.t.split('.')[0]
+  const baseDate = stock.base ? formatDate(stock.base) : '?'
+
+  // Build rows sorted by pct descending
+  const rows = [
+    { key:'etf',   label: etfSymbol ? `${sector} (${etfSymbol})` : null, pct: etfPct,   isStock:false },
+    { key:'stock', label: ticker,                                          pct: stockPct, isStock:true  },
+    { key:'spy',   label: 'S&P 500 (SPY)',                                 pct: spyPct,   isStock:false },
+  ].filter(r => r.label && r.pct != null)
+   .sort((a, b) => b.pct - a.pct)
+
+  const maxPct  = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
+  const spyDiff = stockPct != null && spyPct != null ? stockPct - spyPct : null
+  const etfDiff = stockPct != null && etfPct != null ? stockPct - etfPct : null
+
+  return (
+    <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--border)' }}>
+      {/* Header */}
+      <div style={{ fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', fontWeight:700, marginBottom:12 }}>
+        📈 Performance ranking since {baseDate}
+        <span style={{ fontStyle:'italic', fontWeight:400, marginLeft:8, textTransform:'none', letterSpacing:0 }}>
+          same period for stock and indices
+        </span>
+      </div>
+
+      {/* Ranked bars — Option D exact style */}
+      <div style={{ maxWidth:460, display:'flex', flexDirection:'column', gap:5 }}>
+        {rows.map((row) => {
+          const barWidth = row.pct != null ? Math.abs(row.pct) / maxPct * 100 : 0
+          const isStock  = row.isStock
+          const pctColor = row.pct == null ? 'var(--text-3)' : row.pct >= 0 ? 'var(--green)' : 'var(--red)'
+
+          return (
+            <div key={row.key} style={{ display:'flex', alignItems:'center', gap:10 }}>
+              {/* Name */}
+              <div style={{
+                width:150, flexShrink:0,
+                fontSize:12, fontWeight: isStock ? 700 : 500,
+                color: isStock ? 'var(--accent)' : 'var(--text-2)',
+                display:'flex', alignItems:'center', gap:4,
+              }}>
+                {isStock && <span style={{ fontSize:9 }}>▶</span>}
+                {row.label}
+              </div>
+              {/* Bar track */}
+              <div style={{ flex:1, height:14, borderRadius:4, overflow:'hidden', background:'var(--surface2)', position:'relative' }}>
+                <div style={{
+                  height:'100%',
+                  width: barWidth + '%',
+                  borderRadius:4,
+                  background: isStock ? 'var(--accent)' : 'rgba(156,163,175,0.6)',
+                  display:'flex', alignItems:'center', justifyContent:'flex-end',
+                  paddingRight: barWidth > 35 ? 6 : 0,
+                  transition:'width .4s ease',
+                }}>
+                  {barWidth > 35 && (
+                    <span style={{ fontSize:11, fontWeight:700, color:'#fff', whiteSpace:'nowrap' }}>
+                      {fmt(row.pct)}
+                    </span>
+                  )}
+                </div>
+                {barWidth <= 35 && row.pct != null && (
+                  <span style={{
+                    position:'absolute', left: barWidth + '%', top:'50%', transform:'translateY(-50%)',
+                    marginLeft:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap',
+                  }}>
+                    {fmt(row.pct)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Beat/Lagged badges */}
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:10 }}>
+        {spyDiff != null && (
+          <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: spyDiff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: spyDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
+            {spyDiff >= 0 ? '▲' : '▼'} {spyDiff >= 0 ? 'Beat' : 'Lagged'} S&P 500 by {spyDiff >= 0 ? '+' : ''}{spyDiff.toFixed(2)}%
+          </span>
+        )}
+        {etfDiff != null && etfSymbol && (
+          <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: etfDiff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: etfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
+            {etfDiff >= 0 ? '▲' : '▼'} {etfDiff >= 0 ? 'Beat' : 'Lagged'} {etfSymbol} by {etfDiff >= 0 ? '+' : ''}{etfDiff.toFixed(2)}%
+          </span>
+        )}
+        {!sector && (
+          <span style={{ fontSize:11, color:'var(--text-3)', fontStyle:'italic' }}>
+            Fetch fundamentals to see sector ETF comparison
+          </span>
+        )}
+        {sector && !etfSymbol && (
+          <span style={{ fontSize:11, color:'var(--text-3)', fontStyle:'italic' }}>
+            No sector ETF mapped for "{sector}"
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function FundamentalsPanel({ fundamental, ticker, tg, onShowDesc }) {
   const horizonItems = tg ? [

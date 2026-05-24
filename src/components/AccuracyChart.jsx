@@ -161,7 +161,7 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'var(--fs-sm)' }}>
               <thead>
                 <tr>
-                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated','',''].map(h => (
+                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated','Load','Delete'].map(h => (
                     <th key={h} style={{ padding:'9px 12px', textAlign:'left', fontSize:'var(--fs-xs)', fontWeight:700, color:'var(--th-text)', background:'var(--th-bg)', borderBottom:'1.5px solid var(--border)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>

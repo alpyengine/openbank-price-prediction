@@ -18,6 +18,42 @@
 #   - GitHub repo created EMPTY (no README, no .gitignore)
 #   - Git configured with your name/email
 #
+# ===========================================================================
+# HOW TO ROLLBACK A VERSION (if something went wrong after push)
+# ===========================================================================
+#
+# Use this if you pushed a broken version and need to redo it.
+# Replace vX.X.X and the commit message with the version you want to undo.
+#
+# 1. Borrar tag local
+# git tag -d vX.X.X
+#
+# 2. Borrar tag remoto
+# git push origin --delete vX.X.X
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_vX.X.X/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "type: description (vX.X.X)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a vX.X.X -m "vX.X.X: description"
+# git push origin vX.X.X
+#
+# NOTE: --force rewrites remote history. Safe for personal repos.
+#       Never use --force on shared repos without team agreement.
+#
+# ===========================================================================
+#
 # YOUR VERSION FOLDERS ON DISK:
 #   /Users/alex/Downloads/openbank_price_check_1/                   -> v0.2.0
 #   /Users/alex/Downloads/openbank_price_check_2/                   -> v0.3.0
@@ -1314,8 +1350,69 @@ git push origin v5.1.0
 
 
 # ===========================================================================
+# STEP 51 — v5.2.0  Market comparison SP500 + sector ETF (US batches)
+# ===========================================================================
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.2.0
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.2.0
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.0/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "feat: market comparison SP500 and sector ETF for US batches (v5.2.0)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.2.0 -m "v5.2.0: market comparison SP500 and sector ETF"
+# git push origin v5.2.0
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.0/. .
+
+git status
+git add .
+
+git commit -m "feat: market comparison SP500 and sector ETF for US batches (v5.2.0)
+
+- Fetch market data button shown only for .US batches
+- SPY (S&P 500) and SPDR sector ETFs fetched via Twelve Data
+- All % changes from batch base date to today — same period for all
+- Visualization: Option D — horizontal ranking bars sorted by % change
+    Stock highlighted in blue, ranked among indices by performance
+    Badges below: Beat/Lagged S&P 500 and sector ETF with exact diff
+- 8s pause between symbols (2 TD credits each: price + time_series)
+- Log shows estimated total time (~16s for SPY + 1 ETF)
+- 10 sector ETF mappings (XLK XLE XLF XLV XLI XLB XLY XLP XLU XLRE XLC)
+- useMarketData hook + MarketBar component
+- Fixed: AccuracyChart import, duplicate table keys, stockChangePct null"
+
+git tag -a v5.2.0 -m "v5.2.0: market comparison SP500 and sector ETF"
+git push origin main
+git push origin v5.2.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
+#
+# NOTE FOR ALL FUTURE STEPS:
+# Each new STEP includes a ROLLBACK block at the top (commented out).
+# Use it if the pushed version has errors — it undoes local + remote commit
+# and lets you push a corrected version in its place.
+# See the HOW TO ROLLBACK section at the top of this file for details.
 
 # Full commit history:
 git log --oneline
@@ -1409,6 +1506,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.7/         -> v5.0.7
 #    /Users/alex/Downloads/openbank-price-prediction_v5.0.8/         -> v5.0.8
 #    /Users/alex/Downloads/openbank-price-prediction_v5.1.0/         -> v5.1.0
+#    /Users/alex/Downloads/openbank-price-prediction_v5.2.0/         -> v5.2.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

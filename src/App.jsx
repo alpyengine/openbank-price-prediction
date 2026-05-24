@@ -15,6 +15,8 @@ import StockTable       from './components/StockTable.jsx'
 import ImportBox        from './components/ImportBox.jsx'
 import EmailPreview     from './components/EmailPreview.jsx'
 import AccuracyChart    from './components/AccuracyChart.jsx'
+import { useMarketData }      from './hooks/useMarketData.js'
+import MarketBar         from './components/MarketBar.jsx'
 
 export default function App() {
   const [stocks,       setStocks]       = useState(DEFAULT_STOCKS)
@@ -47,6 +49,11 @@ export default function App() {
     log: histLog, configured: histConfigured,
     load: loadHistory, saveBatch, deleteBatch,
   } = useHistory()
+
+  const {
+    marketData, loading: marketLoading, log: marketLog,
+    fetchMarketData, reset: resetMarketData,
+  } = useMarketData()
 
   const {
     fundamentals, loading: fundLoading, log: fundLog,
@@ -110,6 +117,7 @@ export default function App() {
     setSortBySector(false)
     resetPrices()
     resetFundamentals()
+    resetMarketData()
   }, [resetPrices, resetFundamentals])
 
   // Load a saved batch directly from history into the stock table
@@ -202,6 +210,17 @@ export default function App() {
         onFetch={() => fetchFundamentals(stocks)}
       />
 
+      <MarketBar
+        log={marketLog}
+        loading={marketLoading}
+        stocks={stocks}
+        onFetch={() => fetchMarketData({
+          stocks,
+          fundamentals,
+          baseDate: stocks.find(s => s.base)?.base,
+        })}
+      />
+
       <SummaryCards
         stocks={stocks}
         horizon={horizon}
@@ -245,6 +264,7 @@ export default function App() {
         onOverrideChange={handleOverrideChange}
         notes={notes}
         onNoteChange={handleNoteChange}
+        marketData={marketData}
       />
 
       <ImportBox onImport={handleImport} />

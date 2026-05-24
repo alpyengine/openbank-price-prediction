@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.1.0
+# Openbank Price Prediction — v5.2.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,47 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.0 — Market comparison: SP500 + sector ETF (US batches)
+**Date:** May 2026
+
+**New:**
+- **↓ Fetch market data** button — appears only for .US batches
+- Fetches SPY (S&P 500) and sector ETFs (SPDR) from Twelve Data
+- Compares stock performance vs market since the batch base date
+- Shows in expanded panel per stock:
+  ```
+  📈 Performance since 17 Mar 2026
+  INDEX              CHANGE    VS STOCK
+  S&P 500 (SPY)      +12.3%    ▲ Beat +7.3%
+  Technology (XLK)   +15.1%    ▲ Beat +4.5%
+  ```
+- Beat market = stock % change > index % change → green ▲
+- Lagged market = stock % change < index % change → red ▼
+- Only fetches unique sector ETFs needed (not one per stock)
+- 1.5s pause between symbols to respect Twelve Data rate limit
+- If sector not loaded → SP500 only, message to fetch fundamentals
+- If sector has no ETF mapping → note shown in panel
+
+**Sector → ETF SPDR mapping:**
+```
+Technology → XLK    Energy → XLE       Financials → XLF
+Healthcare → XLV    Industrials → XLI  Basic Materials → XLB
+Consumer Discretionary → XLY           Consumer Staples → XLP
+Utilities → XLU     Real Estate → XLRE Communication → XLC
+```
+
+**Files added:**
+- `src/hooks/useMarketData.js` — fetch SPY + sector ETFs, SECTOR_ETF map
+- `src/components/MarketBar.jsx` — fetch button, only shown for .US batches
+
+**Files changed:**
+- `src/components/StockRow.jsx` — MarketComparison sub-component in panel,
+  SECTOR_ETF import, marketData prop
+- `src/components/StockTable.jsx` — marketData prop passed to StockRow
+- `src/App.jsx` — useMarketData hook, MarketBar, reset on import
+
+---
 
 ### v5.1.0 — Notes per stock
 **Date:** May 2026
@@ -1298,3 +1339,4 @@ regardless of CORS headers on the target server.
 | v5.0.7           | 2026-05  | React + Supabase          | Bugfix: FMP and TD fundamentals failing for .US    |
 | v5.0.8           | 2026-05  | React + Supabase          | Batch merge + delete button in history             |
 | v5.1.0           | 2026-05  | React + Supabase          | Notes per stock — free text in expanded panel      |
+| v5.2.0           | 2026-05  | React + Supabase          | Market comparison SP500 + sector ETF (US batches)  |
