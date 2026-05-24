@@ -64,7 +64,7 @@ export function useHistory() {
   // ── Evaluate current stocks and save batch ─────────────────────────────────
   const saveBatch = useCallback(async ({
     stocks, autoPrices, histPrices, overrides,
-    horizonExpired, horizon, notes,
+    horizonExpired, horizon, notes, marketData,
   }) => {
     if (!configured) { setLog('Storage not configured'); return false }
     if (!stocks.length) { setLog('No stocks to save'); return false }
@@ -129,11 +129,12 @@ export function useHistory() {
     }
 
     const newBatch = {
-      id:      batchId,
-      date:    batchDateStr ?? formatDate(getToday()),
-      savedAt: existingBatch?.savedAt ?? new Date().toISOString(),
-      stocks:  mergedStocks,
-      results: mergedResults,
+      id:         batchId,
+      date:       batchDateStr ?? formatDate(getToday()),
+      savedAt:    existingBatch?.savedAt ?? new Date().toISOString(),
+      stocks:     mergedStocks,
+      results:    mergedResults,
+      marketData: marketData ?? existingBatch?.marketData ?? null,
     }
 
     const otherBatches = current.batches.filter(b => b.id !== batchId)

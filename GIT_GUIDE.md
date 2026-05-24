@@ -1555,6 +1555,61 @@ git push origin v5.2.3
 
 
 # ===========================================================================
+# STEP 55 — v5.2.4  Industry ETF, EU markets, market data in Supabase
+# ===========================================================================
+#
+# IMPORTANT: run this in Supabase SQL Editor before testing:
+# ALTER TABLE batches ADD COLUMN market_data JSONB DEFAULT NULL;
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.2.4
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.2.4
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.4/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "feat: industry ETF, EU markets, market data in Supabase (v5.2.4)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.2.4 -m "v5.2.4: industry ETF and EU markets"
+# git push origin v5.2.4
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.4/. .
+
+git status
+git add .
+
+git commit -m "feat: industry ETF, EU markets, market data in Supabase (v5.2.4)
+
+- INDUSTRY_ETF mapping: 30+ industry → ETF (SOXX, XBI, KBE, IGV, XOP, GDX...)
+- 4th bar and badge for industry ETF in MarketComparison panel
+- EU_MARKET_INDEX: .DE→DAX, .AS→AEX, .PA→CAC40, .L→FTSE100, .MC→IBEX35
+- Fetch market data button now shown for EU batches
+- MarketData saved to Supabase market_data JSONB column
+- MarketData restored from history on loadBatch — no re-fetch needed
+- Skip fetch if marketData already loaded for same base date
+- Supabase migration: ALTER TABLE batches ADD COLUMN market_data JSONB"
+
+git tag -a v5.2.4 -m "v5.2.4: industry ETF, EU markets, market data persistence"
+git push origin main
+git push origin v5.2.4
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -1660,6 +1715,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.1/         -> v5.2.1
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.2/         -> v5.2.2
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.3/         -> v5.2.3
+#    /Users/alex/Downloads/openbank-price-prediction_v5.2.4/         -> v5.2.4
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

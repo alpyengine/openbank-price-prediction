@@ -52,7 +52,7 @@ export default function App() {
 
   const {
     marketData, loading: marketLoading, log: marketLog,
-    fetchMarketData, reset: resetMarketData,
+    fetchMarketData, reset: resetMarketData, restoreMarketData,
   } = useMarketData()
 
   const {
@@ -160,6 +160,9 @@ export default function App() {
       if (r.note && !restoredNotes[r.ticker]) restoredNotes[r.ticker] = r.note
     }
     setNotes(restoredNotes)
+    // Restore marketData if saved
+    if (batch.marketData) restoreMarketData(batch.marketData)
+    else resetMarketData()
     setHorizon('best')
     setFilterSector('all')
     setFilterIndustry('all')
@@ -218,6 +221,7 @@ export default function App() {
           stocks,
           fundamentals,
           baseDate: stocks.find(s => s.base)?.base,
+          existingMarketData: marketData,
         })}
       />
 
@@ -277,7 +281,7 @@ export default function App() {
         log={histLog}
         configured={histConfigured}
         onLoad={loadHistory}
-        onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes })}
+        onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData })}
         onLoadBatch={handleLoadBatch}
         onDeleteBatch={deleteBatch}
       />

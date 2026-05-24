@@ -2,7 +2,7 @@ import { memo, useState, useCallback, useEffect } from 'react'
 import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js'
 import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey } from '../utils/stocks.js'
 import { fmtMarketCap } from '../hooks/useFundamentals.js'
-import { SECTOR_ETF } from '../hooks/useMarketData.js'
+import { SECTOR_ETF, INDUSTRY_ETF } from '../hooks/useMarketData.js'
 
 const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData, collapseAll, allExpanded }) {
   const [expanded,     setExpanded]     = useState(false)
@@ -223,31 +223,38 @@ export default StockRow
 function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
   if (!marketData?.spy) return null
 
-  const sector    = fundamental?.sector
-  const etfSymbol = sector ? SECTOR_ETF[sector] : null
-  const etfData   = etfSymbol ? marketData.etfs?.[etfSymbol] : null
+  const sector      = fundamental?.sector
+  const industry    = fundamental?.industry
+  const etfSymbol   = sector   ? SECTOR_ETF[sector]      : null
+  const indEtfSym   = industry ? INDUSTRY_ETF?.[industry] : null
+  const etfData     = etfSymbol  ? marketData.etfs?.[etfSymbol]         : null
+  const indEtfData  = indEtfSym  ? marketData.industryEtfs?.[indEtfSym] : null
 
-  const stockPct = (stock.b && autoPrice && autoPrice > 0)
+  const stockPct  = (stock.b && autoPrice && autoPrice > 0)
     ? ((autoPrice - stock.b) / stock.b) * 100
     : null
-  const spyPct = marketData.spy.changePct
-  const etfPct = etfData?.changePct ?? null
+  const spyPct    = marketData.spy.changePct
+  const etfPct    = etfData?.changePct    ?? null
+  const indEtfPct = indEtfData?.changePct ?? null
 
-  const fmt  = (v) => v == null ? '--' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
-  const ticker   = stock.t.split('.')[0]
+  const benchLabel = marketData.benchmark?.label ?? 'S&P 500 (SPY)'
+  const fmt    = (v) => v == null ? '--' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
+  const ticker = stock.t.split('.')[0]
   const baseDate = stock.base ? formatDate(stock.base) : '?'
 
-  // Build rows sorted by pct descending
+  // Build rows — include industry ETF if available
   const rows = [
-    { key:'etf',   label: etfSymbol ? `${sector} (${etfSymbol})` : null, pct: etfPct,   isStock:false },
-    { key:'stock', label: ticker,                                          pct: stockPct, isStock:true  },
-    { key:'spy',   label: 'S&P 500 (SPY)',                                 pct: spyPct,   isStock:false },
+    { key:'indEtf', label: indEtfSym ? `${industry} (${indEtfSym})` : null, pct: indEtfPct, isStock:false },
+    { key:'etf',    label: etfSymbol  ? `${sector} (${etfSymbol})`   : null, pct: etfPct,    isStock:false },
+    { key:'stock',  label: ticker,                                             pct: stockPct,  isStock:true  },
+    { key:'spy',    label: benchLabel,                                         pct: spyPct,    isStock:false },
   ].filter(r => r.label && r.pct != null)
    .sort((a, b) => b.pct - a.pct)
 
-  const maxPct  = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
-  const spyDiff = stockPct != null && spyPct != null ? stockPct - spyPct : null
-  const etfDiff = stockPct != null && etfPct != null ? stockPct - etfPct : null
+  const maxPct    = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
+  const spyDiff   = stockPct != null && spyPct    != null ? stockPct - spyPct    : null
+  const etfDiff   = stockPct != null && etfPct    != null ? stockPct - etfPct    : null
+  const indDiff   = stockPct != null && indEtfPct != null ? stockPct - indEtfPct : null
 
   return (
     <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--border)' }}>
@@ -362,12 +369,17 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
       <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:10 }}>
         {spyDiff != null && (
           <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: spyDiff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: spyDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
-            {spyDiff >= 0 ? '▲' : '▼'} {spyDiff >= 0 ? 'Beat' : 'Lagged'} S&P 500 by {spyDiff >= 0 ? '+' : ''}{spyDiff.toFixed(2)}%
+            {spyDiff >= 0 ? '▲' : '▼'} {spyDiff >= 0 ? 'Beat' : 'Lagged'} {marketData.benchmark?.symbol ?? 'SPY'} by {spyDiff >= 0 ? '+' : ''}{spyDiff.toFixed(2)}%
           </span>
         )}
         {etfDiff != null && etfSymbol && (
           <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: etfDiff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: etfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
             {etfDiff >= 0 ? '▲' : '▼'} {etfDiff >= 0 ? 'Beat' : 'Lagged'} {etfSymbol} by {etfDiff >= 0 ? '+' : ''}{etfDiff.toFixed(2)}%
+          </span>
+        )}
+        {indDiff != null && indEtfSym && (
+          <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: indDiff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: indDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
+            {indDiff >= 0 ? '▲' : '▼'} {indDiff >= 0 ? 'Beat' : 'Lagged'} {indEtfSym} by {indDiff >= 0 ? '+' : ''}{indDiff.toFixed(2)}%
           </span>
         )}
         {!sector && (

@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.3
+# Openbank Price Prediction — v5.2.4
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,47 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.4 — Market data: industry ETF, EU markets, Supabase persistence
+**Date:** May 2026
+
+**New:**
+
+**Industry ETF (4th bar):**
+- Added `INDUSTRY_ETF` mapping in `useMarketData.js` — 30+ industry → ETF pairs
+- Examples: Semiconductors→SOXX, Biotechnology→XBI, Banks→KBE,
+  Software→IGV, Oil & Gas E&P→XOP, Gold→GDX, Aerospace & Defense→ITA
+- 4th bar shown in MarketComparison panel when industry ETF available
+- 4th badge: `▲ Beat SOXX by +X.XX%` / `▼ Lagged SOXX by -X.XX%`
+
+**European markets (.DE .AS .PA .L .MC):**
+- `Fetch market data` button now appears for EU batches too
+- EU_MARKET_INDEX mapping: DE→DAX, AS→AEX, PA→CAC40, L→FTSE100, MC→IBEX35
+- Fetches local index instead of SPY for EU batches
+- No sector/industry ETF for EU (US-only SPDR ETFs not applicable)
+- Benchmark label in panel shows correct index name (e.g. "DAX (Germany)")
+
+**MarketData saved in Supabase:**
+- `market_data` JSONB column added to `batches` table
+- MarketData saved on every "Save batch results"
+- Restored automatically when loading a batch from history — no re-fetch needed
+- If marketData already loaded for same base date, fetch is skipped
+
+**Supabase migration (run once in SQL Editor):**
+```sql
+ALTER TABLE batches ADD COLUMN market_data JSONB DEFAULT NULL;
+```
+
+**Files changed:**
+- `src/hooks/useMarketData.js` — INDUSTRY_ETF + EU_MARKET_INDEX mappings,
+  fetchSymbolData with auto provider, restoreMarketData, existingMarketData skip
+- `src/components/MarketBar.jsx` — shows for EU batches, EU index label
+- `src/components/StockRow.jsx` — industry ETF 4th bar + badge, benchmark label
+- `src/services/storage.js` — market_data in save row + load mapping
+- `src/hooks/useHistory.js` — marketData param in saveBatch, stored in newBatch
+- `src/App.jsx` — restoreMarketData on loadBatch, passed to saveBatch
+
+---
 
 ### v5.2.3 — Bar outline and label position fixes
 **Date:** May 2026
@@ -1403,3 +1444,4 @@ regardless of CORS headers on the target server.
 | v5.2.1           | 2026-05  | React + Supabase          | UI fixes: zero-line, CIK link, collapse all        |
 | v5.2.2           | 2026-05  | React + Supabase          | Bar fixes: colors, outline, size, rate limit 20s   |
 | v5.2.3           | 2026-05  | React + Supabase          | Bar outline on bar not track, negative label left  |
+| v5.2.4           | 2026-05  | React + Supabase          | Industry ETF, EU markets, market data in Supabase  |
