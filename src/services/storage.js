@@ -56,6 +56,7 @@ export async function loadHistory() {
       horizonStatus: row.horizon_status ?? {},
       hitRate:       row.hit_rate,
       marketData:    row.market_data ?? null,
+      fundamentals:  row.fundamentals ?? null,
     }))
 
     return { batches }
@@ -86,6 +87,8 @@ export async function saveHistory(history, batchMeta) {
       horizon_status: batch.horizonStatus ?? {},
       hit_rate:       batch.hitRate ?? null,
       market_data:    batch.marketData ?? null,
+      fundamentals:   (batch.fundamentals && Object.keys(batch.fundamentals).length > 0)
+                        ? batch.fundamentals : null,
       updated_at:     new Date().toISOString(),
     }
 

@@ -1807,6 +1807,57 @@ git push origin v5.2.8
 
 
 # ===========================================================================
+# STEP 60 — v5.2.9  Fundamentals saved and restored from Supabase
+# ===========================================================================
+#
+# IMPORTANT: run this in Supabase SQL Editor before installing:
+# ALTER TABLE batches ADD COLUMN fundamentals JSONB DEFAULT NULL;
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.2.9
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.2.9
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.9/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "feat: fundamentals saved and restored from Supabase (v5.2.9)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.2.9 -m "v5.2.9: fundamentals persistence"
+# git push origin v5.2.9
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.9/. .
+
+git add .
+git commit -m "feat: fundamentals saved and restored from Supabase (v5.2.9)
+
+- Fundamentals (sector, industry, exchange, market cap, beta...)
+  saved to Supabase fundamentals JSONB column on Save batch
+- Restored on load from history — no re-fetch needed
+- restoreFundamentals() in useFundamentals hook
+- Exchange field restored → QQQ detection works after load from history
+- Full offline session: prices + fundamentals + marketData + notes all saved"
+
+git tag -a v5.2.9 -m "v5.2.9: fundamentals saved and restored from Supabase"
+git push origin main
+git push origin v5.2.9
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -1917,6 +1968,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.6/         -> v5.2.6
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.7/         -> v5.2.7
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.8/         -> v5.2.8
+#    /Users/alex/Downloads/openbank-price-prediction_v5.2.9/         -> v5.2.9
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

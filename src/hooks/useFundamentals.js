@@ -134,5 +134,12 @@ export function useFundamentals() {
     setLog('')
   }, [])
 
-  return { fundamentals, loading, log, fetchFundamentals, reset }
+  const restoreFundamentals = useCallback((saved) => {
+    if (saved && Object.keys(saved).length > 0) {
+      setFundamentals(saved)
+      setLog(`Fundamentals: ${Object.keys(saved).length} stocks restored from saved batch`)
+    }
+  }, [])
+
+  return { fundamentals, loading, log, fetchFundamentals, reset, restoreFundamentals }
 }

@@ -57,7 +57,7 @@ export default function App() {
 
   const {
     fundamentals, loading: fundLoading, log: fundLog,
-    fetchFundamentals, reset: resetFundamentals,
+    fetchFundamentals, reset: resetFundamentals, restoreFundamentals,
   } = useFundamentals()
 
   // Auto-fetch historical on expired horizon switch
@@ -118,9 +118,7 @@ export default function App() {
     resetPrices()
     resetFundamentals()
     resetMarketData()
-  }, [resetPrices, resetFundamentals])
-
-  // Load a saved batch directly from history into the stock table
+  }, [resetPrices, resetFundamentals, resetMarketData])
   const handleLoadBatch = useCallback((batch) => {
     // Extract unique stocks from batch results
     const seen = new Set()
@@ -163,16 +161,19 @@ export default function App() {
     // Restore marketData if saved
     if (batch.marketData) restoreMarketData(batch.marketData)
     else resetMarketData()
+    // Restore fundamentals if saved and non-empty
+    if (batch.fundamentals && Object.keys(batch.fundamentals).length > 0)
+      restoreFundamentals(batch.fundamentals)
+    else resetFundamentals()
     setHorizon('best')
     setFilterSector('all')
     setFilterIndustry('all')
     setGroupBySector(false)
     setSortBySector(false)
     resetPrices()
-    resetFundamentals()
     // Scroll to top so user sees the loaded stocks
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [resetPrices, resetFundamentals])
+  }, [resetPrices, restoreMarketData, resetMarketData, restoreFundamentals, resetFundamentals])
 
   const handleOverrideChange = useCallback((ticker, value) => {
     setOverrides(prev => {
@@ -281,7 +282,7 @@ export default function App() {
         log={histLog}
         configured={histConfigured}
         onLoad={loadHistory}
-        onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData })}
+        onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData, fundamentals })}
         onLoadBatch={handleLoadBatch}
         onDeleteBatch={deleteBatch}
       />

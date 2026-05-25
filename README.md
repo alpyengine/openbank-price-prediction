@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.8
+# Openbank Price Prediction — v5.2.9
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,36 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.9 — Fundamentals saved in Supabase
+**Date:** May 2026
+
+**New:**
+- **Fundamentals persisted in Supabase** — sector, industry, market cap, beta,
+  website, description, CIK, last dividend saved on every "Save batch results"
+- **Restored on load** — loading a batch from history restores all fundamentals
+  automatically — no need to click "Fetch fundamentals" again
+- **Exchange field restored** — since `exchange` is part of fundamentals,
+  QQQ detection (NASDAQ stocks) now works correctly after loading from history
+- **Full offline session flow:**
+  ```
+  Save batch (prices + fundamentals + marketData + notes)
+  → Load from history next session
+  → All data restored: sector/industry/exchange/ETF comparisons all available
+  → Only re-fetch if you want updated prices
+  ```
+- **Supabase migration** (run once before installing):
+  ```sql
+  ALTER TABLE batches ADD COLUMN fundamentals JSONB DEFAULT NULL;
+  ```
+
+**Files changed:**
+- `src/hooks/useFundamentals.js` — restoreFundamentals()
+- `src/services/storage.js` — fundamentals in save row + load mapping
+- `src/hooks/useHistory.js` — fundamentals param in saveBatch + newBatch
+- `src/App.jsx` — restoreFundamentals on loadBatch, passed to saveBatch
+
+---
 
 ### v5.2.8 — Bar layout fix, RSP and QQQ benchmarks
 **Date:** May 2026
@@ -1558,3 +1588,4 @@ regardless of CORS headers on the target server.
 | v5.2.6           | 2026-05  | React + Supabase          | Cache basePrice — skip historical fetch on re-use  |
 | v5.2.7           | 2026-05  | React + Supabase          | ETF mapping verified against TD free tier          |
 | v5.2.8           | 2026-05  | React + Supabase          | Bar layout fix, RSP + QQQ benchmarks               |
+| v5.2.9           | 2026-05  | React + Supabase          | Fundamentals saved and restored from Supabase      |
