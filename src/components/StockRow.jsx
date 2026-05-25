@@ -4,7 +4,7 @@ import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey 
 import { fmtMarketCap } from '../hooks/useFundamentals.js'
 import { SECTOR_ETF, INDUSTRY_ETF } from '../hooks/useMarketData.js'
 
-const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData, collapseAll, allExpanded }) {
+const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData, collapseAll, allExpanded, batchCurrency }) {
   const [expanded,     setExpanded]     = useState(false)
   const [showDesc,     setShowDesc]     = useState(false)
   const [noteVal,      setNoteVal]      = useState(note || '')
@@ -105,14 +105,16 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
         <td style={{ ...td, fontSize:11, color:fundColor }}>{industryText}</td>
         <td style={{ ...td, fontSize:11, color:'var(--text-3)' }}>{stock.cu}</td>
         <td style={{ ...td, fontSize:11, color:'var(--text-3)' }}>{stock.base ? formatDate(stock.base) : '--'}</td>
-        <td style={{ ...td, fontSize:12, color:'var(--text-2)', fontWeight:500 }}>{stock.b ? stock.b.toFixed(2) : '--'}</td>
+        <td style={{ ...td, fontSize:12, color:'var(--text-2)', fontWeight:500 }}>
+          {stock.b ? `${batchCurrency ?? ''}${stock.b.toFixed(2)}` : '--'}
+        </td>
 
         {/* Price */}
         <td style={td} onClick={e=>e.stopPropagation()}>
           {histLoading && <span style={{ color:'var(--text-3)', fontSize:11 }}>fetching…</span>}
           {!histLoading && isHistorical && histEntry && (
             <div>
-              <span style={{ color:'var(--blue)', fontWeight:600, fontSize:12 }}>{histEntry.price.toFixed(2)}</span>
+              <span style={{ color:'var(--blue)', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{histEntry.price.toFixed(2)}</span>
               <span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>close on {histEntry.date}</span>
             </div>
           )}
@@ -121,7 +123,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
             <div>
               {autoPrice==null
                 ? <span style={{ color:'var(--text-3)', fontSize:11 }}>--</span>
-                : <span style={{ color:'var(--green)', fontWeight:600, fontSize:12 }}>{autoPrice.toFixed(2)}</span>
+                : <span style={{ color:'var(--green)', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{autoPrice.toFixed(2)}</span>
               }
               {horizon==='best' && autoPrice!=null && (
                 <span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>vs {bestLabel} · today</span>

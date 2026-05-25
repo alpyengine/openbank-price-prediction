@@ -42,6 +42,38 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
     setDeletingBatch(null)
   }
 
+  const handleExportCSV = (batch) => {
+    // Reconstruct CSV from saved results — same format as pipeline output
+    const seen    = new Set()
+    const tickers = []
+    for (const r of batch.results) {
+      if (!seen.has(r.ticker)) { seen.add(r.ticker); tickers.push(r.ticker) }
+    }
+    const rows = ['Ticker,Company,Currency,BasePrice,1M,3M,6M,12M,Date']
+    for (const ticker of tickers) {
+      const res  = batch.results.filter(r => r.ticker === ticker)
+      const get  = (h) => res.find(r => r.horizon === h)?.targetPrice ?? ''
+      const base = res[0]
+      if (!base) continue
+      // Detect currency from ticker suffix
+      const suffix = ticker.split('.').pop().toUpperCase()
+      const cu = ['DE','AS','PA','MC'].includes(suffix) ? 'EUR'
+               : suffix === 'L' ? 'GBP' : 'USD'
+      rows.push([ticker, base.company, cu, base.basePrice,
+        get('1M'), get('3M'), get('6M'), get('12M'), batch.date
+      ].join(','))
+    }
+    const csv      = rows.join('\n')
+    const blob     = new Blob([csv], { type: 'text/csv' })
+    const url      = URL.createObjectURL(blob)
+    const a        = document.createElement('a')
+    const dateStr  = batch.date.split('/').reverse().join('')  // YYYYMMDD
+    a.href         = url
+    a.download     = `Openbank_${dateStr}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (!configured) {
     return (
       <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:'24px', marginBottom:16, boxShadow:'var(--shadow)', textAlign:'center' }}>
@@ -161,7 +193,7 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'var(--fs-sm)' }}>
               <thead>
                 <tr>
-                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated','Load','Delete'].map(h => (
+                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated','Load','CSV','Delete'].map(h => (
                     <th key={h} style={{ padding:'9px 12px', textAlign:'left', fontSize:'var(--fs-xs)', fontWeight:700, color:'var(--th-text)', background:'var(--th-bg)', borderBottom:'1.5px solid var(--border)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -196,6 +228,16 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
                             style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:600, border:'1.5px solid var(--border-blue)', background: isLoading ? 'var(--green-bg)' : 'var(--surface)', color: isLoading ? 'var(--green)' : 'var(--accent)', whiteSpace:'nowrap', transition:'all .2s' }}
                           >
                             {isLoading ? '✓ Loaded' : '↑ Load'}
+                          </button>
+                        )}
+                      </td>
+                      <td style={{ padding:'8px 12px' }}>
+                        {batch && (
+                          <button
+                            onClick={() => handleExportCSV(batch)}
+                            style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:600, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-2)', whiteSpace:'nowrap' }}
+                          >
+                            ↓ CSV
                           </button>
                         )}
                       </td>

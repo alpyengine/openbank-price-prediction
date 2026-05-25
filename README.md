@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.9
+# Openbank Price Prediction — v5.3.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,22 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.3.0 — UX: batch indicator, currency symbols, CSV export
+**Date:** May 2026
+
+**New:**
+- **Batch indicator** above table: `📂 Batch loaded: 17/03/2026 · 16 stocks · $ USD`
+- **Currency symbol** on price columns: `$358.25` / `€53.68` / `£142.30`
+- **↓ CSV export** button in batch history — downloads `Openbank_YYYYMMDD.csv`
+
+**Files changed:**
+- `src/App.jsx` — loadedBatchDate, batchCurrency, batch indicator
+- `src/components/StockTable.jsx` — batchCurrency prop
+- `src/components/StockRow.jsx` — currency prefix on prices
+- `src/components/AccuracyChart.jsx` — CSV export button
+
+---
 
 ### v5.2.9 — Fundamentals saved in Supabase
 **Date:** May 2026
@@ -1589,3 +1605,4 @@ regardless of CORS headers on the target server.
 | v5.2.7           | 2026-05  | React + Supabase          | ETF mapping verified against TD free tier          |
 | v5.2.8           | 2026-05  | React + Supabase          | Bar layout fix, RSP + QQQ benchmarks               |
 | v5.2.9           | 2026-05  | React + Supabase          | Fundamentals saved and restored from Supabase      |
+| v5.3.0           | 2026-05  | React + Supabase          | UX: batch indicator, currency symbols, CSV export  |

@@ -37,6 +37,17 @@ export default function App() {
   const [groupBySector,  setGroupBySector]  = useState(false)
   const [sortBySector,   setSortBySector]   = useState(false)
 
+  // Batch indicator — date of currently loaded batch
+  const [loadedBatchDate, setLoadedBatchDate] = useState(null)
+
+  // Currency symbol derived from batch stocks
+  const batchCurrency = useMemo(() => {
+    const cu = stocks.find(s => s.cu)?.cu ?? 'USD'
+    if (cu === 'EUR') return '€'
+    if (cu === 'GBP') return '£'
+    return '$'
+  }, [stocks])
+
   const {
     autoPrices, histPrices,
     fetching, log, chunkProgress,
@@ -108,6 +119,7 @@ export default function App() {
 
   const handleImport = useCallback((newStocks) => {
     setStocks(newStocks)
+    setLoadedBatchDate(null)
     setOverrides({})
     setNotes({})
     setHorizon('best')
@@ -151,6 +163,7 @@ export default function App() {
     }
     if (!newStocks.length) return
     setStocks(newStocks)
+    setLoadedBatchDate(batch.date)  // e.g. "17/03/2026"
     setOverrides({})
     // Restore notes from saved batch results
     const restoredNotes = {}
@@ -254,6 +267,29 @@ export default function App() {
         onSortToggle={() => setSortBySector(v => !v)}
       />
 
+      {/* Batch indicator */}
+      {stocks.length > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6, fontSize:'var(--fs-xs)', color:'var(--text-3)' }}>
+          {loadedBatchDate ? (
+            <>
+              <span style={{ fontSize:11 }}>📂</span>
+              <span>Batch loaded: <strong style={{ color:'var(--text-2)' }}>{loadedBatchDate}</strong></span>
+              <span>·</span>
+              <span>{stocks.length} stock{stocks.length > 1 ? 's' : ''}</span>
+              <span>·</span>
+              <span style={{ color:'var(--accent)', fontWeight:600 }}>{batchCurrency} {stocks.find(s => s.cu)?.cu ?? 'USD'}</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize:11 }}>📄</span>
+              <span>CSV imported · {stocks.length} stock{stocks.length > 1 ? 's' : ''}</span>
+              <span>·</span>
+              <span style={{ color:'var(--accent)', fontWeight:600 }}>{batchCurrency} {stocks.find(s => s.cu)?.cu ?? 'USD'}</span>
+            </>
+          )}
+        </div>
+      )}
+
       <StockTable
         stocks={stocks}
         horizon={horizon}
@@ -270,6 +306,7 @@ export default function App() {
         notes={notes}
         onNoteChange={handleNoteChange}
         marketData={marketData}
+        batchCurrency={batchCurrency}
       />
 
       <ImportBox onImport={handleImport} />

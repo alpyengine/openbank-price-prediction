@@ -1858,6 +1858,55 @@ git push origin v5.2.9
 
 
 # ===========================================================================
+# STEP 61 — v5.3.0  UX: batch indicator, currency symbols, CSV export
+# ===========================================================================
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.3.0
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.3.0
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.3.0/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "feat: batch indicator, currency symbols, CSV export (v5.3.0)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.3.0 -m "v5.3.0: UX improvements"
+# git push origin v5.3.0
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.3.0/. .
+
+git add .
+git commit -m "feat: batch indicator, currency symbols, CSV export from history (v5.3.0)
+
+- Batch indicator above table: date, stock count, currency symbol
+  Shows 'Batch loaded: DD/MM/YYYY' when from history, 'CSV imported' otherwise
+- Currency symbol on price columns: dollar/euro/pound prefix
+  Detected from stock currency field, applied to base price + current price
+- CSV export button in batch history: downloads Openbank_YYYYMMDD.csv
+  Reconstructs CSV from Supabase results — same format as pipeline output
+  Works without loading batch into stock table first"
+
+git tag -a v5.3.0 -m "v5.3.0: UX improvements pre-deploy"
+git push origin main
+git push origin v5.3.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -1969,6 +2018,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.7/         -> v5.2.7
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.8/         -> v5.2.8
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.9/         -> v5.2.9
+#    /Users/alex/Downloads/openbank-price-prediction_v5.3.0/         -> v5.3.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
