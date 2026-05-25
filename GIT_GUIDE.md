@@ -1759,6 +1759,54 @@ git push origin v5.2.7
 
 
 # ===========================================================================
+# STEP 59 — v5.2.8  Bar layout fix, RSP and QQQ benchmarks
+# ===========================================================================
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.2.8
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.2.8
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.8/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "feat: bar layout fix, RSP and QQQ benchmarks (v5.2.8)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.2.8 -m "v5.2.8: bar layout and RSP QQQ"
+# git push origin v5.2.8
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.2.8/. .
+
+git add .
+git commit -m "feat: bar layout fix, RSP and QQQ benchmarks (v5.2.8)
+
+- 3-column layout: name 140px | bar flex | % 58px — no overlap ever
+- Long names truncated with ellipsis at 22 chars
+- RSP (S&P 500 Equal Weight) always fetched for .US batches
+- QQQ (NASDAQ 100) fetched when batch contains NASDAQ stocks
+- RSP and QQQ stored in etfs map, shown as ranking bars
+- Badges: Beat/Lagged RSP and QQQ with % diff"
+
+git tag -a v5.2.8 -m "v5.2.8: bar layout fix and RSP QQQ benchmarks"
+git push origin main
+git push origin v5.2.8
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -1868,6 +1916,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.5/         -> v5.2.5
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.6/         -> v5.2.6
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.7/         -> v5.2.7
+#    /Users/alex/Downloads/openbank-price-prediction_v5.2.8/         -> v5.2.8
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

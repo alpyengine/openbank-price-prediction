@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.7
+# Openbank Price Prediction — v5.2.8
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,27 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.8 — Bar layout fix, RSP and QQQ benchmarks
+**Date:** May 2026
+
+**Fixed:**
+- **3-column layout** — name (140px fixed) | bar (flex) | % (58px fixed).
+  % value never overlaps with bar or name. Long names truncated with `…`
+- **Zero-line mode** — `overflow:hidden` keeps bars within track bounds
+
+**New:**
+- **RSP (S&P 500 Equal Weight)** — always fetched for all `.US` batches.
+  Shows if stock beats market without mega-cap bias of SPY.
+- **QQQ (NASDAQ 100)** — fetched only when batch contains NASDAQ stocks
+  (detected from `exchange` field in FMP fundamentals).
+- Badges: `▲ Beat RSP`, `▲ Beat QQQ` added.
+
+**Files changed:**
+- `src/components/StockRow.jsx` — 3-column renderRow, shortLabel, RSP/QQQ
+- `src/hooks/useMarketData.js` — RSP always, QQQ if NASDAQ, stored in etfs
+
+---
 
 ### v5.2.7 — ETF mapping verified against Twelve Data free tier
 **Date:** May 2026
@@ -1536,3 +1557,4 @@ regardless of CORS headers on the target server.
 | v5.2.5           | 2026-05  | React + Supabase          | Fix market data not saved + industry ETF cleanup   |
 | v5.2.6           | 2026-05  | React + Supabase          | Cache basePrice — skip historical fetch on re-use  |
 | v5.2.7           | 2026-05  | React + Supabase          | ETF mapping verified against TD free tier          |
+| v5.2.8           | 2026-05  | React + Supabase          | Bar layout fix, RSP + QQQ benchmarks               |

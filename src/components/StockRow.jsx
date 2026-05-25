@@ -225,173 +225,131 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
 
   const sector      = fundamental?.sector
   const industry    = fundamental?.industry
-  const etfSymbol   = sector   ? SECTOR_ETF[sector]      : null
+  const exchange    = fundamental?.exchange
+  const etfSymbol   = sector   ? SECTOR_ETF[sector]       : null
   const indEtfSym   = industry ? INDUSTRY_ETF?.[industry] : null
-  const etfData     = etfSymbol  ? marketData.etfs?.[etfSymbol]         : null
-  const indEtfData  = indEtfSym  ? marketData.industryEtfs?.[indEtfSym] : null
+  const etfData     = etfSymbol ? marketData.etfs?.[etfSymbol]          : null
+  const indEtfData  = indEtfSym ? marketData.industryEtfs?.[indEtfSym]  : null
+  const rspData     = marketData.etfs?.['RSP'] ?? null
+  const qqqData     = marketData.etfs?.['QQQ'] ?? null
 
   const stockPct  = (stock.b && autoPrice && autoPrice > 0)
-    ? ((autoPrice - stock.b) / stock.b) * 100
-    : null
+    ? ((autoPrice - stock.b) / stock.b) * 100 : null
   const spyPct    = marketData.spy.changePct
+  const rspPct    = rspData?.changePct    ?? null
+  const qqqPct    = qqqData?.changePct    ?? null
   const etfPct    = etfData?.changePct    ?? null
   const indEtfPct = indEtfData?.changePct ?? null
 
   const benchLabel = marketData.benchmark?.label ?? 'S&P 500 (SPY)'
-  const fmt    = (v) => v == null ? '--' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
-  const ticker = stock.t.split('.')[0]
-  const baseDate = stock.base ? formatDate(stock.base) : '?'
+  const ticker     = stock.t.split('.')[0]
+  const baseDate   = stock.base ? formatDate(stock.base) : '?'
+  const isNASDAQ   = exchange?.toUpperCase().includes('NASDAQ')
 
-  // Build rows — include industry ETF if available
+  const fmt = (v) => v == null ? '--' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
+  const shortLabel = (label, max = 22) =>
+    label && label.length > max ? label.slice(0, max - 1) + '…' : label
+
   const rows = [
-    { key:'indEtf', label: indEtfSym ? `${industry} (${indEtfSym})` : null, pct: indEtfPct, isStock:false },
-    { key:'etf',    label: etfSymbol  ? `${sector} (${etfSymbol})`   : null, pct: etfPct,    isStock:false },
-    { key:'stock',  label: ticker,                                             pct: stockPct,  isStock:true  },
-    { key:'spy',    label: benchLabel,                                         pct: spyPct,    isStock:false },
+    { key:'indEtf', label: indEtfSym ? shortLabel(`${industry} (${indEtfSym})`) : null, pct: indEtfPct, isStock:false },
+    { key:'etf',    label: etfSymbol  ? `${sector} (${etfSymbol})`               : null, pct: etfPct,    isStock:false },
+    { key:'stock',  label: ticker,                                                         pct: stockPct,  isStock:true  },
+    { key:'spy',    label: benchLabel,                                                     pct: spyPct,    isStock:false },
+    { key:'rsp',    label: rspPct != null ? 'S&P 500 EW (RSP)'                   : null, pct: rspPct,    isStock:false },
+    { key:'qqq',    label: isNASDAQ && qqqPct != null ? 'NASDAQ 100 (QQQ)'       : null, pct: qqqPct,    isStock:false },
   ].filter(r => r.label && r.pct != null)
    .sort((a, b) => b.pct - a.pct)
 
-  const maxPct    = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
-  const spyDiff   = stockPct != null && spyPct    != null ? stockPct - spyPct    : null
-  const etfDiff   = stockPct != null && etfPct    != null ? stockPct - etfPct    : null
-  const indDiff   = stockPct != null && indEtfPct != null ? stockPct - indEtfPct : null
+  const maxPct  = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
+  const hasNeg  = rows.some(r => r.pct < 0)
+  const BAR_H   = 10
+  const NAME_W  = 140
+  const PCT_W   = 58
+
+  const spyDiff = stockPct != null && spyPct    != null ? stockPct - spyPct    : null
+  const rspDiff = stockPct != null && rspPct    != null ? stockPct - rspPct    : null
+  const qqqDiff = stockPct != null && qqqPct    != null ? stockPct - qqqPct    : null
+  const etfDiff = stockPct != null && etfPct    != null ? stockPct - etfPct    : null
+  const indDiff = stockPct != null && indEtfPct != null ? stockPct - indEtfPct : null
+
+  const renderRow = (row) => {
+    const isStock  = row.isStock
+    const isPos    = row.pct >= 0
+    const barColor = isStock
+      ? (isPos ? 'var(--green)' : 'var(--red)')
+      : (isPos ? 'rgba(34,197,94,0.35)' : 'rgba(220,38,38,0.3)')
+    const pctColor = isPos ? 'var(--green)' : 'var(--red)'
+    const nameStyle = {
+      width:NAME_W, flexShrink:0, fontSize:11,
+      fontWeight: isStock ? 700 : 500,
+      color: isStock ? 'var(--accent)' : 'var(--text-2)',
+      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+      display:'flex', alignItems:'center', gap:3,
+    }
+    const pctStyle = {
+      width:PCT_W, flexShrink:0, fontSize:11, fontWeight:700,
+      color:pctColor, textAlign:'right', whiteSpace:'nowrap',
+    }
+
+    if (!hasNeg) {
+      const barWidth = Math.abs(row.pct) / maxPct * 100
+      return (
+        <div key={row.key} style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={nameStyle}>
+            {isStock && <span style={{ fontSize:9, flexShrink:0 }}>▶</span>}
+            {row.label}
+          </div>
+          <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', overflow:'hidden' }}>
+            <div style={{ height:'100%', width: barWidth + '%', borderRadius:3, background: barColor, outline: isStock ? '1.5px solid var(--accent)' : 'none', outlineOffset:1, transition:'width .4s ease' }} />
+          </div>
+          <div style={pctStyle}>{fmt(row.pct)}</div>
+        </div>
+      )
+    } else {
+      const absMax  = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
+      const barPct  = Math.abs(row.pct) / absMax * 50
+      const barLeft = isPos ? 50 : (50 - barPct)
+      return (
+        <div key={row.key} style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={nameStyle}>
+            {isStock && <span style={{ fontSize:9, flexShrink:0 }}>▶</span>}
+            {row.label}
+          </div>
+          <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', overflow:'hidden', position:'relative' }}>
+            <div style={{ position:'absolute', top:0, height:'100%', borderRadius:3, background: barColor, left: barLeft + '%', width: barPct + '%', outline: isStock ? '1.5px solid var(--accent)' : 'none', outlineOffset:1, transition:'all .4s ease' }} />
+            <div style={{ position:'absolute', top:0, bottom:0, left:'50%', width:1.5, background:'var(--text-3)', opacity:0.4 }} />
+          </div>
+          <div style={pctStyle}>{fmt(row.pct)}</div>
+        </div>
+      )
+    }
+  }
+
+  const badge = (diff, label) => diff == null ? null : (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: diff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: diff >= 0 ? 'var(--green)' : 'var(--red)' }}>
+      {diff >= 0 ? '▲' : '▼'} {diff >= 0 ? 'Beat' : 'Lagged'} {label} by {diff >= 0 ? '+' : ''}{diff.toFixed(2)}%
+    </span>
+  )
 
   return (
     <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--border)' }}>
-      {/* Header */}
       <div style={{ fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', fontWeight:700, marginBottom:12 }}>
         📈 Performance ranking since {baseDate}
         <span style={{ fontStyle:'italic', fontWeight:400, marginLeft:8, textTransform:'none', letterSpacing:0 }}>
           same period for stock and indices
         </span>
       </div>
-
-      {/* Ranked bars — zero line when negatives present */}
-      <div style={{ maxWidth:460, display:'flex', flexDirection:'column', gap:4 }}>
-        {(() => {
-          const hasNeg = rows.some(r => r.pct < 0)
-          const BAR_H  = 10
-
-          if (!hasNeg) {
-            // All positive — bars from left
-            return rows.map((row) => {
-              const barWidth = row.pct != null ? Math.abs(row.pct) / maxPct * 100 : 0
-              const isStock  = row.isStock
-              const isPos    = row.pct >= 0
-              const barColor = isStock
-                ? (isPos ? 'var(--green)' : 'var(--red)')
-                : (isPos ? 'rgba(34,197,94,0.35)' : 'rgba(220,38,38,0.3)')
-              const pctColor = isPos ? 'var(--green)' : 'var(--red)'
-              return (
-                <div key={row.key} style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div style={{ width:150, flexShrink:0, fontSize:12, fontWeight: isStock ? 700 : 500, color: isStock ? 'var(--accent)' : 'var(--text-2)', display:'flex', alignItems:'center', gap:4 }}>
-                    {isStock && <span style={{ fontSize:9 }}>▶</span>}
-                    {row.label}
-                  </div>
-                  {/* Track — no outline here */}
-                  <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', position:'relative', overflow:'visible' }}>
-                    {/* Bar — outline on the bar itself for stock */}
-                    <div style={{
-                      height:'100%', width: barWidth + '%', borderRadius:3,
-                      background: barColor, transition:'width .4s ease',
-                      outline: isStock ? '1.5px solid var(--accent)' : 'none',
-                      outlineOffset: 1,
-                    }} />
-                    {/* % label always outside bar to the right */}
-                    <span style={{ position:'absolute', left: barWidth + '%', top:'50%', transform:'translateY(-50%)', marginLeft:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap' }}>
-                      {fmt(row.pct)}
-                    </span>
-                  </div>
-                </div>
-              )
-            })
-          } else {
-            // Has negatives — zero line at center (50%)
-            const absMax = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
-            return rows.map((row) => {
-              const isStock  = row.isStock
-              const isPos    = row.pct >= 0
-              const barPct   = Math.abs(row.pct) / absMax * 50  // max 50% of track
-              const pctColor = isPos ? 'var(--green)' : 'var(--red)'
-              const barColor = isStock
-                ? (isPos ? 'var(--green)' : 'var(--red)')
-                : (isPos ? 'rgba(34,197,94,0.35)' : 'rgba(220,38,38,0.3)')
-              // Bar starts at center for positive, ends at center for negative
-              const barLeft = isPos ? 50 : (50 - barPct)
-              return (
-                <div key={row.key} style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div style={{ width:150, flexShrink:0, fontSize:12, fontWeight: isStock ? 700 : 500, color: isStock ? 'var(--accent)' : 'var(--text-2)', display:'flex', alignItems:'center', gap:4 }}>
-                    {isStock && <span style={{ fontSize:9 }}>▶</span>}
-                    {row.label}
-                  </div>
-                  {/* Track */}
-                  <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', position:'relative', overflow:'visible' }}>
-                    {/* Bar — outline on bar itself for stock */}
-                    <div style={{
-                      position:'absolute', top:0, height:'100%', borderRadius:3,
-                      background: barColor,
-                      left: barLeft + '%', width: barPct + '%',
-                      transition:'all .4s ease',
-                      outline: isStock ? '1.5px solid var(--accent)' : 'none',
-                      outlineOffset: 1,
-                    }} />
-                    {/* Zero line */}
-                    <div style={{ position:'absolute', top:-2, bottom:-2, left:'50%', width:1.5, background:'var(--text-3)', opacity:0.5, borderRadius:1 }} />
-                    {/* % label — positive: right of bar end, negative: left of bar start */}
-                    {isPos ? (
-                      <span style={{
-                        position:'absolute',
-                        left: (50 + barPct) + '%',
-                        top:'50%', transform:'translateY(-50%)',
-                        marginLeft:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap',
-                      }}>
-                        {fmt(row.pct)}
-                      </span>
-                    ) : (
-                      <span style={{
-                        position:'absolute',
-                        right: (100 - barLeft) + '%',
-                        top:'50%', transform:'translateY(-50%)',
-                        marginRight:6, fontSize:11, fontWeight:700, color:pctColor, whiteSpace:'nowrap',
-                      }}>
-                        {fmt(row.pct)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )
-            })
-          }
-        })()}
+      <div style={{ maxWidth:480, display:'flex', flexDirection:'column', gap:4 }}>
+        {rows.map(renderRow)}
       </div>
-
-      {/* Beat/Lagged badges */}
       <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:10 }}>
-        {spyDiff != null && (
-          <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: spyDiff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: spyDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
-            {spyDiff >= 0 ? '▲' : '▼'} {spyDiff >= 0 ? 'Beat' : 'Lagged'} {marketData.benchmark?.symbol ?? 'SPY'} by {spyDiff >= 0 ? '+' : ''}{spyDiff.toFixed(2)}%
-          </span>
-        )}
-        {etfDiff != null && etfSymbol && (
-          <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: etfDiff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: etfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
-            {etfDiff >= 0 ? '▲' : '▼'} {etfDiff >= 0 ? 'Beat' : 'Lagged'} {etfSymbol} by {etfDiff >= 0 ? '+' : ''}{etfDiff.toFixed(2)}%
-          </span>
-        )}
-        {indDiff != null && indEtfSym && (
-          <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: indDiff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: indDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
-            {indDiff >= 0 ? '▲' : '▼'} {indDiff >= 0 ? 'Beat' : 'Lagged'} {indEtfSym} by {indDiff >= 0 ? '+' : ''}{indDiff.toFixed(2)}%
-          </span>
-        )}
-        {!sector && (
-          <span style={{ fontSize:11, color:'var(--text-3)', fontStyle:'italic' }}>
-            Fetch fundamentals to see sector ETF comparison
-          </span>
-        )}
-        {sector && !etfSymbol && (
-          <span style={{ fontSize:11, color:'var(--text-3)', fontStyle:'italic' }}>
-            No sector ETF mapped for "{sector}"
-          </span>
-        )}
+        {badge(spyDiff, 'SPY')}
+        {badge(rspDiff, 'RSP')}
+        {isNASDAQ && badge(qqqDiff, 'QQQ')}
+        {badge(etfDiff, etfSymbol)}
+        {badge(indDiff, indEtfSym)}
+        {!sector && <span style={{ fontSize:11, color:'var(--text-3)', fontStyle:'italic' }}>Fetch fundamentals to see sector ETF comparison</span>}
+        {sector && !etfSymbol && <span style={{ fontSize:11, color:'var(--text-3)', fontStyle:'italic' }}>No sector ETF mapped for "{sector}"</span>}
       </div>
     </div>
   )
