@@ -8,13 +8,16 @@ const TIMEOUT = 20000
 
 // ── Sector → ETF SPDR mapping (US) ───────────────────────────────────────────
 export const SECTOR_ETF = {
+  // Technology
   'Technology':                          'XLK',
   'Information Technology':              'XLK',
+  // Energy
   'Energy':                              'XLE',
   'Oil & Gas':                           'XLE',
   'Oil & Gas Equipment & Services':      'XLE',
   'Oil & Gas Exploration & Production':  'XLE',
   'Oil, Gas & Consumable Fuels':         'XLE',
+  // Financials
   'Financials':                          'XLF',
   'Financial Services':                  'XLF',
   'Financial':                           'XLF',
@@ -22,72 +25,89 @@ export const SECTOR_ETF = {
   'Insurance':                           'XLF',
   'Insurance - Life':                    'XLF',
   'Insurance - Property & Casualty':     'XLF',
+  // Healthcare
   'Healthcare':                          'XLV',
   'Health Care':                         'XLV',
   'Biotechnology':                       'XLV',
   'Pharmaceuticals':                     'XLV',
+  // Industrials
   'Industrials':                         'XLI',
   'Aerospace & Defense':                 'XLI',
   'Industrial Conglomerates':            'XLI',
+  // Materials
   'Basic Materials':                     'XLB',
   'Materials':                           'XLB',
   'Gold':                                'XLB',
   'Chemicals':                           'XLB',
   'Mining':                              'XLB',
   'Metals & Mining':                     'XLB',
+  // Consumer Discretionary
   'Consumer Discretionary':              'XLY',
   'Consumer Cyclical':                   'XLY',
   'Retail':                              'XLY',
+  // Consumer Staples ✅ confirmed free
   'Consumer Staples':                    'XLP',
   'Consumer Defensive':                  'XLP',
+  // Utilities ✅ confirmed free
   'Utilities':                           'XLU',
+  // Real Estate ✅ confirmed free
   'Real Estate':                         'XLRE',
+  // Communication Services ✅ confirmed free
   'Communication Services':              'XLC',
   'Telecommunication Services':          'XLC',
   'Media':                               'XLC',
+  'Internet Content & Information':      'XLC',
 }
 
-// ── Industry → ETF mapping (US, free tier only) ───────────────────────────────
-// Only ETFs confirmed available on Twelve Data free plan
-// Removed: BITE, CARZ, REZ, INDS, RTL, SIL, COPX, SLX, OGIG, CLOU, IHI, IHF, IAI
+// ── Industry → ETF mapping (US) — all confirmed free tier ────────────────────
+// Verified against TD free plan. Removed unavailable: BITE,CARZ,REZ,INDS,RTL,
+// SIL,COPX,SLX,OGIG,CLOU,IHI,IHF,IAI,KRE
 export const INDUSTRY_ETF = {
   // Technology
-  'Semiconductors':                       'SOXX',
-  'Semiconductor Equipment':              'SOXX',
-  'Software - Application':               'IGV',
-  'Software - Infrastructure':            'IGV',
-  'Software':                             'IGV',
+  'Semiconductors':                       'SOXX',  // ✅
+  'Semiconductor Equipment':              'SOXX',  // ✅
+  'Software - Application':               'IGV',   // ✅
+  'Software - Infrastructure':            'IGV',   // ✅
+  'Software':                             'IGV',   // ✅
   // Healthcare
-  'Biotechnology':                        'XBI',
-  'Drug Manufacturers':                   'XPH',
+  'Biotechnology':                        'XBI',   // ✅
+  'Drug Manufacturers':                   'XPH',   // ✅ confirmed
+  'Drug Manufacturers - General':         'XPH',   // ✅
+  'Drug Manufacturers - Specialty':       'XPH',   // ✅
   // Energy
-  'Oil & Gas E&P':                        'XOP',
-  'Oil & Gas Exploration & Production':   'XOP',
-  'Oil & Gas Equipment & Services':       'OIH',
-  'Oil & Gas Integrated':                 'XOP',
+  'Oil & Gas E&P':                        'XOP',   // ✅
+  'Oil & Gas Exploration & Production':   'XOP',   // ✅
+  'Oil & Gas Equipment & Services':       'OIH',   // ✅
+  'Oil & Gas Integrated':                 'XOP',   // ✅
   // Materials
-  'Gold':                                 'GDX',
-  'Metals & Mining':                      'GDX',
+  'Gold':                                 'GDX',   // ✅
+  'Metals & Mining':                      'GDX',   // ✅
   // Industrials
-  'Aerospace & Defense':                  'ITA',
-  'Airlines':                             'JETS',
+  'Aerospace & Defense':                  'ITA',   // ✅
+  'Airlines':                             'JETS',  // ✅
   // Consumer
-  'Specialty Retail':                     'XRT',
+  'Specialty Retail':                     'XRT',   // ✅
+  'Retail - Discretionary':               'XRT',   // ✅
+  'Apparel Retail':                       'XRT',   // ✅
+  // Real Estate
+  'REIT':                                 'VNQ',   // ✅ confirmed
+  'Real Estate Investment Trusts':        'VNQ',   // ✅
   // Residential Construction
-  'Residential Construction':             'ITB',
-  // Financials — banks only (KBE free tier)
-  'Banks - Regional':                     'KBE',
-  'Banks':                                'KBE',
+  'Residential Construction':             'ITB',   // ✅
+  // Financials
+  'Banks - Regional':                     'KBE',   // ✅
+  'Banks':                                'KBE',   // ✅
 }
 
-// ── European market index mapping ─────────────────────────────────────────────
-// suffix → { benchmarkSymbol, benchmarkLabel, provider }
+// ── European market index mapping — iShares ETFs ─────────────────────────────
+// Direct EU indices (AEX, CAC40, UKX, IBEX35) are NOT on free tier
+// Using iShares MSCI country ETFs — all trade on NYSE, confirmed free ✅
 export const EU_MARKET_INDEX = {
-  'DE': { symbol: 'DAX',   label: 'DAX (Germany)',     provider: 'td' },
-  'AS': { symbol: 'AEX',   label: 'AEX (Netherlands)', provider: 'td' },
-  'PA': { symbol: 'CAC40', label: 'CAC 40 (France)',   provider: 'td' },
-  'L':  { symbol: 'UKX',   label: 'FTSE 100 (UK)',     provider: 'td' },
-  'MC': { symbol: 'IBEX35',label: 'IBEX 35 (Spain)',   provider: 'td' },
+  'DE': { symbol: 'EWG', label: 'iShares Germany (EWG)',     provider: 'td' },
+  'AS': { symbol: 'EWN', label: 'iShares Netherlands (EWN)', provider: 'td' },
+  'PA': { symbol: 'EWQ', label: 'iShares France (EWQ)',      provider: 'td' },
+  'L':  { symbol: 'EWU', label: 'iShares UK (EWU)',          provider: 'td' },
+  'MC': { symbol: 'EWP', label: 'iShares Spain (EWP)',       provider: 'td' },
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

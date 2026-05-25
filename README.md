@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.2.6
+# Openbank Price Prediction — v5.2.7
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,24 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.2.7 — ETF mapping verified against Twelve Data free tier
+**Date:** May 2026
+
+**All ETFs verified available on free plan — 12 sector + 13 industry + 5 EU:**
+
+Sector: `XLK XLE XLF XLV XLI XLB XLY XLP XLU XLRE XLC SPY`
+Industry: `SOXX IGV XBI XPH XOP OIH GDX ITA JETS XRT ITB KBE VNQ`
+EU: `EWG EWN EWQ EWU EWP` (iShares MSCI — AEX/CAC40/UKX/IBEX35 not on free tier)
+
+New sector mappings: `Internet Content → XLC`
+New industry mappings: `Drug Manufacturers General/Specialty → XPH, REIT → VNQ, Retail Discretionary → XRT`
+EU fix: replaced DAX/AEX/CAC40/UKX/IBEX35 with iShares country ETFs
+
+**Files changed:**
+- `src/hooks/useMarketData.js` — mappings verified and expanded
+
+---
 
 ### v5.2.6 — Cache basePrice for market data symbols
 **Date:** May 2026
@@ -1517,3 +1535,4 @@ regardless of CORS headers on the target server.
 | v5.2.4           | 2026-05  | React + Supabase          | Industry ETF, EU markets, market data in Supabase  |
 | v5.2.5           | 2026-05  | React + Supabase          | Fix market data not saved + industry ETF cleanup   |
 | v5.2.6           | 2026-05  | React + Supabase          | Cache basePrice — skip historical fetch on re-use  |
+| v5.2.7           | 2026-05  | React + Supabase          | ETF mapping verified against TD free tier          |
