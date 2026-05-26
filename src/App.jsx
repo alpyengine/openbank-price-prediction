@@ -4,7 +4,7 @@ import { useFundamentals }   from './hooks/useFundamentals.js'
 import { useHistory }        from './hooks/useHistory.js'
 import { DEFAULT_STOCKS }    from './utils/stocks.js'
 import { targetDates, dateStatus } from './utils/dates.js'
-
+import Sidebar          from './components/Sidebar.jsx'
 import Header           from './components/Header.jsx'
 import FetchBar         from './components/FetchBar.jsx'
 import FundamentalsBar  from './components/FundamentalsBar.jsx'
@@ -25,6 +25,7 @@ export default function App() {
   const [notes,        setNotes]        = useState({})  // { ticker: noteText }
   const [showEmail,    setShowEmail]    = useState(false)
   const [darkMode,     setDarkMode]     = useState(false)
+  const [activePage,   setActivePage]   = useState('batch')
 
   // Apply theme to document root
   useEffect(() => {
@@ -203,29 +204,38 @@ export default function App() {
   const horizonExpired = activeTargetDate ? dateStatus(activeTargetDate) === 'past' : false
 
   return (
-    <div style={{ maxWidth: 1120, margin: '0 auto' }}>
-      <Header
-        stocks={stocks}
-        darkMode={darkMode}
-        onToggleDark={() => setDarkMode(v => !v)}
-        onClearOverrides={() => setOverrides({})}
-        onToggleEmail={() => setShowEmail(v => !v)}
-      />
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+      <Sidebar active={activePage} onNav={setActivePage} />
 
-      <FetchBar
-        log={log}
-        fetching={fetching}
-        chunkProgress={chunkProgress}
-        horizonExpired={horizonExpired}
-        horizon={horizon}
-        onFetch={() => fetchCurrentBatch(stocks)}
-      />
+      <main style={{ flex:1, overflowY:'auto', padding:'0' }}>
+        <div style={{ maxWidth:1200, margin:'0 auto', padding:'24px 28px' }}>
 
-      <FundamentalsBar
-        log={fundLog}
-        loading={fundLoading}
-        onFetch={() => fetchFundamentals(stocks)}
-      />
+          {/* Header — always visible */}
+          <Header
+            stocks={stocks}
+            darkMode={darkMode}
+            onToggleDark={() => setDarkMode(v => !v)}
+            onClearOverrides={() => setOverrides({})}
+            onToggleEmail={() => setShowEmail(v => !v)}
+          />
+
+          {/* ── BATCH OVERVIEW ── */}
+          {activePage === 'batch' && (
+            <>
+              <FetchBar
+                log={log}
+                fetching={fetching}
+                chunkProgress={chunkProgress}
+                horizonExpired={horizonExpired}
+                horizon={horizon}
+                onFetch={() => fetchCurrentBatch(stocks)}
+              />
+
+              <FundamentalsBar
+                log={fundLog}
+                loading={fundLoading}
+                onFetch={() => fetchFundamentals(stocks)}
+              />
 
       <MarketBar
         log={marketLog}
@@ -311,19 +321,6 @@ export default function App() {
 
       <ImportBox onImport={handleImport} />
 
-      <AccuracyChart
-        stats={stats}
-        history={history}
-        loading={histLoading}
-        saving={histSaving}
-        log={histLog}
-        configured={histConfigured}
-        onLoad={loadHistory}
-        onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData, fundamentals })}
-        onLoadBatch={handleLoadBatch}
-        onDeleteBatch={deleteBatch}
-      />
-
       {showEmail && (
         <EmailPreview
           stocks={stocks}
@@ -336,6 +333,34 @@ export default function App() {
           onClose={() => setShowEmail(false)}
         />
       )}
+            </>
+          )}
+
+          {/* ── ACCURACY STATS ── */}
+          {activePage === 'accuracy' && (
+            <AccuracyChart
+              stats={stats}
+              history={history}
+              loading={histLoading}
+              saving={histSaving}
+              log={histLog}
+              configured={histConfigured}
+              onLoad={loadHistory}
+              onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData, fundamentals })}
+              onLoadBatch={handleLoadBatch}
+              onDeleteBatch={deleteBatch}
+            />
+          )}
+
+          {/* ── SETTINGS ── */}
+          {activePage === 'settings' && (
+            <div style={{ padding:'40px 0', textAlign:'center', color:'var(--text-3)', fontSize:14 }}>
+              ⚙️ Settings — coming soon
+            </div>
+          )}
+
+        </div>
+      </main>
     </div>
   )
 }

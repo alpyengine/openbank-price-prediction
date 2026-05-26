@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.4.0
+# Openbank Price Prediction — v6.0.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,47 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v6.0.0 — Full UI redesign: sidebar navigation + horizon proximity bars
+**Date:** May 2026
+
+**Major redesign — breaking visual change:**
+
+**New sidebar navigation:**
+- Collapsible left sidebar (220px → 56px) with smooth animation
+- 3 sections: 📊 Batch Overview · 🎯 Accuracy Stats · ⚙️ Settings
+- Accuracy Stats is now a dedicated page (previously embedded in batch view)
+- Full-height layout (`h-screen`) with scrollable main area
+
+**New stock table columns:**
+- Removed: Sector, Industry, Currency, Base date, Base price, Override,
+  Hit?, Distance, Result (14 → 9 columns)
+- Added: Horizon proximity bars for 1M/3M/6M/12M (color + % + bar)
+- Added: vs SPY column (beat/lagged with %)
+- Added: vs Sector ETF column (beat/lagged with ETF symbol)
+
+**Horizon proximity bars:**
+- 6px colored bar per horizon filling left→right by proximity
+- Colors: 🟢 HIT/exceeded · 🔵 near <5% · 🟡 close 5-15% · 🟠 far 15-30% · 🔴 very far >30% · ⬜ MISS
+- HIT shows exact % above target (e.g. HIT +5.8%)
+- MISS shows exact % below target at expiry (e.g. MISS −8.2%)
+
+**Accuracy Stats page (new design):**
+- 4 KPI cards: Overall Hit Rate · Hits · Misses · Awaiting
+- 4 horizon hit rate cards (1M/3M/6M/12M) with progress bar
+- Accuracy trend chart (area chart)
+- Historical batches table with Load + CSV buttons
+
+**New files:**
+- `src/components/Sidebar.jsx` — collapsible sidebar with nav
+
+**Files changed:**
+- `src/App.jsx` — sidebar layout, activePage state, page routing
+- `src/components/StockRow.jsx` — horizon bars, SPY/sector columns
+- `src/components/StockTable.jsx` — new column headers
+- `src/styles/global.css` — html/body height for sidebar layout
+
+---
 
 ### v5.4.0 — Technical preparation for v6.0.0 redesign
 **Date:** May 2026
@@ -1662,3 +1703,4 @@ regardless of CORS headers on the target server.
 | v5.2.9           | 2026-05  | React + Supabase          | Fundamentals saved and restored from Supabase      |
 | v5.3.0           | 2026-05  | React + Supabase          | UX: batch indicator, currency symbols, CSV export  |
 | v5.4.0           | 2026-05  | React + Supabase          | Technical prep: Tailwind + shadcn deps for v6.0.0  |
+| v6.0.0           | 2026-05  | React + Supabase          | Full UI redesign: sidebar + horizon proximity bars  |

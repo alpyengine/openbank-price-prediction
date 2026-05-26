@@ -1968,9 +1968,57 @@ git push origin v5.4.0
 
 
 # ===========================================================================
-# STEP 63 — v6.0.0  Full UI redesign with shadcn/ui + sidebar
+# STEP 63 — v6.0.0  Full UI redesign: sidebar + horizon proximity bars
 # ===========================================================================
-# (pending — will be added when v6.0.0 is ready)
+#
+# No Supabase migration needed.
+# Run npm install after copying files (same deps as v5.4.0).
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v6.0.0
+#
+# 2. Borrar tag remoto
+# git push origin --delete v6.0.0
+#
+# 3. Deshacer el commit LOCAL
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.0/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "feat: full UI redesign sidebar and horizon bars (v6.0.0)"
+#
+# 6. Force push
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v6.0.0 -m "v6.0.0: full UI redesign"
+# git push origin v6.0.0
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.0/. .
+
+git add .
+git commit -m "feat: full UI redesign — sidebar, horizon bars, accuracy page (v6.0.0)
+
+- Collapsible sidebar navigation (220px ↔ 56px)
+- 3 pages: Batch Overview, Accuracy Stats, Settings
+- Horizon proximity bars: color + % + fill bar per 1M/3M/6M/12M
+  HIT shows +% above target, MISS shows −% below at expiry
+- vs SPY and vs Sector ETF columns in main table
+- Accuracy Stats as dedicated page with KPI cards + chart + table
+- html/body height set for full-height sidebar layout"
+
+git tag -a v6.0.0 -m "v6.0.0: full UI redesign"
+git push origin main
+git push origin v6.0.0
+
+
 # ===========================================================================
 # VERIFICATION
 # ===========================================================================
@@ -2085,6 +2133,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.9/         -> v5.2.9
 #    /Users/alex/Downloads/openbank-price-prediction_v5.3.0/         -> v5.3.0
 #    /Users/alex/Downloads/openbank-price-prediction_v5.4.0/         -> v5.4.0
+#    /Users/alex/Downloads/openbank-price-prediction_v6.0.0/         -> v6.0.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

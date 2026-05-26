@@ -145,50 +145,116 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           />
         </td>
 
-        {/* Target columns */}
+        {/* Horizon bar columns — 1M / 3M / 6M / 12M */}
         {horizonDates.map(({ val:t, date }, i) => {
-          const isBest = t===best
-          const ds = date ? dateStatus(date) : null
-          const dl = date ? daysLeft(date) : null
-          const tDir = t>stock.b?'↑':t<stock.b?'↓':'→'
-          const tDirColor = t>stock.b?'var(--green)':t<stock.b?'var(--red)':'var(--text-3)'
+          const KEYS = ['1M','3M','6M','12M']
+          const hKey = KEYS[i]
+          const ds   = date ? dateStatus(date) : null
+          const expired = ds === 'past'
+          const currentP = p ?? autoPrice
+
+          // Calculate distance % from current price to target
+          let distPct = null
+          if (currentP && t) distPct = ((currentP - t) / t) * 100
+
+          // Determine zone
+          let zone = 'awaiting'
+          if (expired) {
+            zone = distPct != null && distPct >= -5 ? 'hit' : 'miss'
+          } else if (distPct != null) {
+            if (distPct >= 0)       zone = 'exceeded'
+            else if (distPct >= -5) zone = 'near'
+            else if (distPct >= -15) zone = 'close'
+            else if (distPct >= -30) zone = 'far'
+            else                    zone = 'vfar'
+          }
+
+          // Bar fill width (0-100%) — 100 = at or above target, 0 = very far
+          const fillWidth = distPct == null ? 0
+            : distPct >= 0   ? 100
+            : distPct >= -5  ? 88 + (distPct / -5) * (-12)    // 76-88
+            : distPct >= -15 ? 50 + ((distPct + 5) / -10) * (-26) // 24-50
+            : distPct >= -30 ? 10 + ((distPct + 15) / -15) * (-14) // 0-24 approx
+            : Math.max(0, 10 + distPct * 0.2)
+
+          const ZONE_STYLES = {
+            exceeded: { color:'#15803d', fill:'#16a34a' },
+            near:     { color:'#1d4ed8', fill:'#3b82f6' },
+            close:    { color:'#a16207', fill:'#eab308' },
+            far:      { color:'#c2410c', fill:'#f97316' },
+            vfar:     { color:'#b91c1c', fill:'#ef4444' },
+            hit:      { color:'#15803d', fill:'#16a34a' },
+            miss:     { color:'#6b7280', fill:'#d1d5db' },
+            awaiting: { color:'var(--text-3)', fill:'var(--border)' },
+          }
+          const zs = ZONE_STYLES[zone]
+
+          // Label text
+          const label = expired
+            ? (zone === 'hit'
+                ? `HIT ${distPct!=null?(distPct>=0?'+':'')+(distPct.toFixed(1))+'%':''}`
+                : `MISS ${distPct!=null?distPct.toFixed(1)+'%':''}`)
+            : distPct != null
+              ? `${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}%${distPct >= 0 ? ' ↑' : ''}`
+              : '--'
+
           return (
-            <td key={i} style={{ ...td, fontSize:12, color:isBest?'var(--blue)':'var(--text-2)', fontWeight:isBest?600:400 }}>
-              <span style={{ fontSize:10, color:tDirColor, marginRight:2 }}>{tDir}</span>
-              {t.toFixed(2)}
-              {ds && <DateTag status={ds} />}
-              {dl!=null && ds!=='past' && <span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>{dl>=0?'+':''}{dl}d</span>}
+            <td key={i} style={{ ...td, minWidth:80 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+                  <span style={{ fontSize:9, fontWeight:600, color:'var(--text-3)' }}>{hKey}</span>
+                  <span style={{ fontSize:10, fontWeight:700, color:zs.color, whiteSpace:'nowrap' }}>{label}</span>
+                </div>
+                <div style={{ width:'100%', height:6, borderRadius:3, background:'var(--surface2)', overflow:'hidden' }}>
+                  <div style={{ height:'100%', borderRadius:3, background:zs.fill, width:`${Math.max(0,Math.min(100,fillWidth))}%`, transition:'width .3s' }} />
+                </div>
+              </div>
             </td>
           )
         })}
 
-        {/* Hit badge + days */}
-        <td style={{ ...td, textAlign:'center' }}>
-          {histLoading && <Badge type="wait">…</Badge>}
-          {!histLoading && verdict==null   && <Badge type="wait">--</Badge>}
-          {!histLoading && verdict==='hit'  && <Badge type="hit">HIT</Badge>}
-          {!histLoading && verdict==='close' && <Badge type="close">CLOSE</Badge>}
-          {!histLoading && verdict==='miss'  && <Badge type="miss">MISS</Badge>}
-          {horizon!=='best' && tg && (() => {
-            const KEYS = { '1M':'d1','3M':'d3','6M':'d6','12M':'d12' }
-            const tgtD = tg[KEYS[horizon]]
-            if (!tgtD) return null
-            const dl = daysLeft(tgtD)
-            const expired = dl < 0
-            return <div style={{ fontSize:9, marginTop:4, fontWeight:600, color: expired?'var(--red)':dl<=14?'var(--amber)':'var(--text-3)' }}>{expired?`${Math.abs(dl)}d ago`:`${dl}d left`}</div>
+        {/* vs SPY */}
+        <td style={td}>
+          {(() => {
+            const spyPct  = marketData?.spy?.changePct ?? null
+            const stockChg = (stock.b && (p ?? autoPrice)) ? (((p ?? autoPrice) - stock.b) / stock.b * 100) : null
+            if (spyPct == null || stockChg == null) return <span style={{ fontSize:11, color:'var(--text-3)' }}>--</span>
+            const diff = stockChg - spyPct
+            const beat = diff >= 0
+            return (
+              <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+                <span style={{ fontSize:11, fontWeight:600, color: beat ? '#15803d' : '#b91c1c', whiteSpace:'nowrap' }}>
+                  {beat ? '✅' : '❌'} {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
+                </span>
+                <span style={{ fontSize:9, color:'var(--text-3)' }}>SPY</span>
+              </div>
+            )
           })()}
         </td>
 
-        {/* Distance */}
+        {/* vs Sector ETF */}
         <td style={td}>
-          {histLoading||dist==null
-            ? <span style={{ color:'var(--text-3)', fontSize:11 }}>{histLoading?'…':'--'}</span>
-            : <DistBar dist={dist} verdict={verdict} />
-          }
+          {(() => {
+            const sector    = fundamental?.sector
+            const etfSym    = sector ? SECTOR_ETF[sector] : null
+            const etfData   = etfSym ? marketData?.etfs?.[etfSym] : null
+            const etfPct    = etfData?.changePct ?? null
+            const stockChg  = (stock.b && (p ?? autoPrice)) ? (((p ?? autoPrice) - stock.b) / stock.b * 100) : null
+            if (!etfSym || etfPct == null || stockChg == null) {
+              return <span style={{ fontSize:11, color:'var(--text-3)' }}>{etfSym ?? '--'}</span>
+            }
+            const diff = stockChg - etfPct
+            const beat = diff >= 0
+            return (
+              <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+                <span style={{ fontSize:11, fontWeight:600, color: beat ? '#15803d' : '#b91c1c', whiteSpace:'nowrap' }}>
+                  {beat ? '✅' : '❌'} {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
+                </span>
+                <span style={{ fontSize:9, color:'var(--text-3)' }}>{etfSym}</span>
+              </div>
+            )
+          })()}
         </td>
-
-        {/* Result */}
-        <td style={td}><ResultCell histLoading={histLoading} p={p} verdict={verdict} direction={direction} isHistorical={isHistorical} /></td>
       </tr>
 
       {expanded && (

@@ -213,25 +213,18 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
         </button>
       </div>
       <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflowX:'auto', marginBottom:'1.5rem' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed', minWidth:1280 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed', minWidth:900 }}>
           <thead>
             <tr>
-              <Th w={68}  colKey="ticker"    onOpen={setHelpCol}>Ticker</Th>
-              <Th w={120} colKey="ticker"    onOpen={setHelpCol}>Company</Th>
-              <Th w={88}  colKey="sector"    onOpen={setHelpCol}>Sector</Th>
-              <Th w={100} colKey="sector"    onOpen={setHelpCol}>Industry</Th>
-              <Th w={40}>Cur.</Th>
-              <Th w={76}  colKey="baseDate"  onOpen={setHelpCol}>Base date</Th>
-              <Th w={76}  colKey="basePrice" onOpen={setHelpCol}>Base price</Th>
-              <Th w={100} colKey="price"     onOpen={setHelpCol}>Price</Th>
-              <Th w={82}  colKey="override"  onOpen={setHelpCol}>Override</Th>
-              <Th w={68}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d1}>1M</Th>
-              <Th w={68}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d3}>3M</Th>
-              <Th w={68}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d6}>6M</Th>
-              <Th w={68}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d12}>12M</Th>
-              <Th w={66}  colKey="hit"       onOpen={setHelpCol}>Hit?</Th>
-              <Th w={106} colKey="distance"  onOpen={setHelpCol}>Distance</Th>
-              <Th w={110} colKey="result"    onOpen={setHelpCol}>Result</Th>
+              <Th w={64}  colKey="ticker"    onOpen={setHelpCol}>Ticker</Th>
+              <Th w={110} colKey="ticker"    onOpen={setHelpCol}>Company</Th>
+              <Th w={88}  colKey="price"     onOpen={setHelpCol}>Price</Th>
+              <Th w={90}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d1}>1M</Th>
+              <Th w={90}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d3}>3M</Th>
+              <Th w={90}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d6}>6M</Th>
+              <Th w={90}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d12}>12M</Th>
+              <Th w={76}  colKey="hit"       onOpen={setHelpCol}>vs SPY</Th>
+              <Th w={76}  colKey="hit"       onOpen={setHelpCol}>vs Sector</Th>
             </tr>
           </thead>
           <tbody>
