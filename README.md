@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v5.3.0
+# Openbank Price Prediction — v5.4.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,61 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v5.4.0 — Technical preparation for v6.0.0 redesign
+**Date:** May 2026
+
+**Context:**
+v5.4.0 is a pure technical preparation version — no visible UI changes for
+the user. It installs the dependencies and configuration needed for the full
+UI redesign planned in v6.0.0 (shadcn/ui + Tailwind + sidebar layout).
+
+**Roadmap from here:**
+```
+v5.4.0  ← this version — technical prep (dependencies + CSS variables)
+v6.0.0  ← full UI redesign with shadcn/ui components + sidebar navigation
+v6.1.0  ← post-deploy adjustments and UX improvements
+```
+
+**Changes:**
+
+**Light mode as default:**
+The app now opens in light mode by default. Dark mode is still available
+via the toggle button. Previous default was dark mode.
+
+**New dependencies added to package.json:**
+- `tailwindcss` ^3.4.17 — utility CSS framework used by shadcn/ui
+- `autoprefixer` + `postcss` — required for Tailwind compilation
+- `@radix-ui/*` — 8 Radix UI primitives used by shadcn components
+  (dialog, dropdown-menu, select, separator, slot, tabs, tooltip, collapsible)
+- `class-variance-authority` — variant management for shadcn components
+- `clsx` + `tailwind-merge` — class name utilities
+- `lucide-react` — icon library (same icons used in v0/shadcn)
+- `recharts` — chart library for accuracy trend charts in v6.0.0
+
+**New files created:**
+- `tailwind.config.js` — Tailwind config with shadcn color token mapping,
+  dark mode via `class`, content paths for src/
+- `postcss.config.js` — PostCSS config for Tailwind compilation
+- `src/lib/utils.js` — `cn()` helper function (clsx + tailwind-merge),
+  required by all shadcn/ui components
+
+**CSS variables extended:**
+`src/styles/global.css` now includes a second block of HSL CSS variables
+(`--background`, `--foreground`, `--card`, `--primary`, `--sidebar`, etc.)
+that map to Tailwind color tokens. These coexist with the existing Design v5
+variables and are required by shadcn/ui components in v6.0.0.
+
+**Supabase migration required:** None.
+
+**Files changed:**
+- `package.json` — version bump + new dependencies
+- `tailwind.config.js` — new file
+- `postcss.config.js` — new file
+- `src/lib/utils.js` — new file
+- `src/styles/global.css` — shadcn HSL variables appended
+
+---
 
 ### v5.3.0 — UX: batch indicator, currency symbols, CSV export
 **Date:** May 2026
@@ -1606,3 +1661,4 @@ regardless of CORS headers on the target server.
 | v5.2.8           | 2026-05  | React + Supabase          | Bar layout fix, RSP + QQQ benchmarks               |
 | v5.2.9           | 2026-05  | React + Supabase          | Fundamentals saved and restored from Supabase      |
 | v5.3.0           | 2026-05  | React + Supabase          | UX: batch indicator, currency symbols, CSV export  |
+| v5.4.0           | 2026-05  | React + Supabase          | Technical prep: Tailwind + shadcn deps for v6.0.0  |

@@ -1907,6 +1907,71 @@ git push origin v5.3.0
 
 
 # ===========================================================================
+# STEP 62 — v5.4.0  Technical preparation for v6.0.0 redesign
+# ===========================================================================
+#
+# No Supabase migration needed for this version.
+#
+# After installing, run: npm install
+# (new dependencies: tailwindcss, postcss, autoprefixer, radix-ui, lucide-react,
+#  clsx, tailwind-merge, class-variance-authority, recharts)
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v5.4.0
+#
+# 2. Borrar tag remoto
+# git push origin --delete v5.4.0
+#
+# 3. Deshacer el commit LOCAL (mantiene ficheros en disco)
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v5.4.0/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "chore: technical preparation for v6.0.0 redesign (v5.4.0)"
+#
+# 6. Sobreescribir el remoto con el nuevo commit
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v5.4.0 -m "v5.4.0: technical prep for redesign"
+# git push origin v5.4.0
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v5.4.0/. .
+
+git add .
+git commit -m "chore: technical preparation for v6.0.0 redesign (v5.4.0)
+
+- Light mode as default (was dark mode)
+- Added tailwindcss ^3.4.17 + postcss + autoprefixer
+- Added @radix-ui/* primitives (dialog, dropdown, select, tabs, tooltip...)
+- Added clsx, tailwind-merge, class-variance-authority, lucide-react, recharts
+- Created tailwind.config.js with shadcn color token mapping
+- Created postcss.config.js
+- Created src/lib/utils.js with cn() helper (clsx + tailwind-merge)
+- Appended shadcn HSL CSS variables to global.css (coexist with Design v5)
+  Variables: --background, --foreground, --card, --primary, --sidebar etc.
+  Both light and dark variants defined
+
+After npm install the project compiles as before — no visual changes.
+All new dependencies are used in v6.0.0 redesign."
+
+git tag -a v5.4.0 -m "v5.4.0: technical preparation for v6.0.0 redesign"
+git push origin main
+git push origin v5.4.0
+
+
+# ===========================================================================
+# STEP 63 — v6.0.0  Full UI redesign with shadcn/ui + sidebar
+# ===========================================================================
+# (pending — will be added when v6.0.0 is ready)
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2019,6 +2084,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.8/         -> v5.2.8
 #    /Users/alex/Downloads/openbank-price-prediction_v5.2.9/         -> v5.2.9
 #    /Users/alex/Downloads/openbank-price-prediction_v5.3.0/         -> v5.3.0
+#    /Users/alex/Downloads/openbank-price-prediction_v5.4.0/         -> v5.4.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
