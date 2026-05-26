@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v6.0.0
+# Openbank Price Prediction — v6.0.1
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,30 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v6.0.1 — Fix sidebar not rendering and old columns in table
+**Date:** May 2026
+
+**Fixed:**
+
+**Sidebar invisible (bug):**
+Sidebar component used Tailwind CSS classes (`className="flex h-screen..."`)
+but Tailwind is not yet processed by Vite in this project. Rewritten entirely
+with inline styles — no Tailwind dependency, works immediately.
+
+**Old columns still showing (bug):**
+StockRow still rendered old columns (Sector, Industry, Currency, Base date,
+Base price, Override) before the new horizon bars. These 6 columns were not
+removed when new columns were added in v6.0.0. Now removed — table is:
+```
+Ticker | Company | Price | 1M | 3M | 6M | 12M | vs SPY | vs Sector
+```
+
+**Files changed:**
+- `src/components/Sidebar.jsx` — full rewrite with inline styles
+- `src/components/StockRow.jsx` — old columns removed
+
+---
 
 ### v6.0.0 — Full UI redesign: sidebar navigation + horizon proximity bars
 **Date:** May 2026
@@ -1704,3 +1728,4 @@ regardless of CORS headers on the target server.
 | v5.3.0           | 2026-05  | React + Supabase          | UX: batch indicator, currency symbols, CSV export  |
 | v5.4.0           | 2026-05  | React + Supabase          | Technical prep: Tailwind + shadcn deps for v6.0.0  |
 | v6.0.0           | 2026-05  | React + Supabase          | Full UI redesign: sidebar + horizon proximity bars  |
+| v6.0.1           | 2026-05  | React + Supabase          | Fix sidebar invisible + old columns in table        |

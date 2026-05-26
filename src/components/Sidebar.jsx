@@ -1,63 +1,91 @@
 import { useState } from 'react'
-import { cn } from '../lib/utils.js'
 
 const NAV = [
-  { id: 'batch',    icon: '📊', label: 'Batch Overview'  },
-  { id: 'accuracy', icon: '🎯', label: 'Accuracy Stats'  },
-  { id: 'settings', icon: '⚙️', label: 'Settings'        },
+  { id: 'batch',    emoji: '📊', label: 'Batch Overview'  },
+  { id: 'accuracy', emoji: '🎯', label: 'Accuracy Stats'  },
+  { id: 'settings', emoji: '⚙️', label: 'Settings'        },
 ]
 
 export default function Sidebar({ active, onNav }) {
   const [collapsed, setCollapsed] = useState(false)
 
+  const W = collapsed ? 56 : 220
+
   return (
-    <aside className={cn(
-      'flex flex-col border-r border-border bg-sidebar transition-all duration-300 ease-in-out shrink-0',
-      collapsed ? 'w-14' : 'w-[220px]'
-    )}>
+    <aside style={{
+      width: W, flexShrink: 0,
+      display: 'flex', flexDirection: 'column',
+      borderRight: '1px solid var(--border)',
+      background: 'var(--surface)',
+      transition: 'width .25s ease',
+      overflow: 'hidden',
+    }}>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-          <span style={{ fontSize: 14 }}>📈</span>
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 12px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
+        <div style={{ width:32, height:32, borderRadius:8, background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:16 }}>
+          📈
         </div>
         {!collapsed && (
-          <span className="font-semibold text-sm text-sidebar-foreground tracking-tight truncate">
+          <span style={{ fontSize:13, fontWeight:700, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden' }}>
             Openbank Forecast
           </span>
         )}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-2 py-3 space-y-1">
-        {NAV.map(item => (
-          <button
-            key={item.id}
-            onClick={() => onNav(item.id)}
-            title={collapsed ? item.label : undefined}
-            className={cn(
-              'w-full flex items-center gap-3 rounded-lg text-sm font-medium transition-colors',
-              collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5',
-              active === item.id
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
-            )}
-          >
-            <span style={{ fontSize: 16, lineHeight: 1 }}>{item.icon}</span>
-            {!collapsed && <span>{item.label}</span>}
-          </button>
-        ))}
+      {/* Nav items */}
+      <nav style={{ flex:1, padding:'10px 8px', display:'flex', flexDirection:'column', gap:2 }}>
+        {NAV.map(item => {
+          const isActive = active === item.id
+          return (
+            <button
+              key={item.id}
+              title={collapsed ? item.label : undefined}
+              onClick={() => onNav(item.id)}
+              style={{
+                width: '100%',
+                display: 'flex', alignItems: 'center',
+                gap: 10,
+                padding: collapsed ? '10px 0' : '10px 12px',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                borderRadius: 8,
+                border: 'none',
+                background: isActive ? 'var(--blue-bg)' : 'transparent',
+                color: isActive ? 'var(--accent)' : 'var(--text-3)',
+                fontWeight: isActive ? 700 : 500,
+                fontSize: 13,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'background .15s, color .15s',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+              }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--surface2)' }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+            >
+              <span style={{ fontSize:16, flexShrink:0 }}>{item.emoji}</span>
+              {!collapsed && <span>{item.label}</span>}
+            </button>
+          )
+        })}
       </nav>
 
       {/* Collapse toggle */}
-      <div className="px-2 py-3 border-t border-border">
+      <div style={{ padding:'8px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
         <button
           onClick={() => setCollapsed(v => !v)}
-          className={cn(
-            'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors',
-            collapsed && 'justify-center px-2'
-          )}
+          style={{
+            width:'100%', display:'flex', alignItems:'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap:8, padding: collapsed ? '8px 0' : '8px 12px',
+            borderRadius:8, border:'none', background:'transparent',
+            color:'var(--text-3)', fontSize:12, fontWeight:500,
+            cursor:'pointer', fontFamily:'inherit',
+            whiteSpace:'nowrap', overflow:'hidden',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         >
-          <span style={{ fontSize: 14 }}>{collapsed ? '→' : '←'}</span>
+          <span style={{ fontSize:14 }}>{collapsed ? '→' : '←'}</span>
           {!collapsed && <span>Collapse</span>}
         </button>
       </div>

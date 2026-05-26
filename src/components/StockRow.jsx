@@ -95,54 +95,34 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
       <tr style={{ borderBottom: expanded ? 'none' : '1px solid var(--border)', cursor:'pointer' }} onClick={() => setExpanded(v=>!v)}>
 
+        {/* Ticker */}
         <td style={{ ...td, fontWeight:600, fontSize:12, color:'var(--text)', whiteSpace:'nowrap' }}>
           <span style={{ marginRight:4, fontSize:9, color:'var(--text-3)' }}>{expanded?'▼':'▶'}</span>
           {stock.t.split('.')[0]}
           <div style={{ fontSize:9, color:'var(--text-3)', fontWeight:400, marginTop:1 }}>{stock.t.includes('.') ? stock.t.split('.').pop() : 'US'}</div>
         </td>
-        <td style={{ ...td, fontSize:11, color:'var(--text-2)', wordBreak:'break-word', minWidth:80 }}>{stock.co}</td>
-        <td style={{ ...td, fontSize:11, color:fundColor }}>{sectorText}</td>
-        <td style={{ ...td, fontSize:11, color:fundColor }}>{industryText}</td>
-        <td style={{ ...td, fontSize:11, color:'var(--text-3)' }}>{stock.cu}</td>
-        <td style={{ ...td, fontSize:11, color:'var(--text-3)' }}>{stock.base ? formatDate(stock.base) : '--'}</td>
-        <td style={{ ...td, fontSize:12, color:'var(--text-2)', fontWeight:500 }}>
-          {stock.b ? `${batchCurrency ?? ''}${stock.b.toFixed(2)}` : '--'}
-        </td>
+
+        {/* Company */}
+        <td style={{ ...td, fontSize:11, color:'var(--text-2)' }}>{stock.co}</td>
 
         {/* Price */}
-        <td style={td} onClick={e=>e.stopPropagation()}>
-          {histLoading && <span style={{ color:'var(--text-3)', fontSize:11 }}>fetching…</span>}
+        <td style={td}>
+          {histLoading && <span style={{ color:'var(--text-3)', fontSize:11 }}>…</span>}
           {!histLoading && isHistorical && histEntry && (
             <div>
               <span style={{ color:'var(--blue)', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{histEntry.price.toFixed(2)}</span>
-              <span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>close on {histEntry.date}</span>
+              <span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>exp.</span>
             </div>
           )}
-          {!histLoading && isHistorical && !histEntry && <span style={{ color:'var(--red)', fontSize:11 }}>unavailable</span>}
+          {!histLoading && isHistorical && !histEntry && <span style={{ color:'var(--red)', fontSize:11 }}>n/a</span>}
           {!isHistorical && (
             <div>
               {autoPrice==null
                 ? <span style={{ color:'var(--text-3)', fontSize:11 }}>--</span>
                 : <span style={{ color:'var(--green)', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{autoPrice.toFixed(2)}</span>
               }
-              {horizon==='best' && autoPrice!=null && (
-                <span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>vs {bestLabel} · today</span>
-              )}
             </div>
           )}
-        </td>
-
-        {/* Override */}
-        <td style={td} onClick={e=>e.stopPropagation()}>
-          <input
-            type="number"
-            style={{ width:70, padding:'4px 6px', borderRadius:6, fontFamily:'inherit', border:`1px solid ${override?'var(--amber)':'var(--border)'}`, background:'var(--bg)', color: override?'var(--amber)':'var(--text)', fontSize:12, textAlign:'right', outline:'none' }}
-            value={val}
-            placeholder={p ? p.toFixed(2) : stock.b.toFixed(2)}
-            onChange={e=>setVal(e.target.value)}
-            onBlur={handleCommit}
-            onKeyDown={handleKeyDown}
-          />
         </td>
 
         {/* Horizon bar columns — 1M / 3M / 6M / 12M */}

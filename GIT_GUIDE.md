@@ -2020,6 +2020,53 @@ git push origin v6.0.0
 
 
 # ===========================================================================
+# STEP 64 — v6.0.1  Fix sidebar invisible + old columns in table
+# ===========================================================================
+#
+# ROLLBACK (if needed — run before the steps below):
+#
+# 1. Borrar tag local
+# git tag -d v6.0.1
+#
+# 2. Borrar tag remoto
+# git push origin --delete v6.0.1
+#
+# 3. Deshacer el commit LOCAL
+# git reset --soft HEAD~1
+#
+# 4. Borrar ficheros y copiar version corregida
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.1/. .
+#
+# 5. Nuevo commit
+# git add .
+# git commit -m "fix: sidebar invisible and old columns in table (v6.0.1)"
+#
+# 6. Force push
+# git push origin main --force
+#
+# 7. Nuevo tag
+# git tag -a v6.0.1 -m "v6.0.1: sidebar and table fixes"
+# git push origin v6.0.1
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.1/. .
+
+git add .
+git commit -m "fix: sidebar invisible and old columns in table (v6.0.1)
+
+- Sidebar rewritten with inline styles (was using Tailwind classes
+  which are not processed by Vite yet — caused sidebar to not render)
+- Removed old columns from StockRow: Sector, Industry, Currency,
+  Base date, Base price, Override — these were not removed in v6.0.0
+- Table now: Ticker | Company | Price | 1M | 3M | 6M | 12M | vs SPY | vs Sector"
+
+git tag -a v6.0.1 -m "v6.0.1: fix sidebar and table columns"
+git push origin main
+git push origin v6.0.1
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2134,6 +2181,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.3.0/         -> v5.3.0
 #    /Users/alex/Downloads/openbank-price-prediction_v5.4.0/         -> v5.4.0
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.0/         -> v6.0.0
+#    /Users/alex/Downloads/openbank-price-prediction_v6.0.1/         -> v6.0.1
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.
