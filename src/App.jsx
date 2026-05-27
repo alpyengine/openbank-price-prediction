@@ -3,7 +3,7 @@ import { usePriceFetch }     from './hooks/usePriceFetch.js'
 import { useFundamentals }   from './hooks/useFundamentals.js'
 import { useHistory }        from './hooks/useHistory.js'
 import { DEFAULT_STOCKS }    from './utils/stocks.js'
-import { targetDates, dateStatus } from './utils/dates.js'
+import { targetDates, dateStatus, parseDate, today as getToday } from './utils/dates.js'
 import Sidebar          from './components/Sidebar.jsx'
 import Header           from './components/Header.jsx'
 import FetchBar         from './components/FetchBar.jsx'
@@ -222,17 +222,14 @@ export default function App() {
             const firstCell = lines[0]?.split(',')[0]?.trim().toLowerCase()
             const isHeader = isNaN(firstCell) && ['ticker','symbol','stock','company','name'].some(w => firstCell?.includes(w))
             const dataLines = isHeader ? lines.slice(1) : lines
-            const { parseDate, today: getToday } = window.__dateFns || {}
-            import('./utils/dates.js').then(({ parseDate, today: getToday }) => {
-              const TODAY = getToday()
-              const stocks = dataLines.map(line => {
-                const p = line.split(',').map(x => x.trim())
-                if (p.length < 8) return null
-                const base = p[8] ? parseDate(p[8]) : TODAY
-                return { t:p[0].toUpperCase(), co:p[1], cu:p[2], b:+p[3]||0, t1:+p[4]||0, t3:+p[5]||0, t6:+p[6]||0, t12:+p[7]||0, base:base||TODAY }
-              }).filter(Boolean)
-              if (stocks.length) { handleImport(stocks); setActivePage('batch') }
-            })
+            const TODAY = getToday()
+            const parsed = dataLines.map(line => {
+              const p = line.split(',').map(x => x.trim())
+              if (p.length < 8) return null
+              const base = p[8] ? parseDate(p[8]) : TODAY
+              return { t:p[0].toUpperCase(), co:p[1], cu:p[2], b:+p[3]||0, t1:+p[4]||0, t3:+p[5]||0, t6:+p[6]||0, t12:+p[7]||0, base:base||TODAY }
+            }).filter(Boolean)
+            if (parsed.length) { handleImport(parsed); setActivePage('batch') }
           }
           reader.readAsText(file)
           e.target.value = ''

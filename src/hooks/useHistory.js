@@ -47,16 +47,16 @@ export function useHistory() {
 
   // ── Load from GitHub ────────────────────────────────────────────────────────
   const load = useCallback(async (auto = false) => {
-    if (!configured) { setLog('GitHub not configured — add VITE_GITHUB_TOKEN and VITE_GITHUB_REPO to .env'); return }
+    if (!configured) { setLog('Supabase not configured — add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env'); return }
     setLoading(true)
-    setLog(auto ? 'Auto-loading history...' : 'Loading history from GitHub...')
+    setLog(auto ? 'Auto-loading history...' : 'Loading history from Supabase...')
     const data = await loadHistory()
     if (data) {
       setHistory(data)
       const n = data.batches?.length ?? 0
       setLog(`History loaded — ${n} batch${n !== 1 ? 'es' : ''} found`)
     } else {
-      setLog('Could not load history — check GitHub credentials')
+      setLog('Could not load history — check Supabase credentials')
     }
     setLoading(false)
   }, [configured])
@@ -177,7 +177,7 @@ export function useHistory() {
       setHistory(updated)
       setLog(`Batch ${batchId} saved — ${results.length} predictions`)
     } else {
-      setLog('Save failed — check GitHub credentials and token permissions')
+      setLog('Save failed — check Supabase credentials')
     }
     setSaving(false)
     return ok

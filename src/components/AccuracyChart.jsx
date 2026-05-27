@@ -56,29 +56,23 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
       : { border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-muted-fg)' })
   })
 
-  // Page header
-  const Header = () => (
-    <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:12 }}>
-      <div>
-        <h1 style={{ fontSize:26, fontWeight:700, color:'var(--tw-fg)', letterSpacing:'-0.02em', lineHeight:1.2 }}>Accuracy Stats</h1>
-        <p style={{ fontSize:13, color:'var(--tw-muted-fg)', marginTop:4 }}>Historical accuracy as batches mature</p>
-      </div>
-      <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-        {log && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontFamily:'monospace' }}>{log}</span>}
-        {(loading||saving) && <div style={{ width:14, height:14, border:'2px solid var(--tw-border)', borderTopColor:'var(--tw-primary)', borderRadius:'50%', animation:'spin .7s linear infinite' }} />}
-        <button style={btn('neutral')} onClick={onLoad} disabled={loading}>
-          <RefreshCw size={13} /> Load history
-        </button>
-        <button style={btn('green')} onClick={onSave} disabled={saving||loading}>
-          <Save size={13} /> Save batch
-        </button>
-      </div>
+  // Action bar — Load + Save buttons
+  const ActionBar = () => (
+    <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginBottom:'1.5rem', flexWrap:'wrap', alignItems:'center' }}>
+      {log && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontFamily:'monospace', flex:1 }}>{log}</span>}
+      {(loading||saving) && <div style={{ width:14, height:14, border:'2px solid var(--tw-border)', borderTopColor:'var(--tw-primary)', borderRadius:'50%', animation:'spin .7s linear infinite' }} />}
+      <button style={btn('neutral')} onClick={onLoad} disabled={loading}>
+        <RefreshCw size={13} /> Load history
+      </button>
+      <button style={btn('green')} onClick={onSave} disabled={saving||loading}>
+        <Save size={13} /> Save batch
+      </button>
     </div>
   )
 
   if (!configured) return (
     <div>
-      <Header />
+      <ActionBar />
       <div style={{ ...card, padding:24, textAlign:'center' }}>
         <BarChart2 size={32} color="var(--tw-muted-fg)" style={{ margin:'0 auto 12px' }} />
         <div style={{ fontSize:14, fontWeight:600, color:'var(--tw-fg)', marginBottom:6 }}>Accuracy tracking not configured</div>
@@ -89,7 +83,7 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
 
   if (!stats && !loading) return (
     <div>
-      <Header />
+      <ActionBar />
       <div style={{ ...card, padding:32, textAlign:'center' }}>
         <BarChart2 size={32} color="var(--tw-muted-fg)" style={{ margin:'0 auto 12px' }} />
         <div style={{ fontSize:14, fontWeight:600, color:'var(--tw-fg)', marginBottom:6 }}>No history loaded</div>
@@ -105,7 +99,7 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
 
   return (
     <div>
-      <Header />
+      <ActionBar />
 
       {stats && <>
         {/* KPI cards */}

@@ -2258,6 +2258,30 @@ git push origin v6.1.1
 
 
 # ===========================================================================
+# STEP 71 — v6.1.2  Fix fetch broken + duplicate title + log message
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.1.2/. .
+
+git add .
+git commit -m "fix: fetch buttons broken, duplicate title, wrong log message (v6.1.2)
+
+- App.jsx: removed dynamic import() from sidebar CSV handler (caused
+  module parse error that broke all fetch buttons). Now uses top-level
+  imported parseDate and today functions.
+- AccuracyChart: removed internal Header component (caused duplicate
+  title). Replaced with ActionBar (Load + Save buttons only).
+- useHistory.js: fixed log messages from GitHub to Supabase."
+
+git tag -a v6.1.2 -m "v6.1.2: fix fetch buttons and duplicate title"
+git push origin main
+git push origin v6.1.2
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2379,6 +2403,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.5/         -> v6.0.5
 #    /Users/alex/Downloads/openbank-price-prediction_v6.1.0/         -> v6.1.0
 #    /Users/alex/Downloads/openbank-price-prediction_v6.1.1/         -> v6.1.1
+#    /Users/alex/Downloads/openbank-price-prediction_v6.1.2/         -> v6.1.2
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

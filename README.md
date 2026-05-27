@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v6.1.1
+# Openbank Price Prediction — v6.1.2
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,30 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v6.1.2 — Fix fetch buttons broken + duplicate title + wrong log message
+**Date:** May 2026
+
+**Root cause of fetch buttons broken:**
+The sidebar CSV upload handler used a dynamic `import('./utils/dates.js')`
+inside the `onChange` callback. This caused a module parsing error that
+silently broke the entire App module — all fetch buttons stopped working.
+Fixed by using the already-imported `parseDate` and `today` functions.
+
+**Duplicate title on Accuracy Stats:**
+`AccuracyChart` had its own internal `<Header>` component with h1 "Accuracy
+Stats". The App `<Header>` already renders the correct title per page.
+Removed internal Header from AccuracyChart — replaced with `<ActionBar>`
+(Load history + Save batch buttons only).
+
+**Wrong log message:**
+`useHistory.js` said "GitHub not configured — add VITE_GITHUB_TOKEN..."
+when the app uses Supabase. Fixed to say "Supabase not configured — add
+VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env".
+
+**Files changed:** `App.jsx`, `AccuracyChart.jsx`, `useHistory.js`
+
+---
 
 ### v6.1.1 — Bug fixes + expanded panel v0 redesign + Base Price column
 **Date:** May 2026
@@ -1863,3 +1887,4 @@ regardless of CORS headers on the target server.
 | v6.0.5           | 2026-05  | React + Supabase          | Fix syntax error in StockTable.jsx (orphaned Th)   |
 | v6.1.0           | 2026-05  | React + Supabase          | Complete visual redesign — all components v0 style  |
 | v6.1.1           | 2026-05  | React + Supabase          | Bug fixes + expanded panel v0 + Base Price column   |
+| v6.1.2           | 2026-05  | React + Supabase          | Fix fetch broken + duplicate title + log message    |
