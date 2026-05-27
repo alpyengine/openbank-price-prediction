@@ -80,7 +80,15 @@ function HelpBtn({ colKey, onOpen }) {
 // ── Th with optional help button ─────────────────────────────────────────────
 function Th({ w, date, colKey, onOpen, children }) {
   return (
-    <th style={{ background:'var(--th-bg)', fontWeight:700, fontSize:11, color:'var(--th-text)', padding:'8px 10px', textAlign:'left', borderBottom:'1.5px solid var(--border)', verticalAlign:'bottom', whiteSpace:'nowrap', width:w }}>
+    <th style={{ fontWeight:500, fontSize:11, color:'var(--tw-muted-fg)', padding:'10px 14px', textAlign:'left', whiteSpace:'nowrap', width:w }}>
+      <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+        {children}
+        {colKey && onOpen && <span style={{ fontSize:9, cursor:'pointer', opacity:0.5 }} onClick={() => onOpen(colKey)}>?</span>}
+      </div>
+      {date && <div style={{ fontSize:10, color:'var(--tw-muted-fg)', fontWeight:400, marginTop:1 }}>{formatDate(date)}</div>}
+    </th>
+  )
+}
       <span style={{ display:'inline-flex', alignItems:'center', gap:2 }}>
         {children}
         {colKey && <HelpBtn colKey={colKey} onOpen={onOpen} />}
@@ -204,39 +212,62 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
     <>
       <ColHelpModal colKey={helpCol} onClose={() => setHelpCol(null)} />
       {/* Collapse all button */}
-      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:6 }}>
-        <button
-          onClick={handleToggleAll}
-          style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-3)', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}
-        >
-          {allExpanded ? '↑ Collapse all' : '↓ Expand all'}
-        </button>
+      {/* Table header with title + legend + expand button */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+        <div>
+          <h2 style={{ fontSize:16, fontWeight:700, color:'var(--tw-fg)', margin:0 }}>Batch Predictions</h2>
+          <p style={{ fontSize:12, color:'var(--tw-muted-fg)', margin:'2px 0 0' }}>
+            {tg ? `Base date: ${formatDate(stocks[0]?.base)} · Click row to expand details` : 'Import a CSV to see predictions'}
+          </p>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          {/* Legend */}
+          <div style={{ display:'flex', gap:12, fontSize:11, color:'var(--tw-muted-fg)', alignItems:'center' }}>
+            {[
+              { color:'#16a34a', label:'Hit' },
+              { color:'#ca8a04', label:'Close/Awaiting' },
+              { color:'#dc2626', label:'Miss' },
+            ].map(({ color, label }) => (
+              <span key={label} style={{ display:'flex', alignItems:'center', gap:4 }}>
+                <span style={{ width:7, height:7, borderRadius:'50%', background:color, display:'inline-block' }} />
+                {label}
+              </span>
+            ))}
+          </div>
+          <button
+            onClick={handleToggleAll}
+            style={{ fontSize:11, padding:'5px 12px', borderRadius:8, border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-muted-fg)', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}
+          >
+            {allExpanded ? '↑ Collapse all' : '↓ Expand all'}
+          </button>
+        </div>
       </div>
-      <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflowX:'auto', marginBottom:'1.5rem' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed', minWidth:900 }}>
+
+      <div style={{ border:'1px solid var(--tw-border)', borderRadius:10, overflow:'hidden', marginBottom:'1.5rem', boxShadow:'0 1px 3px rgba(0,0,0,0.05)', background:'var(--tw-card)' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, tableLayout:'fixed', minWidth:900 }}>
           <thead>
-            <tr>
-              <Th w={64}  colKey="ticker"    onOpen={setHelpCol}>Ticker</Th>
-              <Th w={110} colKey="ticker"    onOpen={setHelpCol}>Company</Th>
-              <Th w={88}  colKey="price"     onOpen={setHelpCol}>Price</Th>
-              <Th w={90}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d1}>1M</Th>
-              <Th w={90}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d3}>3M</Th>
-              <Th w={90}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d6}>6M</Th>
-              <Th w={90}  colKey="horizon"   onOpen={setHelpCol} date={tg?.d12}>12M</Th>
-              <Th w={76}  colKey="hit"       onOpen={setHelpCol}>vs SPY</Th>
-              <Th w={76}  colKey="hit"       onOpen={setHelpCol}>vs Sector</Th>
+            <tr style={{ background:'var(--tw-muted)', borderBottom:'1px solid var(--tw-border)' }}>
+              <Th w={72}  colKey="ticker"  onOpen={setHelpCol}>Ticker</Th>
+              <Th w={120} colKey="ticker"  onOpen={setHelpCol}>Company</Th>
+              <Th w={90}  colKey="price"   onOpen={setHelpCol}>Price</Th>
+              <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d1}>1M</Th>
+              <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d3}>3M</Th>
+              <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d6}>6M</Th>
+              <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d12}>12M</Th>
+              <Th w={80}  colKey="hit"     onOpen={setHelpCol}>vs SPY</Th>
+              <Th w={80}  colKey="hit"     onOpen={setHelpCol}>vs Sector</Th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 && (
-              <tr><td colSpan={colSpan} style={{ padding:'24px 10px', textAlign:'center', color:'var(--text-3)', fontSize:12 }}>No stocks to display</td></tr>
+              <tr><td colSpan={colSpan} style={{ padding:'32px 10px', textAlign:'center', color:'var(--tw-muted-fg)', fontSize:13 }}>No stocks — import a CSV to start</td></tr>
             )}
             {groups && Object.entries(groups).map(([sector, sectorStocks]) => (
               <>
-                <tr key={`group-${sector}`} style={{ background:'var(--pill-bg)', borderBottom:'1px solid var(--border-blue)' }}>
-                  <td colSpan={colSpan} style={{ padding:'6px 10px', fontSize:11, fontWeight:600, color:'var(--accent)', cursor:'pointer', userSelect:'none' }} onClick={() => toggleGroup(sector)}>
+                <tr key={`group-${sector}`} style={{ background:'var(--tw-muted)', borderBottom:'1px solid var(--tw-border)' }}>
+                  <td colSpan={colSpan} style={{ padding:'7px 14px', fontSize:11, fontWeight:600, color:'var(--tw-muted-fg)', cursor:'pointer', userSelect:'none' }} onClick={() => toggleGroup(sector)}>
                     {collapsed[sector] ? '▶' : '▼'} {sector}
-                    <span style={{ fontSize:10, color:'var(--text-3)', marginLeft:8, fontWeight:400 }}>{sectorStocks.length} stock{sectorStocks.length > 1 ? 's' : ''}</span>
+                    <span style={{ fontSize:10, color:'var(--tw-muted-fg)', marginLeft:8, fontWeight:400 }}>{sectorStocks.length} stock{sectorStocks.length > 1 ? 's' : ''}</span>
                   </td>
                 </tr>
                 {!collapsed[sector] && sectorStocks.map(renderRow)}

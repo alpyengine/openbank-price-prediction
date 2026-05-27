@@ -2146,6 +2146,37 @@ git push origin v6.0.3
 
 
 # ===========================================================================
+# STEP 67 — v6.0.4  v0 visual style applied to main components
+# ===========================================================================
+#
+# No npm install needed — same deps as v6.0.3
+#
+# ROLLBACK:
+# git tag -d v6.0.4 && git push origin --delete v6.0.4
+# git reset --soft HEAD~1
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.4/. .
+# git add . && git commit -m "..." && git push origin main --force
+# git tag -a v6.0.4 -m "v6.0.4" && git push origin v6.0.4
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.4/. .
+
+git add .
+git commit -m "feat: v0 visual style applied to main components (v6.0.4)
+
+- Header: Batch Overview h1, lucide icons, clean layout
+- SummaryCards: v0 KPI cards with icon + large number
+- FetchBar/FundamentalsBar/MarketBar: clean card style
+- StockTable: Batch Predictions title, legend, white card, hover rows
+- StockRow: larger padding, muted company text, clean ticker"
+
+git tag -a v6.0.4 -m "v6.0.4: v0 visual style"
+git push origin main
+git push origin v6.0.4
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2263,6 +2294,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.1/         -> v6.0.1
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.2/         -> v6.0.2
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.3/         -> v6.0.3
+#    /Users/alex/Downloads/openbank-price-prediction_v6.0.4/         -> v6.0.4
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

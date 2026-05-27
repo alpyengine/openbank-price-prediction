@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v6.0.3
+# Openbank Price Prediction — v6.0.4
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,22 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v6.0.4 — v0 visual style applied to main components
+**Date:** May 2026
+
+**Applied v0 design language to all main components:**
+- **Header** — "Batch Overview" title h1, subtitle, lucide icons on buttons
+- **SummaryCards** — v0 KPI cards with icon, large number, subtle subtext
+- **FetchBar / FundamentalsBar / MarketBar** — clean card style with border
+- **StockTable** — "Batch Predictions" title + legend, clean white card,
+  muted header, hover rows
+- **StockRow** — larger padding (12px), muted company text, clean ticker
+
+**Files changed:** `Header.jsx`, `SummaryCards.jsx`, `FetchBar.jsx`,
+`FundamentalsBar.jsx`, `MarketBar.jsx`, `StockTable.jsx`, `StockRow.jsx`
+
+---
 
 ### v6.0.3 — Tailwind 3 + inline styles — Node 18 compatible
 **Date:** May 2026
@@ -1778,3 +1794,4 @@ regardless of CORS headers on the target server.
 | v6.0.1           | 2026-05  | React + Supabase          | Fix sidebar invisible + old columns in table        |
 | v6.0.2           | 2026-05  | React + Supabase          | Tailwind 4 + v0 theme — sidebar works correctly    |
 | v6.0.3           | 2026-05  | React + Supabase          | Tailwind 3 + inline styles — Node 18 compatible    |
+| v6.0.4           | 2026-05  | React + Supabase          | v0 visual style applied to all main components     |

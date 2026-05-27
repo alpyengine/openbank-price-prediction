@@ -61,7 +61,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
   const industryText = fundamental===undefined?'...':fundamental===null?'--':fundamental.industry ||'--'
   const fundColor    = (fundamental===undefined||fundamental===null) ? 'var(--text-3)' : 'var(--text-2)'
 
-  const td = { padding:'7px 10px', verticalAlign:'middle' }
+  const td = { padding:'12px 14px', verticalAlign:'middle', borderBottom:'1px solid var(--tw-border)' }
 
   return (
     <>
@@ -93,17 +93,22 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
         </tr>
       )}
 
-      <tr style={{ borderBottom: expanded ? 'none' : '1px solid var(--border)', cursor:'pointer' }} onClick={() => setExpanded(v=>!v)}>
+      <tr style={{ borderBottom: expanded ? 'none' : '1px solid var(--tw-border)', cursor:'pointer', transition:'background .1s' }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--tw-muted)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        onClick={() => setExpanded(v=>!v)}>
 
         {/* Ticker */}
-        <td style={{ ...td, fontWeight:600, fontSize:12, color:'var(--text)', whiteSpace:'nowrap' }}>
-          <span style={{ marginRight:4, fontSize:9, color:'var(--text-3)' }}>{expanded?'▼':'▶'}</span>
-          {stock.t.split('.')[0]}
-          <div style={{ fontSize:9, color:'var(--text-3)', fontWeight:400, marginTop:1 }}>{stock.t.includes('.') ? stock.t.split('.').pop() : 'US'}</div>
+        <td style={{ ...td, fontWeight:600, fontSize:14, color:'var(--tw-fg)', whiteSpace:'nowrap' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>{expanded ? '▾' : '›'}</span>
+            {stock.t.split('.')[0]}
+          </div>
+          <div style={{ fontSize:10, color:'var(--tw-muted-fg)', fontWeight:400, marginTop:1 }}>{stock.t.includes('.') ? stock.t.split('.').pop() : 'US'}</div>
         </td>
 
         {/* Company */}
-        <td style={{ ...td, fontSize:11, color:'var(--text-2)' }}>{stock.co}</td>
+        <td style={{ ...td, fontSize:13, color:'var(--tw-muted-fg)' }}>{stock.co}</td>
 
         {/* Price */}
         <td style={td}>

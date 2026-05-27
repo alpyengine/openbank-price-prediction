@@ -1,11 +1,35 @@
 import { getTarget, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
+import { LayoutGrid, Target, CheckCircle, Clock } from 'lucide-react'
 
-function Card({ label, value, color, sub }) {
+const ICONS = {
+  total:    LayoutGrid,
+  hit:      Target,
+  close:    CheckCircle,
+  awaiting: Clock,
+}
+
+function Card({ label, value, sub, subColor, icon: Icon }) {
   return (
-    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:'13px 14px', boxShadow:'var(--shadow)' }}>
-      <div style={{ fontSize:'var(--fs-xxs)', fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:6 }}>{label}</div>
-      <div style={{ fontSize:22, fontWeight:700, color, lineHeight:1.1 }}>{value}</div>
-      {sub && <div style={{ fontSize:'var(--fs-xs)', marginTop:4, fontWeight:600, color:'var(--text-3)' }}>{sub}</div>}
+    <div style={{
+      background:'var(--tw-card)',
+      border:'1px solid var(--tw-border)',
+      borderRadius:10,
+      padding:'20px 20px 18px',
+      boxShadow:'0 1px 3px rgba(0,0,0,0.05)',
+      display:'flex', flexDirection:'column', gap:4,
+    }}>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:8 }}>
+        <span style={{ fontSize:13, color:'var(--tw-muted-fg)', fontWeight:500 }}>{label}</span>
+        {Icon && (
+          <div style={{ width:28, height:28, borderRadius:6, background:'var(--tw-muted)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Icon size={14} color="var(--tw-muted-fg)" />
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize:28, fontWeight:700, color:'var(--tw-fg)', lineHeight:1.1 }}>{value}</div>
+      {sub && (
+        <div style={{ fontSize:12, marginTop:4, fontWeight:500, color: subColor || 'var(--tw-muted-fg)' }}>{sub}</div>
+      )}
     </div>
   )
 }
@@ -19,13 +43,14 @@ export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, 
     if (verdict === 'hit')        hits++
     else if (verdict === 'close') close++
   }
-  const priceLabel = horizonExpired && horizon !== 'best' ? 'historical' : 'current'
+  const priceLabel = horizonExpired && horizon !== 'best' ? '+historical price' : '+today\'s price'
+
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:'1.25rem' }}>
-      <Card label="Total"       value={stocks.length} color="var(--text)"   />
-      <Card label="Hit target"  value={hits}          color="var(--green)"  sub={hits  ? priceLabel : null} />
-      <Card label="Close (±5%)" value={close}         color="var(--amber)"  sub={close ? priceLabel : null} />
-      <Card label="Awaiting"    value={awaiting}      color="var(--text-3)" />
+    <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:'1.5rem' }}>
+      <Card label="Total stocks"  value={stocks.length} icon={ICONS.total}    sub={stocks.length ? `${stocks.length} predictions tracked` : 'Import a CSV to start'} />
+      <Card label="Hit target"    value={hits}          icon={ICONS.hit}      sub={hits   ? priceLabel : 'None reached target yet'} subColor={hits ? '#16a34a' : undefined} />
+      <Card label="Close (±5%)"   value={close}         icon={ICONS.close}    sub={close  ? priceLabel : 'None within 5%'} subColor={close ? '#ca8a04' : undefined} />
+      <Card label="Awaiting"      value={awaiting}      icon={ICONS.awaiting} sub={awaiting ? 'Price not yet fetched' : 'All prices loaded'} />
     </div>
   )
 }
