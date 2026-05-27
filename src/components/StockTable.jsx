@@ -89,14 +89,6 @@ function Th({ w, date, colKey, onOpen, children }) {
     </th>
   )
 }
-      <span style={{ display:'inline-flex', alignItems:'center', gap:2 }}>
-        {children}
-        {colKey && <HelpBtn colKey={colKey} onOpen={onOpen} />}
-      </span>
-      {date && <span style={{ display:'block', fontSize:9, fontWeight:400, color:'var(--text-3)', marginTop:2 }}>{formatDate(date)}</span>}
-    </th>
-  )
-}
 
 // ── Column help modal ─────────────────────────────────────────────────────────
 function ColHelpModal({ colKey, onClose }) {

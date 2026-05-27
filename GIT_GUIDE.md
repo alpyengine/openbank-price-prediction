@@ -2177,6 +2177,26 @@ git push origin v6.0.4
 
 
 # ===========================================================================
+# STEP 68 — v6.0.5  Fix syntax error in StockTable.jsx
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.5/. .
+
+git add .
+git commit -m "fix: remove orphaned Th fragment in StockTable.jsx (v6.0.5)
+
+Leftover lines 92-99 from old Th component caused esbuild parse error:
+Expected identifier but found slash in </th>"
+
+git tag -a v6.0.5 -m "v6.0.5: fix StockTable syntax error"
+git push origin main
+git push origin v6.0.5
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2295,6 +2315,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.2/         -> v6.0.2
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.3/         -> v6.0.3
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.4/         -> v6.0.4
+#    /Users/alex/Downloads/openbank-price-prediction_v6.0.5/         -> v6.0.5
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

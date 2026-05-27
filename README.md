@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v6.0.4
+# Openbank Price Prediction — v6.0.5
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,17 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v6.0.5 — Fix syntax error in StockTable.jsx
+**Date:** May 2026
+
+**Fixed:** Orphaned fragment from old `Th` component left in StockTable.jsx
+after str_replace in v6.0.4 — lines 92-99 with `<HelpBtn>` and `</th>`
+caused esbuild parse error `Expected identifier but found "/"`.
+
+**Files changed:** `src/components/StockTable.jsx`
+
+---
 
 ### v6.0.4 — v0 visual style applied to main components
 **Date:** May 2026
@@ -1795,3 +1806,4 @@ regardless of CORS headers on the target server.
 | v6.0.2           | 2026-05  | React + Supabase          | Tailwind 4 + v0 theme — sidebar works correctly    |
 | v6.0.3           | 2026-05  | React + Supabase          | Tailwind 3 + inline styles — Node 18 compatible    |
 | v6.0.4           | 2026-05  | React + Supabase          | v0 visual style applied to all main components     |
+| v6.0.5           | 2026-05  | React + Supabase          | Fix syntax error in StockTable.jsx (orphaned Th)   |
