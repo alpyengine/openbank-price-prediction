@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v6.0.5
+# Openbank Price Prediction — v6.1.0
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,29 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v6.1.0 — Complete visual redesign — all components v0 style
+**Date:** May 2026
+
+**All remaining components migrated to v0 design language:**
+
+- **HorizonTabs** — clean pill tabs, monospace date row, status banners
+- **SectorControls** — lucide icons, toggle buttons with active state
+- **ImportBox** — card with file icon, hint box, lucide buttons
+- **Expanded row panel** — v0 muted background, clean notes textarea
+- **FundamentalsPanel + MarketComparison** — updated CSS vars
+- **AccuracyChart (full rewrite)** — v0 Opción A design:
+  - "Accuracy Stats" h1 header
+  - 4 KPI cards (Overall hit rate, Total hits, Misses, Awaiting)
+  - 4 horizon hit rate cards with progress bars
+  - Area chart SVG (accuracy over time)
+  - Historical batches table (Load, CSV export, Delete)
+- **global.css** — added `@keyframes spin` for loading spinners
+
+**Files changed:** `HorizonTabs.jsx`, `SectorControls.jsx`, `ImportBox.jsx`,
+`StockRow.jsx`, `AccuracyChart.jsx`, `global.css`
+
+---
 
 ### v6.0.5 — Fix syntax error in StockTable.jsx
 **Date:** May 2026
@@ -1807,3 +1830,4 @@ regardless of CORS headers on the target server.
 | v6.0.3           | 2026-05  | React + Supabase          | Tailwind 3 + inline styles — Node 18 compatible    |
 | v6.0.4           | 2026-05  | React + Supabase          | v0 visual style applied to all main components     |
 | v6.0.5           | 2026-05  | React + Supabase          | Fix syntax error in StockTable.jsx (orphaned Th)   |
+| v6.1.0           | 2026-05  | React + Supabase          | Complete visual redesign — all components v0 style  |

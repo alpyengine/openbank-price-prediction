@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { parseDate, today as getToday } from '../utils/dates.js'
 import { DEFAULT_STOCKS } from '../utils/stocks.js'
+import { Upload, FileText, Trash2, Info } from 'lucide-react'
 
 function parseCSV(text, onImport, setError, setCsv, setMsg) {
   setError(''); setMsg('')
@@ -22,7 +23,7 @@ function parseCSV(text, onImport, setError, setCsv, setMsg) {
   if (bad.length)     { setError(bad.join(' | ')); return }
   if (!stocks.length) { setError('No valid rows found.'); return }
   onImport(stocks)
-  setMsg(`${stocks.length} stock${stocks.length>1?'s':''} imported${isHeader?' (header skipped)':''}`)
+  setMsg(`✓ ${stocks.length} stock${stocks.length>1?'s':''} imported${isHeader?' (header skipped)':''}`)
 }
 
 export default function ImportBox({ onImport }) {
@@ -54,34 +55,70 @@ export default function ImportBox({ onImport }) {
 
   const handleSample = useCallback(() => {
     onImport(DEFAULT_STOCKS.map(s => ({ ...s })))
-    setCsv(''); setError(''); setMsg('Sample data loaded')
+    setCsv(''); setError(''); setMsg('✓ Sample data loaded')
   }, [onImport])
 
+  const btn = (variant) => ({
+    display:'inline-flex', alignItems:'center', gap:6,
+    fontSize:13, padding:'7px 14px', borderRadius:8,
+    cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+    transition:'background .15s',
+    ...(variant === 'primary' ? {
+      border:'1px solid #16a34a', background:'#16a34a', color:'#fff',
+    } : variant === 'secondary' ? {
+      border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-fg)',
+    } : {
+      border:'1px solid transparent', background:'transparent', color:'#dc2626',
+    })
+  })
+
   return (
-    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden', boxShadow:'var(--shadow)', marginBottom:'1.5rem' }}>
-      <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--text)' }}>Import stocks</div>
+    <div style={{ background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:10, overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,0.05)', marginBottom:'1.5rem' }}>
+      {/* Header */}
+      <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--tw-border)', display:'flex', alignItems:'center', gap:8 }}>
+        <FileText size={15} color="var(--tw-muted-fg)" />
+        <span style={{ fontSize:14, fontWeight:600, color:'var(--tw-fg)' }}>Import stocks</span>
+      </div>
+
       <div style={{ padding:'14px 16px' }}>
-        <p style={{ fontSize:'var(--fs-sm)', color:'var(--text-3)', marginBottom:8, lineHeight:1.6 }}>
-          Format: <code style={{ background:'var(--surface2)', padding:'2px 6px', borderRadius:4, fontSize:'var(--fs-xs)', color:'var(--accent)', fontFamily:'monospace' }}>TICKER, Company, CCY, BasePrice, 1M, 3M, 6M, 12M, DD/MM/YYYY</code><br />
-          Load a <strong>.csv file</strong> or paste below. Header row is skipped automatically.
-        </p>
+        {/* Format hint */}
+        <div style={{ display:'flex', gap:6, alignItems:'flex-start', padding:'8px 10px', borderRadius:8, background:'var(--tw-muted)', marginBottom:10 }}>
+          <Info size={13} color="var(--tw-muted-fg)" style={{ marginTop:1, flexShrink:0 }} />
+          <p style={{ fontSize:12, color:'var(--tw-muted-fg)', lineHeight:1.5, margin:0 }}>
+            Format: <code style={{ fontFamily:'monospace', fontSize:11 }}>TICKER, Company, CCY, BasePrice, 1M, 3M, 6M, 12M, DD/MM/YYYY</code>
+            <br />Load a <strong>.csv file</strong> or paste below. Header row is skipped automatically.
+          </p>
+        </div>
+
         <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display:'none' }} onChange={handleFileChange} />
+
         <textarea
-          style={{ width:'100%', height:80, fontSize:'var(--fs-xs)', fontFamily:'monospace', padding:8, border:'1px solid var(--border)', borderRadius:'var(--radius)', background:'var(--surface2)', color:'var(--text)', resize:'vertical', outline:'none' }}
+          style={{
+            width:'100%', height:80, fontSize:12, fontFamily:'monospace',
+            padding:'8px 10px', border:'1px solid var(--tw-border)', borderRadius:8,
+            background:'var(--tw-muted)', color:'var(--tw-fg)',
+            resize:'vertical', outline:'none', lineHeight:1.5,
+          }}
           value={csv}
           onChange={e => { setCsv(e.target.value); setMsg('') }}
           placeholder={'Ticker,Company,CCY,BasePrice,1M,3M,6M,12M,Date\nAXP,American Express,USD,314.46,327.23,293.83,296.32,521.60,08/05/2026'}
           spellCheck={false}
         />
-        {error && <div style={{ marginTop:6, fontSize:'var(--fs-xs)', color:'var(--red)' }}>{error}</div>}
-        {msg   && <div style={{ marginTop:6, fontSize:'var(--fs-xs)', color:'var(--green)', fontWeight:600 }}>{msg}</div>}
-        <div style={{ display:'flex', gap:8, marginTop:8, alignItems:'center', flexWrap:'wrap' }}>
-          <button style={{ fontSize:'var(--fs-sm)', padding:'6px 14px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:500, border:'1.5px solid var(--border-green)', background:'var(--green-bg)', color:'var(--green)' }} onClick={() => fileRef.current?.click()}>📂 Load CSV</button>
-          <button style={{ fontSize:'var(--fs-sm)', padding:'6px 14px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:500, border:'1.5px solid var(--border-blue)', background:'var(--surface)', color:'var(--accent)' }} onClick={handleImport}>Import</button>
-          <button style={{ fontSize:'var(--fs-sm)', padding:'6px 14px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:500, border:'1px solid transparent', background:'transparent', color:'var(--red)' }} onClick={handleClear}>Clear</button>
-          <div style={{ width:1, height:20, background:'var(--border)' }} />
-          <button style={{ fontSize:'var(--fs-sm)', padding:'6px 14px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:500, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)' }} onClick={handleSample}>Sample data</button>
-          <span style={{ fontSize:'var(--fs-xxs)', color:'var(--text-3)' }}>Load file or paste → Import → Fetch</span>
+
+        {error && <div style={{ marginTop:6, fontSize:12, color:'#dc2626', display:'flex', alignItems:'center', gap:4 }}>⚠ {error}</div>}
+        {msg   && <div style={{ marginTop:6, fontSize:12, color:'#16a34a', fontWeight:600 }}>{msg}</div>}
+
+        <div style={{ display:'flex', gap:8, marginTop:10, alignItems:'center', flexWrap:'wrap' }}>
+          <button style={btn('primary')} onClick={() => fileRef.current?.click()}>
+            <Upload size={13} /> Load CSV
+          </button>
+          <button style={btn('secondary')} onClick={handleImport}>Import</button>
+          <button style={btn('ghost')} onClick={handleClear}>
+            <Trash2 size={13} /> Clear
+          </button>
+          <div style={{ width:1, height:18, background:'var(--tw-border)' }} />
+          <button style={btn('secondary')} onClick={handleSample}>Sample data</button>
+          <span style={{ fontSize:11, color:'var(--tw-muted-fg)' }}>Load file or paste → Import → Fetch</span>
         </div>
       </div>
     </div>

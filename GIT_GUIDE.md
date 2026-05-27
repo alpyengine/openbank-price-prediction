@@ -2197,6 +2197,34 @@ git push origin v6.0.5
 
 
 # ===========================================================================
+# STEP 69 — v6.1.0  Complete visual redesign — all components v0 style
+# ===========================================================================
+#
+# No npm install needed — same deps as v6.0.5
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.1.0/. .
+
+git add .
+git commit -m "feat: complete visual redesign, all components v0 style (v6.1.0)
+
+- HorizonTabs: clean pill tabs, status banners
+- SectorControls: lucide icons, toggle buttons
+- ImportBox: card layout, lucide buttons, hint box
+- Expanded row: v0 muted background, clean notes
+- AccuracyChart full rewrite: v0 Option A design
+  - Accuracy Stats h1 header
+  - 4 KPI cards + 4 horizon hit rate cards
+  - SVG area chart (accuracy over time)
+  - Historical batches table
+- global.css: spin keyframe animation"
+
+git tag -a v6.1.0 -m "v6.1.0: complete v0 visual redesign"
+git push origin main
+git push origin v6.1.0
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2316,6 +2344,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.3/         -> v6.0.3
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.4/         -> v6.0.4
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.5/         -> v6.0.5
+#    /Users/alex/Downloads/openbank-price-prediction_v6.1.0/         -> v6.1.0
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

@@ -1,28 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import { BarChart2, Target, CheckCircle, Clock, Download, RefreshCw, Save, Trash2 } from 'lucide-react'
 
 const HORIZONS = ['1M', '3M', '6M', '12M']
-const H_COLORS = {
-  light: ['#4f46e5', '#0ea5e9', '#16a34a', '#d97706'],
-  dark:  ['#8ba4f8', '#38bdf8', '#34d399', '#fbbf24'],
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
+const H_COLORS = ['#16a34a', '#3b82f6', '#d97706', '#8b5cf6']
 
 export default function AccuracyChart({ stats, history, loading, saving, log, configured, onLoad, onSave, onLoadBatch, onDeleteBatch }) {
-  const [activeHorizons, setActiveHorizons] = useState(['1M','3M','6M','12M'])
-  const [loadingBatch,   setLoadingBatch]   = useState(null)
-  const [deletingBatch,  setDeletingBatch]  = useState(null)
-  const [confirmDelete,  setConfirmDelete]  = useState(null)
-
-  const toggleHorizon = (h) => {
-    setActiveHorizons(prev => {
-      if (prev.includes(h)) {
-        if (prev.length === 1) return prev
-        return prev.filter(x => x !== h)
-      }
-      return [...prev, h]
-    })
-  }
+  const [loadingBatch,  setLoadingBatch]  = useState(null)
+  const [deletingBatch, setDeletingBatch] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null)
 
   const handleLoadBatch = (batch) => {
     setLoadingBatch(batch.id)
@@ -43,218 +28,204 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
   }
 
   const handleExportCSV = (batch) => {
-    // Reconstruct CSV from saved results — same format as pipeline output
-    const seen    = new Set()
-    const tickers = []
-    for (const r of batch.results) {
-      if (!seen.has(r.ticker)) { seen.add(r.ticker); tickers.push(r.ticker) }
-    }
+    const seen = new Set(), tickers = []
+    for (const r of batch.results) { if (!seen.has(r.ticker)) { seen.add(r.ticker); tickers.push(r.ticker) } }
     const rows = ['Ticker,Company,Currency,BasePrice,1M,3M,6M,12M,Date']
     for (const ticker of tickers) {
-      const res  = batch.results.filter(r => r.ticker === ticker)
-      const get  = (h) => res.find(r => r.horizon === h)?.targetPrice ?? ''
-      const base = res[0]
-      if (!base) continue
-      // Detect currency from ticker suffix
+      const res = batch.results.filter(r => r.ticker === ticker)
+      const get = (h) => res.find(r => r.horizon === h)?.targetPrice ?? ''
+      const base = res[0]; if (!base) continue
       const suffix = ticker.split('.').pop().toUpperCase()
-      const cu = ['DE','AS','PA','MC'].includes(suffix) ? 'EUR'
-               : suffix === 'L' ? 'GBP' : 'USD'
-      rows.push([ticker, base.company, cu, base.basePrice,
-        get('1M'), get('3M'), get('6M'), get('12M'), batch.date
-      ].join(','))
+      const cu = ['DE','AS','PA','MC'].includes(suffix)?'EUR':suffix==='L'?'GBP':'USD'
+      rows.push([ticker, base.company, cu, base.basePrice, get('1M'), get('3M'), get('6M'), get('12M'), batch.date].join(','))
     }
-    const csv      = rows.join('\n')
-    const blob     = new Blob([csv], { type: 'text/csv' })
-    const url      = URL.createObjectURL(blob)
-    const a        = document.createElement('a')
-    const dateStr  = batch.date.split('/').reverse().join('')  // YYYYMMDD
-    a.href         = url
-    a.download     = `Openbank_${dateStr}.csv`
-    a.click()
+    const blob = new Blob([rows.join('\n')], { type:'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `Openbank_${batch.date.split('/').reverse().join('')}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
 
-  if (!configured) {
-    return (
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:'24px', marginBottom:16, boxShadow:'var(--shadow)', textAlign:'center' }}>
-        <div style={{ fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--text)', marginBottom:8 }}>📊 Accuracy tracking not configured</div>
-        <div style={{ fontSize:'var(--fs-xs)', color:'var(--text-3)', lineHeight:1.7 }}>
-          Add <code style={{ background:'var(--surface2)', padding:'1px 5px', borderRadius:4, color:'var(--accent)' }}>VITE_GITHUB_TOKEN</code> and{' '}
-          <code style={{ background:'var(--surface2)', padding:'1px 5px', borderRadius:4, color:'var(--accent)' }}>VITE_GITHUB_REPO</code> to your <code style={{ background:'var(--surface2)', padding:'1px 5px', borderRadius:4 }}>.env</code> file.
-        </div>
+  const card = { background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:10, boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }
+  const btn = (variant) => ({
+    display:'inline-flex', alignItems:'center', gap:5,
+    fontSize:12, padding:'6px 12px', borderRadius:8,
+    cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+    transition:'background .15s',
+    ...(variant==='green' ? { border:'1px solid #16a34a', background:'#16a34a', color:'#fff' }
+      : { border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-muted-fg)' })
+  })
+
+  // Page header
+  const Header = () => (
+    <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:12 }}>
+      <div>
+        <h1 style={{ fontSize:26, fontWeight:700, color:'var(--tw-fg)', letterSpacing:'-0.02em', lineHeight:1.2 }}>Accuracy Stats</h1>
+        <p style={{ fontSize:13, color:'var(--tw-muted-fg)', marginTop:4 }}>Historical accuracy as batches mature</p>
       </div>
-    )
-  }
+      <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+        {log && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontFamily:'monospace' }}>{log}</span>}
+        {(loading||saving) && <div style={{ width:14, height:14, border:'2px solid var(--tw-border)', borderTopColor:'var(--tw-primary)', borderRadius:'50%', animation:'spin .7s linear infinite' }} />}
+        <button style={btn('neutral')} onClick={onLoad} disabled={loading}>
+          <RefreshCw size={13} /> Load history
+        </button>
+        <button style={btn('green')} onClick={onSave} disabled={saving||loading}>
+          <Save size={13} /> Save batch
+        </button>
+      </div>
+    </div>
+  )
+
+  if (!configured) return (
+    <div>
+      <Header />
+      <div style={{ ...card, padding:24, textAlign:'center' }}>
+        <BarChart2 size={32} color="var(--tw-muted-fg)" style={{ margin:'0 auto 12px' }} />
+        <div style={{ fontSize:14, fontWeight:600, color:'var(--tw-fg)', marginBottom:6 }}>Accuracy tracking not configured</div>
+        <div style={{ fontSize:13, color:'var(--tw-muted-fg)' }}>Add Supabase credentials to your .env file to enable history tracking.</div>
+      </div>
+    </div>
+  )
+
+  if (!stats && !loading) return (
+    <div>
+      <Header />
+      <div style={{ ...card, padding:32, textAlign:'center' }}>
+        <BarChart2 size={32} color="var(--tw-muted-fg)" style={{ margin:'0 auto 12px' }} />
+        <div style={{ fontSize:14, fontWeight:600, color:'var(--tw-fg)', marginBottom:6 }}>No history loaded</div>
+        <div style={{ fontSize:13, color:'var(--tw-muted-fg)', marginBottom:16 }}>Click "Load history" to fetch accuracy data from Supabase.</div>
+        <button style={btn('neutral')} onClick={onLoad}><RefreshCw size={13} /> Load history</button>
+      </div>
+    </div>
+  )
+
+  const overallHits = stats?.byHorizon.reduce((a,h)=>a+h.hit,0) ?? 0
+  const overallMiss = stats?.byHorizon.reduce((a,h)=>a+h.miss,0) ?? 0
+  const overallAwait = stats?.byHorizon.reduce((a,h)=>a+(h.total-h.hit-h.miss-h.close),0) ?? 0
 
   return (
-    <div style={{ marginBottom:16 }}>
-
-      {/* Header bar */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, flexWrap:'wrap', gap:8 }}>
-        <div style={{ fontSize:16, fontWeight:700, color:'var(--text)' }}>
-          📊 Accuracy tracking
-        </div>
-        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-          {log && <span style={{ fontSize:'var(--fs-xxs)', color:'var(--text-3)', fontFamily:'monospace' }}>{log}</span>}
-          {(loading || saving) && <Spinner />}
-          <button
-            style={btnStyle('neutral')}
-            onClick={onLoad}
-            disabled={loading}
-          >
-            ↓ Load history
-          </button>
-          <button
-            style={btnStyle('green')}
-            onClick={onSave}
-            disabled={saving || loading}
-          >
-            ↑ Save batch results
-          </button>
-        </div>
-      </div>
-
-      {/* Not loaded yet */}
-      {!stats && !loading && (
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:'20px', textAlign:'center', boxShadow:'var(--shadow)' }}>
-          <div style={{ fontSize:'var(--fs-sm)', color:'var(--text-3)' }}>Click "Load history" to fetch accuracy data from GitHub</div>
-        </div>
-      )}
+    <div>
+      <Header />
 
       {stats && <>
-
-        {/* KPI Cards */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, marginBottom:14 }}>
-          <KpiCard label="Total evaluated" value={stats.evaluated}      color="var(--text)"   sub="predictions" />
-          <KpiCard label="Overall HIT rate" value={stats.overallRate != null ? stats.overallRate + '%' : '--'} color="var(--green)" sub={`${stats.byHorizon.reduce((a,h)=>a+h.hit,0)} reached`} />
-          <KpiCard label="Best horizon"  value={stats.bestH?.horizon  ?? '--'} color="var(--accent)" sub={stats.bestH  ? stats.bestH.hitRate  + '% hit rate' : ''} />
-          <KpiCard label="Worst horizon" value={stats.worstH?.horizon ?? '--'} color="var(--red)"    sub={stats.worstH ? stats.worstH.hitRate + '% hit rate' : ''} />
-          <KpiCard label="Batches tracked" value={stats.totalBatches}  color="var(--text)"   sub="saved batches" />
-        </div>
-
-        {/* Line chart */}
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden', boxShadow:'var(--shadow)', marginBottom:14 }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', borderBottom:'1px solid var(--border)', flexWrap:'wrap', gap:8 }}>
-            <div>
-              <div style={{ fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--text)' }}>HIT rate by horizon over time</div>
-              <div style={{ fontSize:'var(--fs-xxs)', color:'var(--text-3)', marginTop:2 }}>% of predictions that reached target price on expiry date</div>
+        {/* KPI cards */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:'1.5rem' }}>
+          {[
+            { label:'Overall hit rate', value: stats.overallRate!=null ? stats.overallRate+'%' : '--', icon:Target, sub:`${overallHits} predictions reached target`, subColor:'#16a34a' },
+            { label:'Total hits',       value: overallHits,   icon:CheckCircle, sub:`${stats.evaluated} total evaluated` },
+            { label:'Total misses',     value: overallMiss,   icon:BarChart2,   sub:`${overallMiss} predictions missed` },
+            { label:'Awaiting',         value: overallAwait,  icon:Clock,       sub:'Pending maturity' },
+          ].map(({ label, value, icon:Icon, sub, subColor }) => (
+            <div key={label} style={{ ...card, padding:'20px 20px 18px' }}>
+              <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:13, color:'var(--tw-muted-fg)', fontWeight:500 }}>{label}</span>
+                <div style={{ width:28, height:28, borderRadius:6, background:'var(--tw-muted)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <Icon size={14} color="var(--tw-muted-fg)" />
+                </div>
+              </div>
+              <div style={{ fontSize:28, fontWeight:700, color:'var(--tw-fg)', lineHeight:1.1 }}>{value}</div>
+              {sub && <div style={{ fontSize:12, marginTop:4, fontWeight:500, color: subColor||'var(--tw-muted-fg)' }}>{sub}</div>}
             </div>
-            <Legend activeHorizons={activeHorizons} onToggle={toggleHorizon} />
+          ))}
+        </div>
+
+        {/* Horizon hit rate cards */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:'1.5rem' }}>
+          {stats.byHorizon.map((h, i) => {
+            const pct = h.hitRate ?? 0
+            return (
+              <div key={h.horizon} style={{ ...card, padding:'14px 16px' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                  <span style={{ fontSize:12, color:'var(--tw-muted-fg)', fontWeight:500 }}>{h.horizon} horizon</span>
+                  <span style={{ fontSize:12, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'#dcfce7', color:'#15803d' }}>{pct}%</span>
+                </div>
+                <div style={{ width:'100%', height:5, borderRadius:3, background:'var(--tw-muted)', overflow:'hidden' }}>
+                  <div style={{ height:'100%', borderRadius:3, background:H_COLORS[i], width:`${pct}%`, transition:'width .4s' }} />
+                </div>
+                <div style={{ marginTop:6, fontSize:11, color:'var(--tw-muted-fg)' }}>{h.hit} hit · {h.miss} miss · {h.total} total</div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Accuracy trend area chart */}
+        <div style={{ ...card, marginBottom:'1.5rem', overflow:'hidden' }}>
+          <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--tw-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color:'var(--tw-fg)' }}>Prediction Accuracy Over Time</div>
+              <div style={{ fontSize:12, color:'var(--tw-muted-fg)', marginTop:2 }}>Historical accuracy as batches mature</div>
+            </div>
+            {stats.overallRate != null && (
+              <span style={{ fontSize:12, fontWeight:600, padding:'4px 10px', borderRadius:8, background:'var(--tw-muted)', color:'var(--tw-muted-fg)' }}>
+                {stats.overallRate >= (stats.chartData?.[0]?.[0] ?? stats.overallRate) ? '+' : ''}{stats.overallRate}% overall
+              </span>
+            )}
           </div>
-          <div style={{ padding:'16px' }}>
-            <Chart chartData={stats.chartData} chartLabels={stats.chartLabels} activeHorizons={activeHorizons} />
+          <div style={{ padding:16 }}>
+            <AreaChart chartData={stats.chartData} chartLabels={stats.chartLabels} />
           </div>
         </div>
 
-        {/* Breakdown by horizon */}
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden', boxShadow:'var(--shadow)', marginBottom:14 }}>
-          <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--text)' }}>
-            Breakdown by horizon
+        {/* Batch history table */}
+        <div style={{ ...card, overflow:'hidden' }}>
+          <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--tw-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={{ fontSize:14, fontWeight:600, color:'var(--tw-fg)' }}>Historical batches</div>
+            <span style={{ fontSize:12, color:'var(--tw-muted-fg)' }}>{history?.length ?? 0} batches saved</span>
           </div>
           <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'var(--fs-sm)' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
-                <tr>
-                  {['Horizon','Evaluated','HIT','CLOSE','MISS','HIT rate','HIT+CLOSE','Bar'].map(h => (
-                    <th key={h} style={{ padding:'9px 12px', textAlign:'left', fontSize:'var(--fs-xs)', fontWeight:700, color:'var(--th-text)', background:'var(--th-bg)', borderBottom:'1.5px solid var(--border)', whiteSpace:'nowrap' }}>{h}</th>
+                <tr style={{ background:'var(--tw-muted)', borderBottom:'1px solid var(--tw-border)' }}>
+                  {['Date','Stocks','Hit rate','Hits','Misses','Actions'].map(h => (
+                    <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:11, fontWeight:500, color:'var(--tw-muted-fg)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {stats.byHorizon.map((h, i) => (
-                  <tr key={h.horizon} style={{ borderBottom:'1px solid var(--border)' }}>
-                    <td style={{ padding:'10px 12px', fontWeight:700, color:H_COLORS.light[i] }}>{h.horizon}</td>
-                    <td style={{ padding:'10px 12px', color:'var(--text-2)' }}>{h.total}</td>
-                    <td style={{ padding:'10px 12px' }}><VerdictTag type="hit">{h.hit}</VerdictTag></td>
-                    <td style={{ padding:'10px 12px' }}><VerdictTag type="close">{h.close}</VerdictTag></td>
-                    <td style={{ padding:'10px 12px' }}><VerdictTag type="miss">{h.miss}</VerdictTag></td>
-                    <td style={{ padding:'10px 12px', fontWeight:700, color: h.hitRate >= 60 ? 'var(--green)' : h.hitRate >= 40 ? 'var(--amber)' : 'var(--red)' }}>
-                      {h.hitRate != null ? h.hitRate + '%' : '--'}
-                    </td>
-                    <td style={{ padding:'10px 12px', color:'var(--text-2)' }}>
-                      {h.hitClose != null ? h.hitClose + '%' : '--'}
-                    </td>
-                    <td style={{ padding:'10px 12px' }}>
-                      {h.total > 0 && <AccBar hit={h.hit} close={h.close} miss={h.miss} total={h.total} color={H_COLORS.light[i]} />}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Batch history */}
-        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden', boxShadow:'var(--shadow)' }}>
-          <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--text)' }}>
-            Batch history
-          </div>
-          <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'var(--fs-sm)' }}>
-              <thead>
-                <tr>
-                  {['Batch date','Stocks','Evaluated','HIT','CLOSE','MISS','Awaiting','HIT rate','First saved','Last updated','Load','CSV','Delete'].map(h => (
-                    <th key={h} style={{ padding:'9px 12px', textAlign:'left', fontSize:'var(--fs-xs)', fontWeight:700, color:'var(--th-text)', background:'var(--th-bg)', borderBottom:'1.5px solid var(--border)', whiteSpace:'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {stats.batchSummary.map((b, i) => {
-                  const batch    = history.batches.find(x => x.id === b.id)
-                  const isLoading = loadingBatch === b.id
+                {(!history||history.length===0) && (
+                  <tr><td colSpan={6} style={{ padding:'24px', textAlign:'center', color:'var(--tw-muted-fg)', fontSize:13 }}>No batches saved yet</td></tr>
+                )}
+                {history?.map(batch => {
+                  const hits = batch.results?.filter(r=>r.verdict==='hit').length ?? 0
+                  const miss = batch.results?.filter(r=>r.verdict==='miss').length ?? 0
+                  const total = batch.stocks ?? batch.results?.length ?? 0
+                  const rate = batch.hit_rate ?? (total>0 ? Math.round(hits/total*100) : null)
                   return (
-                    <tr key={b.id} style={{ borderBottom: i < stats.batchSummary.length-1 ? '1px solid var(--border)' : 'none', background: i%2===1?'var(--surface2)':'transparent' }}>
-                      <td style={{ padding:'10px 12px', fontWeight:600, color:'var(--text)' }}>{b.date}</td>
-                      <td style={{ padding:'10px 12px', color:'var(--text-2)' }}>{b.stocks}</td>
-                      <td style={{ padding:'10px 12px', color:'var(--text-2)' }}>{b.evaluated}</td>
-                      <td style={{ padding:'10px 12px' }}><VerdictTag type="hit">{b.hit}</VerdictTag></td>
-                      <td style={{ padding:'10px 12px' }}><VerdictTag type="close">{b.close}</VerdictTag></td>
-                      <td style={{ padding:'10px 12px' }}><VerdictTag type="miss">{b.miss}</VerdictTag></td>
-                      <td style={{ padding:'10px 12px' }}><VerdictTag type="await">{b.awaiting}</VerdictTag></td>
-                      <td style={{ padding:'10px 12px', fontWeight:700, color: b.hitRate >= 60 ? 'var(--green)' : b.hitRate >= 40 ? 'var(--amber)' : b.hitRate != null ? 'var(--red)' : 'var(--text-3)' }}>
-                        {b.hitRate != null ? b.hitRate + '%' : '—'}
-                      </td>
-                      <td style={{ padding:'10px 12px', fontSize:'var(--fs-xxs)', color:'var(--text-3)' }}>
-                        {b.savedAt ? new Date(b.savedAt).toLocaleDateString('en-GB') : '—'}
-                      </td>
-                      <td style={{ padding:'10px 12px', fontSize:'var(--fs-xxs)', color: b.updatedAt && b.updatedAt !== b.savedAt ? 'var(--accent)' : 'var(--text-3)' }}>
-                        {b.updatedAt ? new Date(b.updatedAt).toLocaleDateString('en-GB') : '—'}
-                      </td>
-                      <td style={{ padding:'8px 12px' }}>
-                        {batch && (
-                          <button
-                            onClick={() => handleLoadBatch(batch)}
-                            disabled={isLoading}
-                            style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:600, border:'1.5px solid var(--border-blue)', background: isLoading ? 'var(--green-bg)' : 'var(--surface)', color: isLoading ? 'var(--green)' : 'var(--accent)', whiteSpace:'nowrap', transition:'all .2s' }}
-                          >
-                            {isLoading ? '✓ Loaded' : '↑ Load'}
-                          </button>
+                    <tr key={batch.id} style={{ borderBottom:'1px solid var(--tw-border)' }}
+                      onMouseEnter={e=>e.currentTarget.style.background='var(--tw-muted)'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <td style={{ padding:'12px 14px', fontWeight:500, color:'var(--tw-fg)' }}>{batch.date}</td>
+                      <td style={{ padding:'12px 14px', color:'var(--tw-muted-fg)' }}>{total}</td>
+                      <td style={{ padding:'12px 14px' }}>
+                        {rate != null && (
+                          <span style={{ fontSize:12, fontWeight:600, padding:'2px 8px', borderRadius:20, background: rate>=60?'#dcfce7':rate>=40?'#fef9c3':'#fee2e2', color: rate>=60?'#15803d':rate>=40?'#a16207':'#b91c1c' }}>
+                            {rate}%
+                          </span>
                         )}
                       </td>
-                      <td style={{ padding:'8px 12px' }}>
-                        {batch && (
+                      <td style={{ padding:'12px 14px', color:'#16a34a', fontWeight:600 }}>{hits}</td>
+                      <td style={{ padding:'12px 14px', color:'#dc2626', fontWeight:600 }}>{miss}</td>
+                      <td style={{ padding:'12px 14px' }}>
+                        <div style={{ display:'flex', gap:6 }}>
                           <button
-                            onClick={() => handleExportCSV(batch)}
-                            style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:600, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-2)', whiteSpace:'nowrap' }}
+                            style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-fg)', cursor:'pointer', fontFamily:'inherit' }}
+                            onClick={()=>handleLoadBatch(batch)}
                           >
-                            ↓ CSV
+                            {loadingBatch===batch.id ? '…' : 'Load'}
                           </button>
-                        )}
-                      </td>
-                      <td style={{ padding:'8px 12px' }}>
-                        {(() => {
-                          const isDeleting = deletingBatch === b.id
-                          const isConfirm  = confirmDelete === b.id
-                          return (
-                            <button
-                              onClick={() => handleDeleteBatch(b.id)}
-                              disabled={isDeleting}
-                              style={{ fontSize:'var(--fs-xxs)', padding:'4px 10px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:600, whiteSpace:'nowrap', transition:'all .2s', border: isConfirm ? '1.5px solid var(--red)' : '1px solid var(--border)', background: isConfirm ? 'var(--red-bg)' : 'transparent', color: isConfirm ? 'var(--red)' : 'var(--text-3)' }}
-                            >
-                              {isDeleting ? '…' : isConfirm ? '⚠ Confirm' : '🗑 Delete'}
-                            </button>
-                          )
-                        })()}
+                          <button
+                            style={{ fontSize:11, padding:'4px 8px', borderRadius:6, border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-muted-fg)', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:3 }}
+                            onClick={()=>handleExportCSV(batch)}
+                          >
+                            <Download size={11} />
+                          </button>
+                          <button
+                            style={{ fontSize:11, padding:'4px 8px', borderRadius:6, border:`1px solid ${confirmDelete===batch.id?'#dc2626':'var(--tw-border)'}`, background: confirmDelete===batch.id?'#fee2e2':'var(--tw-card)', color: confirmDelete===batch.id?'#dc2626':'var(--tw-muted-fg)', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:3 }}
+                            onClick={()=>handleDeleteBatch(batch.id)}
+                          >
+                            {deletingBatch===batch.id ? '…' : <Trash2 size={11} />}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -263,177 +234,75 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
             </table>
           </div>
         </div>
-
       </>}
     </div>
   )
 }
 
-// ── Canvas chart ──────────────────────────────────────────────────────────────
-
-function Chart({ chartData, chartLabels, activeHorizons }) {
-  const canvasRef = useRef(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || !chartData?.length) return
-    const ctx = canvas.getContext('2d')
-    const W   = canvas.width
-    const H   = canvas.height
-    const dark = document.getElementById('root')?.dataset?.theme === 'dark'
-    const colors    = dark ? H_COLORS.dark : H_COLORS.light
-    const textColor = dark ? '#96aece' : '#6b7280'
-    const gridColor = dark ? 'rgba(160,195,255,0.12)' : 'rgba(0,0,0,0.07)'
-    const dotCenter = dark ? '#2e3f60' : '#ffffff'
-
-    ctx.clearRect(0, 0, W, H)
-
-    const pad = { top:24, right:24, bottom:52, left:48 }
-    const cW  = W - pad.left - pad.right
-    const cH  = H - pad.top - pad.bottom
-    const n   = chartLabels.length
-    if (n === 0) return
-    const slotW = cW / Math.max(n, 1)
-
-    // Grid + Y labels
-    for (let y = 0; y <= 100; y += 25) {
-      const yPos = pad.top + cH - (y / 100 * cH)
-      ctx.strokeStyle = gridColor
-      ctx.lineWidth = 1
-      ctx.beginPath(); ctx.moveTo(pad.left, yPos); ctx.lineTo(W - pad.right, yPos); ctx.stroke()
-      ctx.fillStyle = textColor
-      ctx.font = '11px system-ui'
-      ctx.textAlign = 'right'
-      ctx.fillText(y + '%', pad.left - 6, yPos + 4)
-    }
-
-    // X labels
-    chartLabels.forEach((label, i) => {
-      const x = pad.left + i * slotW + slotW / 2
-      ctx.fillStyle = textColor
-      ctx.font = '11px system-ui'
-      ctx.textAlign = 'center'
-      ctx.fillText(label, x, H - 10)
-    })
-
-    // Lines + dots — only for active horizons
-    chartData.forEach((points, hi) => {
-      const horizonName = HORIZONS[hi]
-      const isActive    = activeHorizons.includes(horizonName)
-      const color       = colors[hi]
-
-      // Draw inactive as faint dashed line
-      ctx.strokeStyle = isActive ? color : (dark ? 'rgba(150,174,206,0.2)' : 'rgba(0,0,0,0.1)')
-      ctx.lineWidth   = isActive ? 2.5 : 1
-      ctx.setLineDash(isActive ? [] : [4, 4])
-      ctx.lineJoin    = 'round'
-      ctx.beginPath()
-      let started = false
-      points.forEach((v, i) => {
-        if (v === null) return
-        const x = pad.left + i * slotW + slotW / 2
-        const y = pad.top + cH - (v / 100 * cH)
-        if (!started) { ctx.moveTo(x, y); started = true } else ctx.lineTo(x, y)
-      })
-      ctx.stroke()
-      ctx.setLineDash([])
-
-      // Dots + value labels — only for active
-      if (isActive) {
-        points.forEach((v, i) => {
-          if (v === null) return
-          const x = pad.left + i * slotW + slotW / 2
-          const y = pad.top + cH - (v / 100 * cH)
-          ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fillStyle = color; ctx.fill()
-          ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI*2); ctx.fillStyle = dotCenter; ctx.fill()
-          ctx.fillStyle = color
-          ctx.font = 'bold 11px system-ui'
-          ctx.textAlign = 'center'
-          ctx.fillText(v + '%', x, y - 10)
-        })
-      }
-    })
-  }, [chartData, chartLabels, activeHorizons])
-
-  return <canvas ref={canvasRef} width={900} height={300} style={{ width:'100%', height:'auto' }} />
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function KpiCard({ label, value, color, sub }) {
-  return (
-    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:'12px 14px', boxShadow:'var(--shadow)' }}>
-      <div style={{ fontSize:'var(--fs-xxs)', fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:5 }}>{label}</div>
-      <div style={{ fontSize:20, fontWeight:700, color, lineHeight:1.1 }}>{value}</div>
-      {sub && <div style={{ fontSize:'var(--fs-xs)', marginTop:3, color:'var(--text-3)' }}>{sub}</div>}
-    </div>
-  )
-}
-
-function VerdictTag({ type, children }) {
-  const cfg = {
-    hit:   { bg:'var(--green-bg)', color:'var(--green)' },
-    close: { bg:'var(--amber-bg)', color:'var(--amber)' },
-    miss:  { bg:'var(--red-bg)',   color:'var(--red)'   },
-    await: { bg:'var(--surface2)', color:'var(--text-3)' },
+// ── Area chart (SVG) ──────────────────────────────────────────────────────────
+function AreaChart({ chartData, chartLabels }) {
+  if (!chartData || !chartLabels || chartLabels.length < 2) {
+    return (
+      <div style={{ height:160, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--tw-muted-fg)', fontSize:13 }}>
+        Not enough data to display chart
+      </div>
+    )
   }
-  const c = cfg[type] ?? cfg.await
-  return <span style={{ display:'inline-block', fontSize:'var(--fs-xxs)', fontWeight:700, padding:'2px 8px', borderRadius:20, background:c.bg, color:c.color }}>{children}</span>
-}
 
-function AccBar({ hit, close, miss, total, color }) {
-  const hitPct   = Math.round(hit   / total * 100)
-  const closePct = Math.round(close / total * 100)
-  const missPct  = 100 - hitPct - closePct
-  return (
-    <div style={{ display:'flex', height:8, borderRadius:4, overflow:'hidden', width:120, background:'var(--surface2)' }}>
-      {hitPct   > 0 && <div style={{ width:hitPct   + '%', background:'var(--green)' }} />}
-      {closePct > 0 && <div style={{ width:closePct + '%', background:'var(--amber)' }} />}
-      {missPct  > 0 && <div style={{ width:missPct  + '%', background:'var(--red)'   }} />}
-    </div>
-  )
-}
+  const W = 600, H = 140, PAD = { t:10, b:30, l:40, r:10 }
+  const iW = W - PAD.l - PAD.r
+  const iH = H - PAD.t - PAD.b
 
-function Legend({ activeHorizons, onToggle }) {
-  const dark = document.getElementById('root')?.dataset?.theme === 'dark'
-  const colors = dark ? H_COLORS.dark : H_COLORS.light
+  // Use overall (average across all horizons per batch)
+  const vals = chartLabels.map((_, i) => {
+    const row = chartData.map(series => series[i]).filter(v => v != null)
+    return row.length ? row.reduce((a,b)=>a+b,0)/row.length : null
+  }).filter(v => v != null)
+
+  if (vals.length < 2) return null
+
+  const minV = Math.max(0, Math.min(...vals) - 10)
+  const maxV = Math.min(100, Math.max(...vals) + 10)
+
+  const x = (i) => PAD.l + (i / (vals.length-1)) * iW
+  const y = (v) => PAD.t + iH - ((v - minV) / (maxV - minV)) * iH
+
+  const linePts  = vals.map((v,i) => `${x(i)},${y(v)}`).join(' ')
+  const areaPts  = `${x(0)},${PAD.t+iH} ${vals.map((v,i)=>`${x(i)},${y(v)}`).join(' ')} ${x(vals.length-1)},${PAD.t+iH}`
+
+  // Y gridlines
+  const yTicks = [50, 65, 80, 100].filter(v => v >= minV && v <= maxV)
+
   return (
-    <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
-      {HORIZONS.map((h, i) => {
-        const active = activeHorizons.includes(h)
-        const color  = colors[i]
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow:'visible' }}>
+      <defs>
+        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#16a34a" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#16a34a" stopOpacity="0.01" />
+        </linearGradient>
+      </defs>
+
+      {/* Gridlines */}
+      {yTicks.map(v => (
+        <g key={v}>
+          <line x1={PAD.l} y1={y(v)} x2={PAD.l+iW} y2={y(v)} stroke="var(--tw-border)" strokeWidth={1} strokeDasharray="4 4" />
+          <text x={PAD.l-6} y={y(v)+4} fontSize={9} fill="var(--tw-muted-fg)" textAnchor="end">{v}%</text>
+        </g>
+      ))}
+
+      {/* Area fill */}
+      <polygon points={areaPts} fill="url(#areaGrad)" />
+
+      {/* Line */}
+      <polyline points={linePts} fill="none" stroke="#16a34a" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+
+      {/* X labels */}
+      {chartLabels.filter((_,i) => i % Math.max(1, Math.floor(chartLabels.length/6)) === 0).map((label, _, arr) => {
+        const i = chartLabels.indexOf(label)
         return (
-          <button
-            key={h}
-            onClick={() => onToggle(h)}
-            title={active ? `Hide ${h}` : `Show ${h}`}
-            style={{
-              display:'flex', alignItems:'center', gap:6,
-              fontSize:'var(--fs-xxs)', fontWeight:600,
-              padding:'4px 10px', borderRadius:20, cursor:'pointer',
-              fontFamily:'inherit', transition:'all .15s',
-              border: active ? `1.5px solid ${color}` : '1.5px solid var(--border)',
-              background: active ? 'transparent' : 'var(--surface2)',
-              color: active ? color : 'var(--text-3)',
-              opacity: active ? 1 : 0.5,
-            }}
-          >
-            <div style={{ width:16, height:3, borderRadius:2, background: active ? color : 'var(--text-3)', transition:'background .15s' }} />
-            {h}
-          </button>
+          <text key={label} x={x(i)} y={H-8} fontSize={9} fill="var(--tw-muted-fg)" textAnchor="middle">{label}</text>
         )
       })}
-    </div>
+    </svg>
   )
-}
-
-function Spinner() {
-  return <div style={{ width:12, height:12, border:'1.5px solid var(--border)', borderTopColor:'var(--accent)', borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
-}
-
-function btnStyle(type) {
-  const base = { fontSize:'var(--fs-sm)', padding:'6px 13px', borderRadius:'var(--radius)', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }
-  if (type === 'green')   return { ...base, border:'1.5px solid var(--border-green)', background:'var(--green-bg)', color:'var(--green)' }
-  if (type === 'blue')    return { ...base, border:'1.5px solid var(--border-blue)',  background:'var(--surface)',  color:'var(--accent)' }
-  return { ...base, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)' }
 }

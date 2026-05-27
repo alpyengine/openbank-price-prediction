@@ -59,7 +59,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
   const sectorText   = fundamental===undefined?'...':fundamental===null?'--':fundamental.sector  ||'--'
   const industryText = fundamental===undefined?'...':fundamental===null?'--':fundamental.industry ||'--'
-  const fundColor    = (fundamental===undefined||fundamental===null) ? 'var(--text-3)' : 'var(--text-2)'
+  const fundColor    = (fundamental===undefined||fundamental===null) ? 'var(--tw-muted-fg)' : 'var(--tw-muted-fg)'
 
   const td = { padding:'12px 14px', verticalAlign:'middle', borderBottom:'1px solid var(--tw-border)' }
 
@@ -74,17 +74,17 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
               onClick={() => setShowDesc(false)}
             >
               <div
-                style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', maxWidth:540, width:'100%', maxHeight:'80vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.3)' }}
+                style={{ background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:'var(--radius-lg)', maxWidth:540, width:'100%', maxHeight:'80vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.3)' }}
                 onClick={e => e.stopPropagation()}
               >
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid var(--border)' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid var(--tw-border)' }}>
                   <div>
-                    <div style={{ fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--text)' }}>{stock.t} — {stock.co}</div>
-                    <div style={{ fontSize:'var(--fs-xs)', color:'var(--text-3)', marginTop:2 }}>{fundamental.industry} · {fundamental.sector}</div>
+                    <div style={{ fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--tw-fg)' }}>{stock.t} — {stock.co}</div>
+                    <div style={{ fontSize:'var(--fs-xs)', color:'var(--tw-muted-fg)', marginTop:2 }}>{fundamental.industry} · {fundamental.sector}</div>
                   </div>
-                  <button style={{ fontSize:18, border:'none', background:'transparent', cursor:'pointer', color:'var(--text-3)', padding:'2px 6px', borderRadius:'var(--radius)', fontFamily:'inherit' }} onClick={() => setShowDesc(false)}>✕</button>
+                  <button style={{ fontSize:18, border:'none', background:'transparent', cursor:'pointer', color:'var(--tw-muted-fg)', padding:'2px 6px', borderRadius:'var(--radius)', fontFamily:'inherit' }} onClick={() => setShowDesc(false)}>✕</button>
                 </div>
-                <div style={{ padding:18, fontSize:'var(--fs-sm)', color:'var(--text-2)', lineHeight:1.7 }}>
+                <div style={{ padding:18, fontSize:'var(--fs-sm)', color:'var(--tw-muted-fg)', lineHeight:1.7 }}>
                   {fundamental.description}
                 </div>
               </div>
@@ -112,19 +112,19 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
         {/* Price */}
         <td style={td}>
-          {histLoading && <span style={{ color:'var(--text-3)', fontSize:11 }}>…</span>}
+          {histLoading && <span style={{ color:'var(--tw-muted-fg)', fontSize:11 }}>…</span>}
           {!histLoading && isHistorical && histEntry && (
             <div>
               <span style={{ color:'var(--blue)', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{histEntry.price.toFixed(2)}</span>
-              <span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>exp.</span>
+              <span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>exp.</span>
             </div>
           )}
-          {!histLoading && isHistorical && !histEntry && <span style={{ color:'var(--red)', fontSize:11 }}>n/a</span>}
+          {!histLoading && isHistorical && !histEntry && <span style={{ color:'#dc2626', fontSize:11 }}>n/a</span>}
           {!isHistorical && (
             <div>
               {autoPrice==null
-                ? <span style={{ color:'var(--text-3)', fontSize:11 }}>--</span>
-                : <span style={{ color:'var(--green)', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{autoPrice.toFixed(2)}</span>
+                ? <span style={{ color:'var(--tw-muted-fg)', fontSize:11 }}>--</span>
+                : <span style={{ color:'#16a34a', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{autoPrice.toFixed(2)}</span>
               }
             </div>
           )}
@@ -170,7 +170,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
             vfar:     { color:'#b91c1c', fill:'#ef4444' },
             hit:      { color:'#15803d', fill:'#16a34a' },
             miss:     { color:'#6b7280', fill:'#d1d5db' },
-            awaiting: { color:'var(--text-3)', fill:'var(--border)' },
+            awaiting: { color:'var(--tw-muted-fg)', fill:'var(--tw-border)' },
           }
           const zs = ZONE_STYLES[zone]
 
@@ -187,10 +187,10 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
             <td key={i} style={{ ...td, minWidth:80 }}>
               <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
-                  <span style={{ fontSize:9, fontWeight:600, color:'var(--text-3)' }}>{hKey}</span>
+                  <span style={{ fontSize:9, fontWeight:600, color:'var(--tw-muted-fg)' }}>{hKey}</span>
                   <span style={{ fontSize:10, fontWeight:700, color:zs.color, whiteSpace:'nowrap' }}>{label}</span>
                 </div>
-                <div style={{ width:'100%', height:6, borderRadius:3, background:'var(--surface2)', overflow:'hidden' }}>
+                <div style={{ width:'100%', height:6, borderRadius:3, background:'var(--tw-muted)', overflow:'hidden' }}>
                   <div style={{ height:'100%', borderRadius:3, background:zs.fill, width:`${Math.max(0,Math.min(100,fillWidth))}%`, transition:'width .3s' }} />
                 </div>
               </div>
@@ -203,7 +203,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           {(() => {
             const spyPct  = marketData?.spy?.changePct ?? null
             const stockChg = (stock.b && (p ?? autoPrice)) ? (((p ?? autoPrice) - stock.b) / stock.b * 100) : null
-            if (spyPct == null || stockChg == null) return <span style={{ fontSize:11, color:'var(--text-3)' }}>--</span>
+            if (spyPct == null || stockChg == null) return <span style={{ fontSize:11, color:'var(--tw-muted-fg)' }}>--</span>
             const diff = stockChg - spyPct
             const beat = diff >= 0
             return (
@@ -211,7 +211,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
                 <span style={{ fontSize:11, fontWeight:600, color: beat ? '#15803d' : '#b91c1c', whiteSpace:'nowrap' }}>
                   {beat ? '✅' : '❌'} {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
                 </span>
-                <span style={{ fontSize:9, color:'var(--text-3)' }}>SPY</span>
+                <span style={{ fontSize:9, color:'var(--tw-muted-fg)' }}>SPY</span>
               </div>
             )
           })()}
@@ -226,7 +226,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
             const etfPct    = etfData?.changePct ?? null
             const stockChg  = (stock.b && (p ?? autoPrice)) ? (((p ?? autoPrice) - stock.b) / stock.b * 100) : null
             if (!etfSym || etfPct == null || stockChg == null) {
-              return <span style={{ fontSize:11, color:'var(--text-3)' }}>{etfSym ?? '--'}</span>
+              return <span style={{ fontSize:11, color:'var(--tw-muted-fg)' }}>{etfSym ?? '--'}</span>
             }
             const diff = stockChg - etfPct
             const beat = diff >= 0
@@ -235,7 +235,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
                 <span style={{ fontSize:11, fontWeight:600, color: beat ? '#15803d' : '#b91c1c', whiteSpace:'nowrap' }}>
                   {beat ? '✅' : '❌'} {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
                 </span>
-                <span style={{ fontSize:9, color:'var(--text-3)' }}>{etfSym}</span>
+                <span style={{ fontSize:9, color:'var(--tw-muted-fg)' }}>{etfSym}</span>
               </div>
             )
           })()}
@@ -243,16 +243,13 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
       </tr>
 
       {expanded && (
-        <tr style={{ borderBottom:'1px solid var(--border)' }}>
-          <td colSpan={16} style={{ padding:'0 10px 10px 32px', background:'var(--surface2)' }}>
+        <tr style={{ borderBottom:'1px solid var(--tw-border)' }}>
+          <td colSpan={16} style={{ padding:'0 16px 16px 32px', background:'var(--tw-muted)' }}>
             <FundamentalsPanel fundamental={fundamental} ticker={stock.t} tg={tg} onShowDesc={() => setShowDesc(true)} />
-
-            {/* Market comparison */}
             {marketData && <MarketComparison stock={stock} fundamental={fundamental} marketData={marketData} autoPrice={autoPrice} />}
-
-            {/* Notes field */}
-            <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--border)' }}>
-              <div style={{ fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5, fontWeight:700 }}>
+            {/* Notes */}
+            <div style={{ marginTop:14, paddingTop:12, borderTop:'1px solid var(--tw-border)' }}>
+              <div style={{ fontSize:11, color:'var(--tw-muted-fg)', fontWeight:500, marginBottom:6, display:'flex', alignItems:'center', gap:5 }}>
                 📝 Notes
               </div>
               <textarea
@@ -260,8 +257,14 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
                 onChange={e => setNoteVal(e.target.value)}
                 onBlur={() => onNoteChange && onNoteChange(stock.t, noteVal)}
                 onClick={e => e.stopPropagation()}
-                placeholder={`Add notes for ${stock.t.split('.')[0]}… (saved automatically on blur)`}
-                style={{ width:'100%', maxWidth:600, height:64, fontSize:'var(--fs-xs)', fontFamily:'inherit', padding:'7px 10px', border:'1px solid var(--border)', borderRadius:'var(--radius)', background:'var(--surface)', color:'var(--text)', resize:'vertical', outline:'none', lineHeight:1.6 }}
+                placeholder={`Add notes for ${stock.t.split('.')[0]}…`}
+                style={{
+                  width:'100%', maxWidth:600, height:64,
+                  fontSize:12, fontFamily:'inherit',
+                  padding:'8px 10px', border:'1px solid var(--tw-border)',
+                  borderRadius:8, background:'var(--tw-card)',
+                  color:'var(--tw-fg)', resize:'vertical', outline:'none', lineHeight:1.5,
+                }}
               />
             </div>
           </td>
@@ -329,13 +332,13 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
     const isStock  = row.isStock
     const isPos    = row.pct >= 0
     const barColor = isStock
-      ? (isPos ? 'var(--green)' : 'var(--red)')
+      ? (isPos ? '#16a34a' : '#dc2626')
       : (isPos ? 'rgba(34,197,94,0.35)' : 'rgba(220,38,38,0.3)')
-    const pctColor = isPos ? 'var(--green)' : 'var(--red)'
+    const pctColor = isPos ? '#16a34a' : '#dc2626'
     const nameStyle = {
       width:NAME_W, flexShrink:0, fontSize:11,
       fontWeight: isStock ? 700 : 500,
-      color: isStock ? 'var(--accent)' : 'var(--text-2)',
+      color: isStock ? 'var(--tw-primary)' : 'var(--tw-muted-fg)',
       whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
       display:'flex', alignItems:'center', gap:3,
     }
@@ -352,8 +355,8 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
             {isStock && <span style={{ fontSize:9, flexShrink:0 }}>▶</span>}
             {row.label}
           </div>
-          <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', overflow:'hidden' }}>
-            <div style={{ height:'100%', width: barWidth + '%', borderRadius:3, background: barColor, outline: isStock ? '1.5px solid var(--accent)' : 'none', outlineOffset:1, transition:'width .4s ease' }} />
+          <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--tw-muted)', overflow:'hidden' }}>
+            <div style={{ height:'100%', width: barWidth + '%', borderRadius:3, background: barColor, outline: isStock ? '1.5px solid var(--tw-primary)' : 'none', outlineOffset:1, transition:'width .4s ease' }} />
           </div>
           <div style={pctStyle}>{fmt(row.pct)}</div>
         </div>
@@ -368,9 +371,9 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
             {isStock && <span style={{ fontSize:9, flexShrink:0 }}>▶</span>}
             {row.label}
           </div>
-          <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--surface2)', overflow:'hidden', position:'relative' }}>
-            <div style={{ position:'absolute', top:0, height:'100%', borderRadius:3, background: barColor, left: barLeft + '%', width: barPct + '%', outline: isStock ? '1.5px solid var(--accent)' : 'none', outlineOffset:1, transition:'all .4s ease' }} />
-            <div style={{ position:'absolute', top:0, bottom:0, left:'50%', width:1.5, background:'var(--text-3)', opacity:0.4 }} />
+          <div style={{ flex:1, height:BAR_H, borderRadius:3, background:'var(--tw-muted)', overflow:'hidden', position:'relative' }}>
+            <div style={{ position:'absolute', top:0, height:'100%', borderRadius:3, background: barColor, left: barLeft + '%', width: barPct + '%', outline: isStock ? '1.5px solid var(--tw-primary)' : 'none', outlineOffset:1, transition:'all .4s ease' }} />
+            <div style={{ position:'absolute', top:0, bottom:0, left:'50%', width:1.5, background:'var(--tw-muted-fg)', opacity:0.4 }} />
           </div>
           <div style={pctStyle}>{fmt(row.pct)}</div>
         </div>
@@ -379,14 +382,14 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
   }
 
   const badge = (diff, label) => diff == null ? null : (
-    <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: diff >= 0 ? 'var(--green-bg)' : 'var(--red-bg)', color: diff >= 0 ? 'var(--green)' : 'var(--red)' }}>
+    <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: diff >= 0 ? '#dcfce7' : '#fee2e2', color: diff >= 0 ? '#16a34a' : '#dc2626' }}>
       {diff >= 0 ? '▲' : '▼'} {diff >= 0 ? 'Beat' : 'Lagged'} {label} by {diff >= 0 ? '+' : ''}{diff.toFixed(2)}%
     </span>
   )
 
   return (
-    <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--border)' }}>
-      <div style={{ fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', fontWeight:700, marginBottom:12 }}>
+    <div style={{ marginTop:12, paddingTop:10, borderTop:'1px solid var(--tw-border)' }}>
+      <div style={{ fontSize:9, color:'var(--tw-muted-fg)', textTransform:'uppercase', letterSpacing:'0.5px', fontWeight:700, marginBottom:12 }}>
         📈 Performance ranking since {baseDate}
         <span style={{ fontStyle:'italic', fontWeight:400, marginLeft:8, textTransform:'none', letterSpacing:0 }}>
           same period for stock and indices
@@ -401,8 +404,8 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
         {isNASDAQ && badge(qqqDiff, 'QQQ')}
         {badge(etfDiff, etfSymbol)}
         {badge(indDiff, indEtfSym)}
-        {!sector && <span style={{ fontSize:11, color:'var(--text-3)', fontStyle:'italic' }}>Fetch fundamentals to see sector ETF comparison</span>}
-        {sector && !etfSymbol && <span style={{ fontSize:11, color:'var(--text-3)', fontStyle:'italic' }}>No sector ETF mapped for "{sector}"</span>}
+        {!sector && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontStyle:'italic' }}>Fetch fundamentals to see sector ETF comparison</span>}
+        {sector && !etfSymbol && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontStyle:'italic' }}>No sector ETF mapped for "{sector}"</span>}
       </div>
     </div>
   )
@@ -414,8 +417,8 @@ function FundamentalsPanel({ fundamental, ticker, tg, onShowDesc }) {
     { label:'6M target', date:tg.d6 },{ label:'12M target', date:tg.d12 },
   ] : []
 
-  const lbl = { fontSize:9, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:3, fontWeight:700 }
-  const val = { fontSize:'var(--fs-sm)', color:'var(--text)', fontWeight:500 }
+  const lbl = { fontSize:9, color:'var(--tw-muted-fg)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:3, fontWeight:700 }
+  const val = { fontSize:'var(--fs-sm)', color:'var(--tw-fg)', fontWeight:500 }
 
   return (
     <div style={{ display:'flex', gap:20, flexWrap:'wrap', paddingTop:8, alignItems:'flex-start' }}>
@@ -424,20 +427,20 @@ function FundamentalsPanel({ fundamental, ticker, tg, onShowDesc }) {
       {horizonItems.map(({ label, date }) => {
         const dl = daysLeft(date)
         const expired = dl < 0
-        const color = expired?'var(--red)':dl<=14?'var(--amber)':'var(--green)'
+        const color = expired?'#dc2626':dl<=14?'var(--amber)':'#16a34a'
         return (
           <div key={label}>
             <div style={lbl}>{label}</div>
             <div style={{ fontSize:12, fontWeight:600, color }}>{expired?`${Math.abs(dl)}d ago`:`${dl}d left`}</div>
-            <div style={{ fontSize:9, color:'var(--text-3)', marginTop:1 }}>{formatDate(date)}</div>
+            <div style={{ fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>{formatDate(date)}</div>
           </div>
         )
       })}
 
-      {horizonItems.length>0 && <div style={{ width:1, background:'var(--border)', alignSelf:'stretch', margin:'0 4px' }} />}
+      {horizonItems.length>0 && <div style={{ width:1, background:'var(--tw-border)', alignSelf:'stretch', margin:'0 4px' }} />}
 
-      {fundamental===undefined && <span style={{ fontSize:11, color:'var(--text-3)', alignSelf:'center' }}>Click "Fetch fundamentals" to load data for {ticker}</span>}
-      {fundamental===null      && <span style={{ fontSize:11, color:'var(--red)',    alignSelf:'center' }}>Fundamentals unavailable for {ticker}</span>}
+      {fundamental===undefined && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', alignSelf:'center' }}>Click "Fetch fundamentals" to load data for {ticker}</span>}
+      {fundamental===null      && <span style={{ fontSize:11, color:'#dc2626',    alignSelf:'center' }}>Fundamentals unavailable for {ticker}</span>}
 
       {fundamental && <>
         <div><div style={lbl}>Sector</div>     <div style={val}>{fundamental.sector    || '--'}</div></div>
@@ -452,7 +455,7 @@ function FundamentalsPanel({ fundamental, ticker, tg, onShowDesc }) {
                 href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${fundamental.cik}&type=10-K`}
                 target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
-                style={{ fontSize:'var(--fs-xs)', color:'var(--accent)', fontWeight:500, fontFamily:'monospace', textDecoration:'none' }}
+                style={{ fontSize:'var(--fs-xs)', color:'var(--tw-primary)', fontWeight:500, fontFamily:'monospace', textDecoration:'none' }}
               >
                 🔗 {fundamental.cik}
               </a>
@@ -460,14 +463,14 @@ function FundamentalsPanel({ fundamental, ticker, tg, onShowDesc }) {
           }
         </div>
 
-        <div style={{ width:1, background:'var(--border)', alignSelf:'stretch', margin:'0 4px' }} />
+        <div style={{ width:1, background:'var(--tw-border)', alignSelf:'stretch', margin:'0 4px' }} />
 
         {/* Website */}
         <div>
           <div style={lbl}>Website</div>
           {fundamental.website
             ? <a href={fundamental.website} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize:'var(--fs-sm)', color:'var(--accent)', fontWeight:500, textDecoration:'none' }}
+                style={{ fontSize:'var(--fs-sm)', color:'var(--tw-primary)', fontWeight:500, textDecoration:'none' }}
                 onClick={e => e.stopPropagation()}
               >
                 🔗 {fundamental.website.replace(/^https?:\/\/(www\.)?/, '')}
@@ -481,7 +484,7 @@ function FundamentalsPanel({ fundamental, ticker, tg, onShowDesc }) {
           <div>
             <div style={lbl}>Description</div>
             <button
-              style={{ fontSize:'var(--fs-xxs)', padding:'3px 8px', borderRadius:6, border:'1.5px solid var(--border-blue)', background:'var(--surface)', color:'var(--accent)', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}
+              style={{ fontSize:'var(--fs-xxs)', padding:'3px 8px', borderRadius:6, border:'1.5px solid var(--border-blue)', background:'var(--tw-card)', color:'var(--tw-primary)', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}
               onClick={e => { e.stopPropagation(); onShowDesc() }}
             >
               📄 Read more
@@ -494,30 +497,30 @@ function FundamentalsPanel({ fundamental, ticker, tg, onShowDesc }) {
 }
 
 function ResultCell({ histLoading, p, verdict, direction, isHistorical }) {
-  if (histLoading) return <span style={{ color:'var(--text-3)', fontSize:11 }}>loading…</span>
-  if (p==null)     return <span style={{ color:'var(--text-3)', fontSize:11 }}>awaiting</span>
+  if (histLoading) return <span style={{ color:'var(--tw-muted-fg)', fontSize:11 }}>loading…</span>
+  if (p==null)     return <span style={{ color:'var(--tw-muted-fg)', fontSize:11 }}>awaiting</span>
   const sub = isHistorical ? 'on target date' : 'today'
-  if (verdict==='hit')   return <div><span style={{ color:'var(--green)', fontSize:11, fontWeight:600 }}>{direction==='bearish'?'✓ Dropped':'✓ Reached'}</span><span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>{sub}</span></div>
-  if (verdict==='close') return <div><span style={{ color:'var(--amber)', fontSize:11, fontWeight:600 }}>Near target</span><span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>{sub}</span></div>
-  return <div><span style={{ color:'var(--red)', fontSize:11, fontWeight:600 }}>{direction==='bearish'?"✗ Didn't drop":'✗ Not reached'}</span><span style={{ display:'block', fontSize:9, color:'var(--text-3)', marginTop:1 }}>{sub}</span></div>
+  if (verdict==='hit')   return <div><span style={{ color:'#16a34a', fontSize:11, fontWeight:600 }}>{direction==='bearish'?'✓ Dropped':'✓ Reached'}</span><span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>{sub}</span></div>
+  if (verdict==='close') return <div><span style={{ color:'var(--amber)', fontSize:11, fontWeight:600 }}>Near target</span><span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>{sub}</span></div>
+  return <div><span style={{ color:'#dc2626', fontSize:11, fontWeight:600 }}>{direction==='bearish'?"✗ Didn't drop":'✗ Not reached'}</span><span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>{sub}</span></div>
 }
 
 function DateTag({ status }) {
-  const cfg = { past:{ bg:'var(--red-bg)', color:'var(--red)', label:'expired' }, now:{ bg:'var(--green-bg)', color:'var(--green)', label:'now' }, soon:{ bg:'var(--amber-bg)', color:'var(--amber)', label:'soon' } }
+  const cfg = { past:{ bg:'#fee2e2', color:'#dc2626', label:'expired' }, now:{ bg:'#dcfce7', color:'#16a34a', label:'now' }, soon:{ bg:'var(--amber-bg)', color:'var(--amber)', label:'soon' } }
   const c = cfg[status]; if (!c) return null
   return <span style={{ display:'inline-block', fontSize:9, padding:'1px 4px', borderRadius:6, marginLeft:4, verticalAlign:'middle', background:c.bg, color:c.color, fontWeight:600 }}>{c.label}</span>
 }
 
 function Badge({ type, children }) {
-  const cfg = { hit:{ bg:'var(--green-bg)', color:'var(--green)' }, close:{ bg:'var(--amber-bg)', color:'var(--amber)' }, miss:{ bg:'var(--red-bg)', color:'var(--red)' }, wait:{ bg:'var(--surface2)', color:'var(--text-2)' } }
+  const cfg = { hit:{ bg:'#dcfce7', color:'#16a34a' }, close:{ bg:'var(--amber-bg)', color:'var(--amber)' }, miss:{ bg:'#fee2e2', color:'#dc2626' }, wait:{ bg:'var(--tw-muted)', color:'var(--tw-muted-fg)' } }
   const c = cfg[type]
   return <span style={{ display:'inline-flex', fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:20, background:c.bg, color:c.color }}>{children}</span>
 }
 
 function DistBar({ dist, verdict }) {
   const bw    = Math.min(70, Math.abs(dist)*2.5)
-  const barBg = verdict==='hit'?'var(--green-bg)':verdict==='close'?'var(--amber-bg)':'var(--red-bg)'
-  const color = verdict==='hit'?'var(--green)':verdict==='close'?'var(--amber)':'var(--red)'
+  const barBg = verdict==='hit'?'#dcfce7':verdict==='close'?'var(--amber-bg)':'#fee2e2'
+  const color = verdict==='hit'?'#16a34a':verdict==='close'?'var(--amber)':'#dc2626'
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
       <div style={{ width:bw, height:4, borderRadius:3, background:barBg }} />

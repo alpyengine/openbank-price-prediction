@@ -130,3 +130,5 @@ body {
   --th-bg:          #293858;
   --th-text:        #d8e4f8;
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
