@@ -2282,6 +2282,27 @@ git push origin v6.1.2
 
 
 # ===========================================================================
+# STEP 72 — v6.1.3  Fix Accuracy Stats crash
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.1.3/. .
+
+git add .
+git commit -m "fix: Accuracy Stats crash — history prop conflicted with window.history (v6.1.3)
+
+AccuracyChart received a prop named 'history' which shadowed window.history.
+Calling history?.map() called .map() on window.history (not an array).
+Fixed by destructuring as: history: batches"
+
+git tag -a v6.1.3 -m "v6.1.3: fix Accuracy Stats crash"
+git push origin main
+git push origin v6.1.3
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #

@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v6.1.2
+# Openbank Price Prediction — v6.1.3
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,15 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v6.1.3 — Fix Accuracy Stats crash
+**Date:** May 2026
+
+**Root cause:** `history` prop conflicted with `window.history`. Fixed by renaming to `batches`.
+
+**Files changed:** `AccuracyChart.jsx`
+
+---
 
 ### v6.1.2 — Fix fetch buttons broken + duplicate title + wrong log message
 **Date:** May 2026
@@ -1888,3 +1897,4 @@ regardless of CORS headers on the target server.
 | v6.1.0           | 2026-05  | React + Supabase          | Complete visual redesign — all components v0 style  |
 | v6.1.1           | 2026-05  | React + Supabase          | Bug fixes + expanded panel v0 + Base Price column   |
 | v6.1.2           | 2026-05  | React + Supabase          | Fix fetch broken + duplicate title + log message    |
+| v6.1.3           | 2026-05  | React + Supabase          | Fix Accuracy Stats crash (history.map conflict)     |

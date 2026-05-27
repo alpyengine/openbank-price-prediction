@@ -4,7 +4,7 @@ import { BarChart2, Target, CheckCircle, Clock, Download, RefreshCw, Save, Trash
 const HORIZONS = ['1M', '3M', '6M', '12M']
 const H_COLORS = ['#16a34a', '#3b82f6', '#d97706', '#8b5cf6']
 
-export default function AccuracyChart({ stats, history, loading, saving, log, configured, onLoad, onSave, onLoadBatch, onDeleteBatch }) {
+export default function AccuracyChart({ stats, history: batches, loading, saving, log, configured, onLoad, onSave, onLoadBatch, onDeleteBatch }) {
   const [loadingBatch,  setLoadingBatch]  = useState(null)
   const [deletingBatch, setDeletingBatch] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -164,7 +164,7 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
         <div style={{ ...card, overflow:'hidden' }}>
           <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--tw-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <div style={{ fontSize:14, fontWeight:600, color:'var(--tw-fg)' }}>Historical batches</div>
-            <span style={{ fontSize:12, color:'var(--tw-muted-fg)' }}>{history?.length ?? 0} batches saved</span>
+            <span style={{ fontSize:12, color:'var(--tw-muted-fg)' }}>{batches?.length ?? 0} batches saved</span>
           </div>
           <div style={{ overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
@@ -176,10 +176,10 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
                 </tr>
               </thead>
               <tbody>
-                {(!history||history.length===0) && (
+                {(!batches||batches.length===0) && (
                   <tr><td colSpan={6} style={{ padding:'24px', textAlign:'center', color:'var(--tw-muted-fg)', fontSize:13 }}>No batches saved yet</td></tr>
                 )}
-                {history?.map(batch => {
+                {batches?.map(batch => {
                   const hits = batch.results?.filter(r=>r.verdict==='hit').length ?? 0
                   const miss = batch.results?.filter(r=>r.verdict==='miss').length ?? 0
                   const total = batch.stocks ?? batch.results?.length ?? 0
