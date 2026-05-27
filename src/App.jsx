@@ -204,11 +204,11 @@ export default function App() {
   const horizonExpired = activeTargetDate ? dateStatus(activeTargetDate) === 'past' : false
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'var(--tw-bg)' }}>
       <Sidebar active={activePage} onNav={setActivePage} />
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-[1200px] mx-auto px-7 py-6">
+      <main style={{ flex:1, overflowY:'auto', minWidth:0 }}>
+        <div style={{ maxWidth:1200, margin:'0 auto', padding:'24px 28px' }}>
 
           {/* Header — always visible */}
           <Header

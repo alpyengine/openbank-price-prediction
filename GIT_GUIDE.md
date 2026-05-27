@@ -2109,6 +2109,43 @@ git push origin v6.0.2
 
 
 # ===========================================================================
+# STEP 66 — v6.0.3  Tailwind 3 + inline styles — Node 18 compatible
+# ===========================================================================
+#
+# Run npm install after copying files.
+# No Supabase migration needed.
+#
+# ROLLBACK (if needed):
+# git tag -d v6.0.3
+# git push origin --delete v6.0.3
+# git reset --soft HEAD~1
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.3/. .
+# git add .
+# git commit -m "fix: Tailwind 3 and inline styles (v6.0.3)"
+# git push origin main --force
+# git tag -a v6.0.3 -m "v6.0.3"
+# git push origin v6.0.3
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.3/. .
+
+npm install
+
+git add .
+git commit -m "fix: Tailwind 3 + inline styles, Node 18 compatible (v6.0.3)
+
+- Reverted from Tailwind 4 to Tailwind 3 (Node 18 incompatible with v4)
+- Sidebar and App layout use pure inline styles — no className in JSX
+- global.css uses Tailwind 3 syntax with v0 color palette via CSS vars
+- postcss.config.js and tailwind.config.js restored for Tailwind 3"
+
+git tag -a v6.0.3 -m "v6.0.3: Tailwind 3 + inline styles"
+git push origin main
+git push origin v6.0.3
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2225,6 +2262,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.0/         -> v6.0.0
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.1/         -> v6.0.1
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.2/         -> v6.0.2
+#    /Users/alex/Downloads/openbank-price-prediction_v6.0.3/         -> v6.0.3
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

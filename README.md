@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v6.0.2
+# Openbank Price Prediction — v6.0.3
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,32 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v6.0.3 — Tailwind 3 + inline styles — Node 18 compatible
+**Date:** May 2026
+
+**Problem with v6.0.2:** Tailwind 4 requires Node ≥ 20. Current Mac has
+Node 18.20.8 which cannot be updated.
+
+**Solution:** Back to Tailwind 3 (Node 18 compatible). Sidebar and layout
+use pure inline styles — no Tailwind classes in JSX at all. Tailwind 3
+is only used for utility classes in future components if needed.
+
+**Changes:**
+- `@tailwindcss/vite` removed — back to postcss + tailwindcss ^3
+- `tw-animate-css` removed
+- `global.css` uses `@tailwind base/components/utilities` (v3 syntax)
+- CSS variables mapped to Tailwind 3 color tokens via `var(--tw-*)`
+- Sidebar 100% inline styles — no className
+- App layout 100% inline styles — no className
+- v0 color palette preserved via CSS variables
+
+**After installing:** `npm install` then `npm run dev`
+
+**Files changed:** `package.json`, `vite.config.js`, `tailwind.config.js`,
+`postcss.config.js`, `global.css`, `Sidebar.jsx`, `App.jsx`
+
+---
 
 ### v6.0.2 — Tailwind 4 + v0 theme — sidebar now works
 **Date:** May 2026
@@ -1751,3 +1777,4 @@ regardless of CORS headers on the target server.
 | v6.0.0           | 2026-05  | React + Supabase          | Full UI redesign: sidebar + horizon proximity bars  |
 | v6.0.1           | 2026-05  | React + Supabase          | Fix sidebar invisible + old columns in table        |
 | v6.0.2           | 2026-05  | React + Supabase          | Tailwind 4 + v0 theme — sidebar works correctly    |
+| v6.0.3           | 2026-05  | React + Supabase          | Tailwind 3 + inline styles — Node 18 compatible    |

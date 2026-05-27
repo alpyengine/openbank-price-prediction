@@ -1,29 +1,41 @@
 import { useState } from 'react'
 import { LayoutDashboard, BarChart2, Settings, TrendingUp, Upload, PanelLeftClose, PanelLeft } from 'lucide-react'
-import { cn } from '../lib/utils.js'
 
 const NAV = [
-  { id: 'batch',    icon: LayoutDashboard, label: 'Batch Overview'  },
-  { id: 'accuracy', icon: BarChart2,        label: 'Accuracy Stats'  },
-  { id: 'settings', icon: Settings,         label: 'Settings'        },
+  { id: 'batch',    Icon: LayoutDashboard, label: 'Batch Overview' },
+  { id: 'accuracy', Icon: BarChart2,        label: 'Accuracy Stats' },
+  { id: 'settings', Icon: Settings,         label: 'Settings'       },
 ]
 
 export default function Sidebar({ active, onNav }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <aside className={cn(
-      'border-r border-sidebar-border bg-sidebar flex flex-col transition-all duration-300 ease-in-out shrink-0',
-      collapsed ? 'w-16' : 'w-[220px]'
-    )}>
+    <aside style={{
+      width: collapsed ? 64 : 220,
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      background: 'var(--tw-sidebar)',
+      borderRight: '1px solid var(--tw-sidebar-border)',
+      transition: 'width .25s ease',
+      overflow: 'hidden',
+      height: '100%',
+    }}>
+
       {/* Logo */}
-      <div className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <TrendingUp className="h-4 w-4 text-primary-foreground" />
+      <div style={{ padding: '16px 12px', borderBottom: '1px solid var(--tw-sidebar-border)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: 'var(--tw-sidebar-primary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <TrendingUp size={16} color="var(--tw-sidebar-primary-fg)" />
           </div>
           {!collapsed && (
-            <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--tw-sidebar-fg)', whiteSpace: 'nowrap' }}>
               Openbank Forecast
             </span>
           )}
@@ -31,58 +43,86 @@ export default function Sidebar({ active, onNav }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-3">
-        <ul className="space-y-1">
-          {NAV.map(item => (
-            <li key={item.id}>
-              <button
-                onClick={() => onNav(item.id)}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  'w-full flex items-center gap-3 rounded-lg text-sm font-medium transition-colors',
-                  collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5',
-                  active === item.id
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
+      <nav style={{ flex: 1, padding: '10px 8px' }}>
+        {NAV.map(({ id, Icon, label }) => {
+          const isActive = active === id
+          return (
+            <button
+              key={id}
+              title={collapsed ? label : undefined}
+              onClick={() => onNav(id)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: collapsed ? 0 : 10,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                padding: collapsed ? '10px 0' : '9px 12px',
+                marginBottom: 2,
+                borderRadius: 8,
+                border: 'none',
+                background: isActive ? 'var(--tw-sidebar-accent)' : 'transparent',
+                color: isActive ? 'var(--tw-sidebar-accent-fg)' : 'var(--tw-muted-fg)',
+                fontWeight: isActive ? 600 : 500,
+                fontSize: 13,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'background .15s, color .15s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'var(--tw-sidebar-accent)'; e.currentTarget.style.color = 'var(--tw-sidebar-fg)' }}}
+              onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--tw-muted-fg)' }}}
+            >
+              <Icon size={16} style={{ flexShrink: 0 }} />
+              {!collapsed && <span>{label}</span>}
+            </button>
+          )
+        })}
       </nav>
 
       {/* Bottom */}
-      <div className="p-3 border-t border-sidebar-border space-y-1">
+      <div style={{ padding: '8px', borderTop: '1px solid var(--tw-sidebar-border)', flexShrink: 0 }}>
+        {/* Upload CSV button */}
         {collapsed ? (
           <button
             title="Upload CSV"
             onClick={() => onNav('batch')}
-            className="w-full flex items-center justify-center p-2.5 rounded-lg text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
+            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 0', marginBottom:4, borderRadius:8, border:'none', background:'transparent', color:'var(--tw-muted-fg)', cursor:'pointer', transition:'background .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-sidebar-accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           >
-            <Upload className="h-4 w-4" />
+            <Upload size={16} />
           </button>
         ) : (
           <button
             onClick={() => onNav('batch')}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-sidebar-accent/60 transition-colors"
+            style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'9px 12px', marginBottom:4, borderRadius:8, border:'1px solid var(--tw-sidebar-border)', background:'transparent', color:'var(--tw-muted-fg)', fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-sidebar-accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           >
-            <Upload className="h-4 w-4" />
-            Upload CSV
+            <Upload size={16} />
+            <span>Upload CSV</span>
           </button>
         )}
+
+        {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(v => !v)}
-          className={cn(
-            'w-full flex items-center gap-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors',
-            collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
-          )}
+          style={{
+            width:'100%', display:'flex', alignItems:'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: 8, padding: collapsed ? '9px 0' : '9px 12px',
+            borderRadius: 8, border: 'none', background: 'transparent',
+            color: 'var(--tw-muted-fg)', fontSize: 13, fontWeight: 500,
+            cursor: 'pointer', fontFamily: 'inherit', transition: 'background .15s',
+            whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-sidebar-accent)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
         >
           {collapsed
-            ? <PanelLeft className="h-4 w-4" />
-            : <><PanelLeftClose className="h-4 w-4" /><span>Collapse</span></>
+            ? <PanelLeft size={16} />
+            : <><PanelLeftClose size={16} /><span>Collapse</span></>
           }
         </button>
       </div>
