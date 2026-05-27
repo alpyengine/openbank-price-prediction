@@ -96,6 +96,7 @@ body {
   --blue:           #1d4ed8;
   --blue-bg:        #dbeafe;
   --amber:          #d97706;
+  --amber-bg:       #fef3c7;
   --fs-xxs:         10px;
   --fs-xs:          11px;
   --fs-sm:          13px;
@@ -126,6 +127,7 @@ body {
   --blue:           #7ab8fa;
   --blue-bg:        #1e3175;
   --amber:          #fbbf24;
+  --amber-bg:       #78350f33;
   --border:         var(--tw-border);
   --th-bg:          #293858;
   --th-text:        #d8e4f8;

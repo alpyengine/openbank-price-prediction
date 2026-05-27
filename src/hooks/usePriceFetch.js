@@ -224,20 +224,27 @@ export function usePriceFetch() {
   }, [])
 
   // ── Fetch historical price for expired horizon ─────────────────────────────
-  const fetchHistoricalForHorizon = useCallback(async (stock, targetDate, horizonKey) => {
-    const ticker   = stock.t
-    const provider = detectProvider([ticker])
-    const isAV     = provider === 'alphavantage'
-
-    setHistPrices(prev => ({ ...prev, [horizonKey]: undefined }))  // loading state
-    try {
-      const result = isAV
-        ? await fetchHistoricalPrice_AV(ticker, targetDate)
-        : await fetchHistoricalPrice_TD(ticker, targetDate)
-      setHistPrices(prev => ({ ...prev, [horizonKey]: result }))
-    } catch (err) {
-      console.warn(`[usePriceFetch] historical fetch failed for ${ticker}:`, err.message)
-      setHistPrices(prev => ({ ...prev, [horizonKey]: null }))
+  const fetchHistoricalForHorizon = useCallback(async (stocks, horizon, targetDateMap) => {
+    if (!stocks.length) return
+    for (let i = 0; i < stocks.length; i++) {
+      const stock      = stocks[i]
+      const ticker     = stock.t
+      const targetDate = targetDateMap[ticker]
+      const horizonKey = `${ticker}_${horizon}`
+      if (!targetDate) continue
+      const provider = detectProvider([ticker])
+      const isAV     = provider === 'alphavantage'
+      setHistPrices(prev => ({ ...prev, [horizonKey]: undefined }))
+      try {
+        const result = isAV
+          ? await fetchHistoricalPrice_AV(ticker, targetDate)
+          : await fetchHistoricalPrice_TD(ticker, targetDate)
+        setHistPrices(prev => ({ ...prev, [horizonKey]: result }))
+      } catch (err) {
+        console.warn(`[usePriceFetch] historical fetch failed for ${ticker}:`, err.message)
+        setHistPrices(prev => ({ ...prev, [horizonKey]: null }))
+      }
+      if (i < stocks.length - 1) await sleep(600)
     }
   }, [])
 

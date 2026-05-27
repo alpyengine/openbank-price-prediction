@@ -373,7 +373,7 @@ export default function App() {
           {activePage === 'accuracy' && (
             <AccuracyChart
               stats={stats}
-              history={history}
+              history={history?.batches ?? []}
               loading={histLoading}
               saving={histSaving}
               log={histLog}

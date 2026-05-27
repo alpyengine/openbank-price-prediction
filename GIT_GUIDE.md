@@ -2303,6 +2303,23 @@ git push origin v6.1.3
 
 
 # ===========================================================================
+# STEP 73 — v6.1.4  Fix AccuracyChart — history.batches not history
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.1.4/. .
+
+git add .
+git commit -m "fix: pass history.batches to AccuracyChart, not history object (v6.1.4)"
+
+git tag -a v6.1.4 -m "v6.1.4: fix AccuracyChart history.batches"
+git push origin main
+git push origin v6.1.4
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2445,3 +2462,26 @@ git log --oneline --graph
 #
 # 8. NODE_MODULES: Never copy node_modules/ between versions.
 #    Run npm install fresh in each React version folder if needed.
+
+# ===========================================================================
+# STEP 74 — v6.1.5  Full code review + critical bug fixes
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.1.5/. .
+
+git add .
+git commit -m "fix: full code review — historical fetch signature + amber-bg var (v6.1.5)
+
+Critical fix: fetchHistoricalForHorizon(stock, date, key) → (stocks[], horizon, dateMap)
+The App.jsx useEffect was passing an array of stocks but the hook only
+accepted a single stock. Historical prices for expired horizons now work.
+
+Also fixed: --amber-bg CSS variable was undefined, causing visual glitches
+in HorizonTabs and StockRow expired horizon styling."
+
+git tag -a v6.1.5 -m "v6.1.5: full code review and critical fixes"
+git push origin main
+git push origin v6.1.5
