@@ -1,4 +1,4 @@
-# Openbank Price Prediction — v6.1.0
+# Openbank Price Prediction — v6.1.1
 
 Web app for monitoring Openbank stock price forecasts against real market prices.
 Built with React + Vite. No backend required.
@@ -158,6 +158,37 @@ Migrating to Supabase only requires rewriting that file.
 ---
 
 ## Changelog
+
+### v6.1.1 — Bug fixes + expanded panel v0 redesign + Base Price column
+**Date:** May 2026
+
+**Bug fixes:**
+- **Accuracy Stats not navigating** — Header now receives `activePage` prop
+  and shows correct title/subtitle per page. Clear overrides and Email
+  buttons only show on Batch Overview page.
+- **Upload CSV sidebar button** — now triggers a hidden file input in App.
+  Parses CSV and imports stocks directly, then navigates to Batch Overview.
+- **Clear overrides** — was already wired correctly, now confirmed working.
+  Clears all manual price overrides entered in the table.
+
+**Expanded row panel — full v0 redesign:**
+- 4 Horizon cards: target price + date + % from current + status badge
+  (HIT/NEAR/CLOSE/MISS/AWAITING) with color-coded border
+- Market Performance: Option B centered-axis bars (positive right, negative
+  left) — green bars for positive, red for negative
+- Fundamentals strip: Sector · Industry · Market Cap · Beta · Forward P/E
+  · Last Dividend · Website — horizontal layout matching v0
+- Add Note button (replaces always-visible textarea)
+
+**Other changes:**
+- **Base Price column** added after Company in main table
+- **Settings page** updated to v0 card style
+- **AccuracyChart** interactive tooltip on hover (date + value + dot)
+
+**Files changed:** `Header.jsx`, `Sidebar.jsx`, `App.jsx`, `StockRow.jsx`,
+`StockTable.jsx`, `AccuracyChart.jsx`
+
+---
 
 ### v6.1.0 — Complete visual redesign — all components v0 style
 **Date:** May 2026
@@ -1831,3 +1862,4 @@ regardless of CORS headers on the target server.
 | v6.0.4           | 2026-05  | React + Supabase          | v0 visual style applied to all main components     |
 | v6.0.5           | 2026-05  | React + Supabase          | Fix syntax error in StockTable.jsx (orphaned Th)   |
 | v6.1.0           | 2026-05  | React + Supabase          | Complete visual redesign — all components v0 style  |
+| v6.1.1           | 2026-05  | React + Supabase          | Bug fixes + expanded panel v0 + Base Price column   |

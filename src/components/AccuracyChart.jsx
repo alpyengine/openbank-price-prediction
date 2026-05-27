@@ -239,8 +239,10 @@ export default function AccuracyChart({ stats, history, loading, saving, log, co
   )
 }
 
-// ── Area chart (SVG) ──────────────────────────────────────────────────────────
+// ── Area chart with hover tooltip ────────────────────────────────────────────
 function AreaChart({ chartData, chartLabels }) {
+  const [hover, setHover] = useState(null) // { x, y, label, value, screenX }
+
   if (!chartData || !chartLabels || chartLabels.length < 2) {
     return (
       <div style={{ height:160, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--tw-muted-fg)', fontSize:13 }}>
@@ -249,60 +251,99 @@ function AreaChart({ chartData, chartLabels }) {
     )
   }
 
-  const W = 600, H = 140, PAD = { t:10, b:30, l:40, r:10 }
+  const W = 600, H = 160, PAD = { t:10, b:30, l:44, r:10 }
   const iW = W - PAD.l - PAD.r
   const iH = H - PAD.t - PAD.b
 
-  // Use overall (average across all horizons per batch)
   const vals = chartLabels.map((_, i) => {
     const row = chartData.map(series => series[i]).filter(v => v != null)
-    return row.length ? row.reduce((a,b)=>a+b,0)/row.length : null
-  }).filter(v => v != null)
+    return row.length ? Math.round(row.reduce((a,b)=>a+b,0)/row.length) : null
+  })
 
-  if (vals.length < 2) return null
+  const validVals = vals.filter(v => v != null)
+  if (validVals.length < 2) return null
 
-  const minV = Math.max(0, Math.min(...vals) - 10)
-  const maxV = Math.min(100, Math.max(...vals) + 10)
+  const minV = Math.max(0, Math.min(...validVals) - 10)
+  const maxV = Math.min(100, Math.max(...validVals) + 10)
 
-  const x = (i) => PAD.l + (i / (vals.length-1)) * iW
-  const y = (v) => PAD.t + iH - ((v - minV) / (maxV - minV)) * iH
+  const xOf = (i) => PAD.l + (i / (vals.length-1)) * iW
+  const yOf = (v) => v == null ? null : PAD.t + iH - ((v - minV) / (maxV - minV)) * iH
 
-  const linePts  = vals.map((v,i) => `${x(i)},${y(v)}`).join(' ')
-  const areaPts  = `${x(0)},${PAD.t+iH} ${vals.map((v,i)=>`${x(i)},${y(v)}`).join(' ')} ${x(vals.length-1)},${PAD.t+iH}`
+  const pts = vals.map((v,i) => v != null ? `${xOf(i)},${yOf(v)}` : null).filter(Boolean)
+  const linePts  = pts.join(' ')
+  const areaPts  = `${xOf(0)},${PAD.t+iH} ${pts.join(' ')} ${xOf(vals.length-1)},${PAD.t+iH}`
+  const yTicks   = [50, 65, 80, 100].filter(v => v >= minV && v <= maxV)
 
-  // Y gridlines
-  const yTicks = [50, 65, 80, 100].filter(v => v >= minV && v <= maxV)
+  const handleMouseMove = (e) => {
+    const svgEl = e.currentTarget
+    const rect  = svgEl.getBoundingClientRect()
+    const mouseX = (e.clientX - rect.left) * (W / rect.width)
+    const idx = Math.round((mouseX - PAD.l) / iW * (vals.length - 1))
+    const clamped = Math.max(0, Math.min(vals.length - 1, idx))
+    if (vals[clamped] != null) {
+      setHover({ idx: clamped, x: xOf(clamped), y: yOf(vals[clamped]), label: chartLabels[clamped], value: vals[clamped] })
+    }
+  }
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow:'visible' }}>
-      <defs>
-        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#16a34a" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#16a34a" stopOpacity="0.01" />
-        </linearGradient>
-      </defs>
+    <div style={{ position:'relative' }}>
+      <svg
+        width="100%" viewBox={`0 0 ${W} ${H}`}
+        style={{ overflow:'visible', cursor:'crosshair' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHover(null)}
+      >
+        <defs>
+          <linearGradient id="areaG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#16a34a" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="#16a34a" stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
 
-      {/* Gridlines */}
-      {yTicks.map(v => (
-        <g key={v}>
-          <line x1={PAD.l} y1={y(v)} x2={PAD.l+iW} y2={y(v)} stroke="var(--tw-border)" strokeWidth={1} strokeDasharray="4 4" />
-          <text x={PAD.l-6} y={y(v)+4} fontSize={9} fill="var(--tw-muted-fg)" textAnchor="end">{v}%</text>
-        </g>
-      ))}
+        {yTicks.map(v => (
+          <g key={v}>
+            <line x1={PAD.l} y1={yOf(v)} x2={PAD.l+iW} y2={yOf(v)} stroke="var(--tw-border)" strokeWidth={1} strokeDasharray="4 4" />
+            <text x={PAD.l-6} y={yOf(v)+4} fontSize={9} fill="var(--tw-muted-fg)" textAnchor="end">{v}%</text>
+          </g>
+        ))}
 
-      {/* Area fill */}
-      <polygon points={areaPts} fill="url(#areaGrad)" />
+        <polygon points={areaPts} fill="url(#areaG)" />
+        <polyline points={linePts} fill="none" stroke="#16a34a" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
-      {/* Line */}
-      <polyline points={linePts} fill="none" stroke="#16a34a" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {hover && <>
+          <line x1={hover.x} y1={PAD.t} x2={hover.x} y2={PAD.t+iH} stroke="var(--tw-muted-fg)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
+          <circle cx={hover.x} cy={hover.y} r={5} fill="#16a34a" stroke="#fff" strokeWidth={2} />
+        </>}
 
-      {/* X labels */}
-      {chartLabels.filter((_,i) => i % Math.max(1, Math.floor(chartLabels.length/6)) === 0).map((label, _, arr) => {
-        const i = chartLabels.indexOf(label)
-        return (
-          <text key={label} x={x(i)} y={H-8} fontSize={9} fill="var(--tw-muted-fg)" textAnchor="middle">{label}</text>
-        )
-      })}
-    </svg>
+        {chartLabels.map((label, i) => {
+          if (i % Math.max(1, Math.floor(chartLabels.length / 6)) !== 0) return null
+          return <text key={label} x={xOf(i)} y={H-6} fontSize={9} fill="var(--tw-muted-fg)" textAnchor="middle">{label}</text>
+        })}
+      </svg>
+
+      {hover && (
+        <div style={{
+          position:'absolute',
+          left: Math.min(hover.x / W * 100, 75) + '%',
+          top: 0,
+          background:'var(--tw-card)',
+          border:'1px solid var(--tw-border)',
+          borderRadius:8,
+          padding:'8px 12px',
+          fontSize:12,
+          boxShadow:'0 4px 12px rgba(0,0,0,0.1)',
+          pointerEvents:'none',
+          zIndex:10,
+          minWidth:120,
+        }}>
+          <div style={{ fontWeight:600, color:'var(--tw-fg)', marginBottom:4 }}>{hover.label}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ width:8, height:8, borderRadius:2, background:'#16a34a', display:'inline-block', flexShrink:0 }} />
+            <span style={{ color:'var(--tw-muted-fg)' }}>Accuracy</span>
+            <span style={{ fontWeight:700, color:'var(--tw-fg)', marginLeft:'auto' }}>{hover.value}</span>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

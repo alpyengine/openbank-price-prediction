@@ -7,7 +7,7 @@ const NAV = [
   { id: 'settings', Icon: Settings,         label: 'Settings'       },
 ]
 
-export default function Sidebar({ active, onNav }) {
+export default function Sidebar({ active, onNav, onUploadCSV }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -86,7 +86,7 @@ export default function Sidebar({ active, onNav }) {
         {collapsed ? (
           <button
             title="Upload CSV"
-            onClick={() => onNav('batch')}
+            onClick={onUploadCSV}
             style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 0', marginBottom:4, borderRadius:8, border:'none', background:'transparent', color:'var(--tw-muted-fg)', cursor:'pointer', transition:'background .15s' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-sidebar-accent)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
@@ -95,7 +95,7 @@ export default function Sidebar({ active, onNav }) {
           </button>
         ) : (
           <button
-            onClick={() => onNav('batch')}
+            onClick={onUploadCSV}
             style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'9px 12px', marginBottom:4, borderRadius:8, border:'1px solid var(--tw-sidebar-border)', background:'transparent', color:'var(--tw-muted-fg)', fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-sidebar-accent)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}

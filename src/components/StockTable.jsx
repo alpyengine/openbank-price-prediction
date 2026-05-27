@@ -241,6 +241,7 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
             <tr style={{ background:'var(--tw-muted)', borderBottom:'1px solid var(--tw-border)' }}>
               <Th w={72}  colKey="ticker"  onOpen={setHelpCol}>Ticker</Th>
               <Th w={120} colKey="ticker"  onOpen={setHelpCol}>Company</Th>
+              <Th w={88}  colKey="price"   onOpen={setHelpCol}>Base price</Th>
               <Th w={90}  colKey="price"   onOpen={setHelpCol}>Price</Th>
               <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d1}>1M</Th>
               <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d3}>3M</Th>

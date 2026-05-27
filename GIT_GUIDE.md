@@ -2225,6 +2225,39 @@ git push origin v6.1.0
 
 
 # ===========================================================================
+# STEP 70 — v6.1.1  Bug fixes + expanded panel v0 + Base Price column
+# ===========================================================================
+#
+# No npm install needed — same deps as v6.1.0
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.1.1/. .
+
+git add .
+git commit -m "fix: bugs + expanded panel v0 redesign + base price column (v6.1.1)
+
+Bug fixes:
+- Accuracy Stats nav: Header receives activePage, correct title per page
+- Upload CSV sidebar: triggers hidden file input in App
+- Clear overrides: confirmed working, only shown on Batch page
+
+Expanded panel v0 redesign:
+- 4 Horizon cards with status badges + % from current
+- Market Performance: centered-axis bars (Option B)
+- Fundamentals strip: horizontal v0 layout
+- Add Note button replaces always-visible textarea
+
+Other:
+- Base Price column added after Company
+- Settings page v0 card style
+- AccuracyChart interactive hover tooltip"
+
+git tag -a v6.1.1 -m "v6.1.1: bug fixes + expanded panel v0"
+git push origin main
+git push origin v6.1.1
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2345,6 +2378,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.4/         -> v6.0.4
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.5/         -> v6.0.5
 #    /Users/alex/Downloads/openbank-price-prediction_v6.1.0/         -> v6.1.0
+#    /Users/alex/Downloads/openbank-price-prediction_v6.1.1/         -> v6.1.1
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

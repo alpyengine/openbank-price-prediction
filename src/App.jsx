@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { usePriceFetch }     from './hooks/usePriceFetch.js'
 import { useFundamentals }   from './hooks/useFundamentals.js'
 import { useHistory }        from './hooks/useHistory.js'
@@ -26,6 +26,7 @@ export default function App() {
   const [showEmail,    setShowEmail]    = useState(false)
   const [darkMode,     setDarkMode]     = useState(false)
   const [activePage,   setActivePage]   = useState('batch')
+  const sidebarFileRef = useRef(null)
 
   // Apply dark mode via .dark class on html — Tailwind 4 style
   useEffect(() => {
@@ -205,7 +206,39 @@ export default function App() {
 
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'var(--tw-bg)' }}>
-      <Sidebar active={activePage} onNav={setActivePage} />
+      {/* Hidden file input for sidebar CSV upload */}
+      <input
+        ref={sidebarFileRef}
+        type="file"
+        accept=".csv,.txt"
+        style={{ display:'none' }}
+        onChange={e => {
+          const file = e.target.files?.[0]
+          if (!file) return
+          const reader = new FileReader()
+          reader.onload = (ev) => {
+            const text = ev.target.result
+            const lines = text.trim().split('\n').filter(l => l.trim())
+            const firstCell = lines[0]?.split(',')[0]?.trim().toLowerCase()
+            const isHeader = isNaN(firstCell) && ['ticker','symbol','stock','company','name'].some(w => firstCell?.includes(w))
+            const dataLines = isHeader ? lines.slice(1) : lines
+            const { parseDate, today: getToday } = window.__dateFns || {}
+            import('./utils/dates.js').then(({ parseDate, today: getToday }) => {
+              const TODAY = getToday()
+              const stocks = dataLines.map(line => {
+                const p = line.split(',').map(x => x.trim())
+                if (p.length < 8) return null
+                const base = p[8] ? parseDate(p[8]) : TODAY
+                return { t:p[0].toUpperCase(), co:p[1], cu:p[2], b:+p[3]||0, t1:+p[4]||0, t3:+p[5]||0, t6:+p[6]||0, t12:+p[7]||0, base:base||TODAY }
+              }).filter(Boolean)
+              if (stocks.length) { handleImport(stocks); setActivePage('batch') }
+            })
+          }
+          reader.readAsText(file)
+          e.target.value = ''
+        }}
+      />
+      <Sidebar active={activePage} onNav={setActivePage} onUploadCSV={() => sidebarFileRef.current?.click()} />
 
       <main style={{ flex:1, overflowY:'auto', minWidth:0 }}>
         <div style={{ maxWidth:1200, margin:'0 auto', padding:'24px 28px' }}>
@@ -214,9 +247,12 @@ export default function App() {
           <Header
             stocks={stocks}
             darkMode={darkMode}
+            activePage={activePage}
             onToggleDark={() => setDarkMode(v => !v)}
             onClearOverrides={() => setOverrides({})}
             onToggleEmail={() => setShowEmail(v => !v)}
+            loadedBatchDate={loadedBatchDate}
+            batchCurrency={batchCurrency}
           />
 
           {/* ── BATCH OVERVIEW ── */}
@@ -354,8 +390,13 @@ export default function App() {
 
           {/* ── SETTINGS ── */}
           {activePage === 'settings' && (
-            <div style={{ padding:'40px 0', textAlign:'center', color:'var(--text-3)', fontSize:14 }}>
-              ⚙️ Settings — coming soon
+            <div>
+              <div style={{ background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:10, padding:'24px', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize:15, fontWeight:600, color:'var(--tw-fg)', marginBottom:8 }}>Application Settings</div>
+                <div style={{ fontSize:13, color:'var(--tw-muted-fg)' }}>
+                  Settings panel coming soon. Configure API keys, notification preferences, and more.
+                </div>
+              </div>
             </div>
           )}
 
