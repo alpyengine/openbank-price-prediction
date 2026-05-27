@@ -27,9 +27,9 @@ export default function App() {
   const [darkMode,     setDarkMode]     = useState(false)
   const [activePage,   setActivePage]   = useState('batch')
 
-  // Apply theme to document root
+  // Apply dark mode via .dark class on html — Tailwind 4 style
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
+    document.documentElement.classList.toggle('dark', darkMode)
   }, [darkMode])
 
   // Sector controls
@@ -204,11 +204,11 @@ export default function App() {
   const horizonExpired = activeTargetDate ? dateStatus(activeTargetDate) === 'past' : false
 
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar active={activePage} onNav={setActivePage} />
 
-      <main style={{ flex:1, overflowY:'auto', padding:'0' }}>
-        <div style={{ maxWidth:1200, margin:'0 auto', padding:'24px 28px' }}>
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-[1200px] mx-auto px-7 py-6">
 
           {/* Header — always visible */}
           <Header

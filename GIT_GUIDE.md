@@ -2067,6 +2067,48 @@ git push origin v6.0.1
 
 
 # ===========================================================================
+# STEP 65 — v6.0.2  Tailwind 4 + v0 theme — sidebar works correctly
+# ===========================================================================
+#
+# IMPORTANT: run npm install after copying files — new deps installed:
+#   @tailwindcss/vite ^4.1.0
+#   tailwindcss ^4.1.0 (replaces ^3.4.17)
+#   tw-animate-css ^1.3.3
+#   removed: autoprefixer, postcss (not needed in Tailwind 4)
+#
+# ROLLBACK (if needed):
+# git tag -d v6.0.2
+# git push origin --delete v6.0.2
+# git reset --soft HEAD~1
+# find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+# cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.2/. .
+# git add .
+# git commit -m "fix: Tailwind 4 and v0 theme (v6.0.2)"
+# git push origin main --force
+# git tag -a v6.0.2 -m "v6.0.2: Tailwind 4"
+# git push origin v6.0.2
+
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.0.2/. .
+
+npm install
+
+git add .
+git commit -m "fix: Tailwind 4 + v0 premium theme, sidebar works (v6.0.2)
+
+- Switched from Tailwind 3 to Tailwind 4 + @tailwindcss/vite plugin
+- Removed tailwind.config.js and postcss.config.js (not needed in v4)
+- global.css replaced with v0 premium oklch theme (light + dark)
+- Sidebar rewritten with Tailwind 4 classes matching v0 exactly
+- Dark mode uses .dark class on html element (Tailwind 4 convention)
+- App layout uses className flex h-screen overflow-hidden"
+
+git tag -a v6.0.2 -m "v6.0.2: Tailwind 4 + v0 theme"
+git push origin main
+git push origin v6.0.2
+
+
+# ===========================================================================
 # VERIFICATION
 # ===========================================================================
 #
@@ -2182,6 +2224,7 @@ git log --oneline --graph
 #    /Users/alex/Downloads/openbank-price-prediction_v5.4.0/         -> v5.4.0
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.0/         -> v6.0.0
 #    /Users/alex/Downloads/openbank-price-prediction_v6.0.1/         -> v6.0.1
+#    /Users/alex/Downloads/openbank-price-prediction_v6.0.2/         -> v6.0.2
 #
 # 3. .ENV: The .env file is in .gitignore and will NOT be committed.
 #    The .env.example template is committed so others can set up their key.

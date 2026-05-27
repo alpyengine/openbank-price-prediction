@@ -1,92 +1,89 @@
 import { useState } from 'react'
+import { LayoutDashboard, BarChart2, Settings, TrendingUp, Upload, PanelLeftClose, PanelLeft } from 'lucide-react'
+import { cn } from '../lib/utils.js'
 
 const NAV = [
-  { id: 'batch',    emoji: '📊', label: 'Batch Overview'  },
-  { id: 'accuracy', emoji: '🎯', label: 'Accuracy Stats'  },
-  { id: 'settings', emoji: '⚙️', label: 'Settings'        },
+  { id: 'batch',    icon: LayoutDashboard, label: 'Batch Overview'  },
+  { id: 'accuracy', icon: BarChart2,        label: 'Accuracy Stats'  },
+  { id: 'settings', icon: Settings,         label: 'Settings'        },
 ]
 
 export default function Sidebar({ active, onNav }) {
   const [collapsed, setCollapsed] = useState(false)
 
-  const W = collapsed ? 56 : 220
-
   return (
-    <aside style={{
-      width: W, flexShrink: 0,
-      display: 'flex', flexDirection: 'column',
-      borderRight: '1px solid var(--border)',
-      background: 'var(--surface)',
-      transition: 'width .25s ease',
-      overflow: 'hidden',
-    }}>
+    <aside className={cn(
+      'border-r border-sidebar-border bg-sidebar flex flex-col transition-all duration-300 ease-in-out shrink-0',
+      collapsed ? 'w-16' : 'w-[220px]'
+    )}>
       {/* Logo */}
-      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 12px', borderBottom:'1px solid var(--border)', flexShrink:0 }}>
-        <div style={{ width:32, height:32, borderRadius:8, background:'var(--accent)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:16 }}>
-          📈
+      <div className="p-4 border-b border-sidebar-border">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <TrendingUp className="h-4 w-4 text-primary-foreground" />
+          </div>
+          {!collapsed && (
+            <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">
+              Openbank Forecast
+            </span>
+          )}
         </div>
-        {!collapsed && (
-          <span style={{ fontSize:13, fontWeight:700, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden' }}>
-            Openbank Forecast
-          </span>
-        )}
       </div>
 
-      {/* Nav items */}
-      <nav style={{ flex:1, padding:'10px 8px', display:'flex', flexDirection:'column', gap:2 }}>
-        {NAV.map(item => {
-          const isActive = active === item.id
-          return (
-            <button
-              key={item.id}
-              title={collapsed ? item.label : undefined}
-              onClick={() => onNav(item.id)}
-              style={{
-                width: '100%',
-                display: 'flex', alignItems: 'center',
-                gap: 10,
-                padding: collapsed ? '10px 0' : '10px 12px',
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                borderRadius: 8,
-                border: 'none',
-                background: isActive ? 'var(--blue-bg)' : 'transparent',
-                color: isActive ? 'var(--accent)' : 'var(--text-3)',
-                fontWeight: isActive ? 700 : 500,
-                fontSize: 13,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                transition: 'background .15s, color .15s',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-              }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--surface2)' }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
-            >
-              <span style={{ fontSize:16, flexShrink:0 }}>{item.emoji}</span>
-              {!collapsed && <span>{item.label}</span>}
-            </button>
-          )
-        })}
+      {/* Nav */}
+      <nav className="flex-1 p-3">
+        <ul className="space-y-1">
+          {NAV.map(item => (
+            <li key={item.id}>
+              <button
+                onClick={() => onNav(item.id)}
+                title={collapsed ? item.label : undefined}
+                className={cn(
+                  'w-full flex items-center gap-3 rounded-lg text-sm font-medium transition-colors',
+                  collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5',
+                  active === item.id
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+                )}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
       </nav>
 
-      {/* Collapse toggle */}
-      <div style={{ padding:'8px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
+      {/* Bottom */}
+      <div className="p-3 border-t border-sidebar-border space-y-1">
+        {collapsed ? (
+          <button
+            title="Upload CSV"
+            onClick={() => onNav('batch')}
+            className="w-full flex items-center justify-center p-2.5 rounded-lg text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors"
+          >
+            <Upload className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            onClick={() => onNav('batch')}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-sidebar-accent/60 transition-colors"
+          >
+            <Upload className="h-4 w-4" />
+            Upload CSV
+          </button>
+        )}
         <button
           onClick={() => setCollapsed(v => !v)}
-          style={{
-            width:'100%', display:'flex', alignItems:'center',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            gap:8, padding: collapsed ? '8px 0' : '8px 12px',
-            borderRadius:8, border:'none', background:'transparent',
-            color:'var(--text-3)', fontSize:12, fontWeight:500,
-            cursor:'pointer', fontFamily:'inherit',
-            whiteSpace:'nowrap', overflow:'hidden',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          className={cn(
+            'w-full flex items-center gap-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors',
+            collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
+          )}
         >
-          <span style={{ fontSize:14 }}>{collapsed ? '→' : '←'}</span>
-          {!collapsed && <span>Collapse</span>}
+          {collapsed
+            ? <PanelLeft className="h-4 w-4" />
+            : <><PanelLeftClose className="h-4 w-4" /><span>Collapse</span></>
+          }
         </button>
       </div>
     </aside>
