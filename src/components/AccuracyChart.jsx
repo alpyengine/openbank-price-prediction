@@ -192,11 +192,11 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
                 {(!batches||batches.length===0) && (
                   <tr><td colSpan={6} style={{ padding:'24px', textAlign:'center', color:'var(--tw-muted-fg)', fontSize:13 }}>No batches saved yet</td></tr>
                 )}
-                {batches?.map(batch => {
-                  const hits = batch.results?.filter(r=>r.verdict==='hit').length ?? 0
-                  const miss = batch.results?.filter(r=>r.verdict==='miss').length ?? 0
+                {(stats?.batchSummary ?? batches)?.map(batch => {
+                  const hits = batch.hit ?? batch.results?.filter(r=>r.verdict==='hit').length ?? 0
+                  const miss = batch.miss ?? batch.results?.filter(r=>r.verdict==='miss').length ?? 0
                   const total = batch.stocks ?? batch.results?.length ?? 0
-                  const rate = batch.hit_rate ?? (total>0 ? Math.round(hits/total*100) : null)
+                  const rate = batch.hitRate ?? (batch.evaluated > 0 ? Math.round(hits/batch.evaluated*100) : null)
                   return (
                     <tr key={batch.id} style={{ borderBottom:'1px solid var(--tw-border)' }}
                       onMouseEnter={e=>e.currentTarget.style.background='var(--tw-muted)'}

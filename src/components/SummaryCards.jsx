@@ -1,12 +1,7 @@
 import { getTarget, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
 import { LayoutGrid, Target, CheckCircle, Clock } from 'lucide-react'
 
-const ICONS = {
-  total:    LayoutGrid,
-  hit:      Target,
-  close:    CheckCircle,
-  awaiting: Clock,
-}
+const ALL_HORIZONS = ['1M', '3M', '6M', '12M']
 
 function Card({ label, value, sub, subColor, icon: Icon }) {
   return (
@@ -36,21 +31,73 @@ function Card({ label, value, sub, subColor, icon: Icon }) {
 
 export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, hitMargin = 5 }) {
   let hits = 0, close = 0, awaiting = 0
-  for (const stock of stocks) {
-    const { price: p } = getEffectivePrice(stock.t, horizon, autoPrices, histPrices, overrides, horizonExpired)
-    if (!p) { awaiting++; continue }
-    const { verdict } = evaluatePrediction(p, getTarget(stock, horizon), stock.b, hitMargin)
-    if (verdict === 'hit')        hits++
-    else if (verdict === 'close') close++
+
+  if (horizon === 'all') {
+    // Aggregate across all 4 horizons
+    for (const stock of stocks) {
+      for (const h of ALL_HORIZONS) {
+        // For 'all' mode use current price (not historical)
+        const { price: p } = getEffectivePrice(stock.t, h, autoPrices, histPrices, overrides, false)
+        if (!p) { awaiting++; continue }
+        const { verdict } = evaluatePrediction(p, getTarget(stock, h), stock.b, hitMargin)
+        if (verdict === 'hit')        hits++
+        else if (verdict === 'close') close++
+      }
+    }
+  } else {
+    // Single horizon
+    for (const stock of stocks) {
+      const { price: p } = getEffectivePrice(stock.t, horizon, autoPrices, histPrices, overrides, horizonExpired)
+      if (!p) { awaiting++; continue }
+      const { verdict } = evaluatePrediction(p, getTarget(stock, horizon), stock.b, hitMargin)
+      if (verdict === 'hit')        hits++
+      else if (verdict === 'close') close++
+    }
   }
-  const priceLabel = horizonExpired && horizon !== 'best' ? '+historical price' : '+today\'s price'
+
+  const isAll = horizon === 'all'
+  const totalPredictions = isAll ? stocks.length * 4 : stocks.length
+  const priceLabel = (!isAll && horizonExpired && horizon !== 'best') ? '+historical price' : '+today\'s price'
 
   return (
     <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:'1.5rem' }}>
-      <Card label="Total stocks"  value={stocks.length} icon={ICONS.total}    sub={stocks.length ? `${stocks.length} predictions tracked` : 'Import a CSV to start'} />
-      <Card label="Hit target"    value={hits}          icon={ICONS.hit}      sub={hits   ? priceLabel : 'None reached target yet'} subColor={hits ? '#16a34a' : undefined} />
-      <Card label={`Close (±${hitMargin}%)`}   value={close}         icon={ICONS.close}    sub={close  ? priceLabel : 'None within 5%'} subColor={close ? '#ca8a04' : undefined} />
-      <Card label="Awaiting"      value={awaiting}      icon={ICONS.awaiting} sub={awaiting ? 'Price not yet fetched' : 'All prices loaded'} />
+      <Card
+        label="Total stocks"
+        value={stocks.length}
+        icon={ICONS.total}
+        sub={stocks.length
+          ? isAll ? `${totalPredictions} predictions (4×${stocks.length})` : `${stocks.length} predictions tracked`
+          : 'Import a CSV to start'}
+      />
+      <Card
+        label="Hit target"
+        value={hits}
+        icon={ICONS.hit}
+        sub={hits ? (isAll ? 'across all horizons' : priceLabel) : 'None reached target yet'}
+        subColor={hits ? '#16a34a' : undefined}
+      />
+      <Card
+        label={`Close (±${hitMargin}%)`}
+        value={close}
+        icon={ICONS.close}
+        sub={close ? (isAll ? 'across all horizons' : priceLabel) : `None within ${hitMargin}%`}
+        subColor={close ? '#ca8a04' : undefined}
+      />
+      <Card
+        label="Awaiting"
+        value={awaiting}
+        icon={ICONS.awaiting}
+        sub={awaiting
+          ? (isAll ? 'price not yet fetched' : 'Price not yet fetched')
+          : 'All prices loaded'}
+      />
     </div>
   )
+}
+
+const ICONS = {
+  total:    LayoutGrid,
+  hit:      Target,
+  close:    CheckCircle,
+  awaiting: Clock,
 }

@@ -1,6 +1,6 @@
 import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js'
 
-const HORIZONS    = ['best', '1M', '3M', '6M', '12M']
+const HORIZONS    = ['all', 'best', '1M', '3M', '6M', '12M']
 const HORIZON_KEY = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
 
 export default function HorizonTabs({ horizon, stocks, onHorizonChange }) {
@@ -8,13 +8,15 @@ export default function HorizonTabs({ horizon, stocks, onHorizonChange }) {
   const tg   = base ? targetDates(base) : null
 
   function tabStatus(h) {
-    if (h === 'best' || !tg) return null
+    if (h === 'best' || h === 'all' || !tg) return null
     return dateStatus(tg[HORIZON_KEY[h]])
   }
 
-  const activeDate   = horizon !== 'best' && tg ? tg[HORIZON_KEY[horizon]] : null
+  const activeDate   = horizon !== 'best' && horizon !== 'all' && tg ? tg[HORIZON_KEY[horizon]] : null
   const activeDl     = activeDate ? daysLeft(activeDate) : null
   const activeStatus = activeDate ? dateStatus(activeDate) : null
+
+  const LABELS = { all: 'All', best: 'Best target' }
 
   return (
     <div style={{ marginBottom:'1.25rem' }}>
@@ -24,6 +26,7 @@ export default function HorizonTabs({ horizon, stocks, onHorizonChange }) {
           const isActive = horizon === h
           const ts = tabStatus(h)
           const dotColor = ts === 'past' ? '#dc2626' : ts === 'soon' ? '#d97706' : ts === 'now' ? '#16a34a' : null
+          const isAll = h === 'all'
 
           return (
             <button
@@ -34,14 +37,18 @@ export default function HorizonTabs({ horizon, stocks, onHorizonChange }) {
                 fontSize:13, padding:'5px 14px', borderRadius:20,
                 cursor:'pointer', fontFamily:'inherit', fontWeight:600,
                 border: isActive
-                  ? '1.5px solid var(--tw-primary)'
+                  ? `1.5px solid ${isAll ? 'var(--tw-primary)' : 'var(--tw-primary)'}`
                   : '1.5px solid var(--tw-border)',
-                background: isActive ? 'var(--tw-card)' : 'transparent',
-                color: isActive ? 'var(--tw-fg)' : 'var(--tw-muted-fg)',
+                background: isActive
+                  ? (isAll ? 'var(--tw-primary)' : 'var(--tw-card)')
+                  : 'transparent',
+                color: isActive
+                  ? (isAll ? 'var(--tw-card)' : 'var(--tw-fg)')
+                  : 'var(--tw-muted-fg)',
                 transition:'all .15s',
               }}
             >
-              {h === 'best' ? 'Best target' : h}
+              {LABELS[h] ?? h}
               {!isActive && dotColor && (
                 <span style={{ width:5, height:5, borderRadius:'50%', background:dotColor, display:'inline-block', flexShrink:0 }} />
               )}

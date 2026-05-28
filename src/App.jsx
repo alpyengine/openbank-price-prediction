@@ -51,7 +51,7 @@ export default function App() {
 
   // Auto-fetch historical prices for expired horizons
   useEffect(() => {
-    if (horizon === 'best' || !stocks.length) return
+    if (horizon === 'best' || horizon === 'all' || !stocks.length) return
     const firstBase = stocks.find(s => s.base)?.base
     if (!firstBase) return
     const KEYS = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
@@ -148,7 +148,7 @@ export default function App() {
 
   const firstBase = stocks.find(s => s.base)?.base
   const KEYS = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
-  const activeTargetDate = firstBase && horizon !== 'best' ? targetDates(firstBase)[KEYS[horizon]] : null
+  const activeTargetDate = firstBase && horizon !== 'best' && horizon !== 'all' ? targetDates(firstBase)[KEYS[horizon]] : null
   const horizonExpired   = activeTargetDate ? dateStatus(activeTargetDate) === 'past' : false
 
   // Pages that show the fetch bar
