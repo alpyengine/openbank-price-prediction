@@ -4,7 +4,7 @@ import { BarChart2, Target, CheckCircle, Clock, Download, RefreshCw, Save, Trash
 const HORIZONS = ['1M', '3M', '6M', '12M']
 const H_COLORS = ['#16a34a', '#3b82f6', '#d97706', '#8b5cf6']
 
-export default function AccuracyChart({ stats, history: batches, loading, saving, log, configured, onLoad, onSave, onLoadBatch, onDeleteBatch }) {
+export default function AccuracyChart({ stats, history: batches, loading, saving, log, configured, onLoad, onSave, onLoadBatch, onDeleteBatch, hitMargin = 5, onMarginChange }) {
   const [loadingBatch,  setLoadingBatch]  = useState(null)
   const [deletingBatch, setDeletingBatch] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -56,11 +56,21 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
       : { border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-muted-fg)' })
   })
 
-  // Action bar — Load + Save buttons
+  // Action bar — Slider + Load + Save buttons
   const ActionBar = () => (
     <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginBottom:'1.5rem', flexWrap:'wrap', alignItems:'center' }}>
       {log && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontFamily:'monospace', flex:1 }}>{log}</span>}
       {(loading||saving) && <div style={{ width:14, height:14, border:'2px solid var(--tw-border)', borderTopColor:'var(--tw-primary)', borderRadius:'50%', animation:'spin .7s linear infinite' }} />}
+      {/* Hit margin slider */}
+      <div style={{ display:'flex', alignItems:'center', gap:7, background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:8, padding:'5px 12px' }}>
+        <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontWeight:500, whiteSpace:'nowrap' }}>Hit margin</span>
+        <input
+          type="range" min="1" max="20" value={hitMargin}
+          onChange={e => onMarginChange && onMarginChange(parseInt(e.target.value))}
+          style={{ width:80, accentColor:'#16a34a', cursor:'pointer' }}
+        />
+        <span style={{ fontSize:12, fontWeight:700, color:'var(--tw-fg)', minWidth:32, textAlign:'center' }}>±{hitMargin}%</span>
+      </div>
       <button style={btn('neutral')} onClick={onLoad} disabled={loading}>
         <RefreshCw size={13} /> Load history
       </button>
@@ -93,9 +103,10 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
     </div>
   )
 
-  const overallHits = stats?.byHorizon.reduce((a,h)=>a+h.hit,0) ?? 0
-  const overallMiss = stats?.byHorizon.reduce((a,h)=>a+h.miss,0) ?? 0
-  const overallAwait = stats?.byHorizon.reduce((a,h)=>a+(h.total-h.hit-h.miss-h.close),0) ?? 0
+  const overallHits   = stats?.byHorizon.reduce((a,h)=>a+h.hit,0) ?? 0
+  const overallMiss   = stats?.byHorizon.reduce((a,h)=>a+h.miss,0) ?? 0
+  const overallAwait  = stats?.totalAwaiting ?? 0
+  const uniqueTickers = stats?.uniqueTickers ?? 0
 
   return (
     <div>
@@ -105,11 +116,11 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
         {/* KPI cards */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:'1.5rem' }}>
           {[
-            { label:'Overall hit rate', value: stats.overallRate!=null ? stats.overallRate+'%' : '--', icon:Target, sub:`${overallHits} predictions reached target`, subColor:'#16a34a' },
-            { label:'Total hits',       value: overallHits,   icon:CheckCircle, sub:`${stats.evaluated} total evaluated` },
-            { label:'Total misses',     value: overallMiss,   icon:BarChart2,   sub:`${overallMiss} predictions missed` },
-            { label:'Awaiting',         value: overallAwait,  icon:Clock,       sub:'Pending maturity' },
-          ].map(({ label, value, icon:Icon, sub, subColor }) => (
+            { label:'Overall hit rate', value: stats.overallRate!=null ? stats.overallRate+'%' : '--', icon:Target, sub:`${overallHits} hits · ${stats.evaluated} evaluated`, subColor:'#16a34a', sub2:`${uniqueTickers} tickers · ${stats.totalBatches} batches` },
+            { label:'Total hits',       value: overallHits,   icon:CheckCircle, sub:`Out of ${stats.evaluated} evaluated` },
+            { label:'Total misses',     value: overallMiss,   icon:BarChart2,   sub:`Out of ${stats.evaluated} evaluated` },
+            { label:'Awaiting',         value: overallAwait,  icon:Clock,       sub:'Predictions pending maturity' },
+          ].map((item) => { const { label, value, icon:Icon, sub, subColor } = item; return (
             <div key={label} style={{ ...card, padding:'20px 20px 18px' }}>
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:8 }}>
                 <span style={{ fontSize:13, color:'var(--tw-muted-fg)', fontWeight:500 }}>{label}</span>
@@ -119,8 +130,10 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
               </div>
               <div style={{ fontSize:28, fontWeight:700, color:'var(--tw-fg)', lineHeight:1.1 }}>{value}</div>
               {sub && <div style={{ fontSize:12, marginTop:4, fontWeight:500, color: subColor||'var(--tw-muted-fg)' }}>{sub}</div>}
+              {item.sub2 && <div style={{ fontSize:11, marginTop:2, color:'var(--tw-muted-fg)' }}>{item.sub2}</div>}
             </div>
-          ))}
+          )})
+        }
         </div>
 
         {/* Horizon hit rate cards */}
@@ -131,7 +144,7 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
               <div key={h.horizon} style={{ ...card, padding:'14px 16px' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
                   <span style={{ fontSize:12, color:'var(--tw-muted-fg)', fontWeight:500 }}>{h.horizon} horizon</span>
-                  <span style={{ fontSize:12, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'#dcfce7', color:'#15803d' }}>{pct}%</span>
+                  <span style={{ fontSize:12, fontWeight:700, padding:'2px 8px', borderRadius:20, background:['#dcfce7','#dbeafe','#ffedd5','#f3e8ff'][i], color:['#15803d','#1d4ed8','#c2410c','#7c3aed'][i] }}>{pct}%</span>
                 </div>
                 <div style={{ width:'100%', height:5, borderRadius:3, background:'var(--tw-muted)', overflow:'hidden' }}>
                   <div style={{ height:'100%', borderRadius:3, background:H_COLORS[i], width:`${pct}%`, transition:'width .4s' }} />

@@ -34,12 +34,12 @@ function Card({ label, value, sub, subColor, icon: Icon }) {
   )
 }
 
-export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired }) {
+export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, hitMargin = 5 }) {
   let hits = 0, close = 0, awaiting = 0
   for (const stock of stocks) {
     const { price: p } = getEffectivePrice(stock.t, horizon, autoPrices, histPrices, overrides, horizonExpired)
     if (!p) { awaiting++; continue }
-    const { verdict } = evaluatePrediction(p, getTarget(stock, horizon), stock.b)
+    const { verdict } = evaluatePrediction(p, getTarget(stock, horizon), stock.b, hitMargin)
     if (verdict === 'hit')        hits++
     else if (verdict === 'close') close++
   }
@@ -49,7 +49,7 @@ export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, 
     <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:'1.5rem' }}>
       <Card label="Total stocks"  value={stocks.length} icon={ICONS.total}    sub={stocks.length ? `${stocks.length} predictions tracked` : 'Import a CSV to start'} />
       <Card label="Hit target"    value={hits}          icon={ICONS.hit}      sub={hits   ? priceLabel : 'None reached target yet'} subColor={hits ? '#16a34a' : undefined} />
-      <Card label="Close (±5%)"   value={close}         icon={ICONS.close}    sub={close  ? priceLabel : 'None within 5%'} subColor={close ? '#ca8a04' : undefined} />
+      <Card label={`Close (±${hitMargin}%)`}   value={close}         icon={ICONS.close}    sub={close  ? priceLabel : 'None within 5%'} subColor={close ? '#ca8a04' : undefined} />
       <Card label="Awaiting"      value={awaiting}      icon={ICONS.awaiting} sub={awaiting ? 'Price not yet fetched' : 'All prices loaded'} />
     </div>
   )

@@ -7,9 +7,11 @@ export default function Header({ stocks, darkMode, onToggleDark, onClearOverride
   const bases = [...new Set(stocks.map(s => s.base ? formatDate(s.base) : '?'))]
 
   const PAGE_TITLES = {
-    batch:    { title: 'Batch Overview',  sub: 'AI-powered prediction analytics and performance tracking' },
-    accuracy: { title: 'Accuracy Stats',  sub: 'Historical performance metrics and hit rate analysis' },
-    settings: { title: 'Settings',        sub: 'Configure your preferences and integrations' },
+    batch:         { title: 'Batch Overview',        sub: 'Quick prediction status at a glance' },
+    'batch-detail':{ title: 'Batch Overview Detail', sub: 'Full analysis with proximity bars and market comparison' },
+    accuracy:      { title: 'Accuracy Stats',        sub: 'Historical performance metrics and hit rate analysis' },
+    import:        { title: 'Import CSV',             sub: 'Load a new batch of stock predictions' },
+    settings:      { title: 'Settings',              sub: 'Configure your preferences and integrations' },
   }
   const { title, sub } = PAGE_TITLES[activePage] || PAGE_TITLES.batch
 
@@ -45,7 +47,7 @@ export default function Header({ stocks, darkMode, onToggleDark, onClearOverride
         </button>
 
         {/* Batch-only buttons */}
-        {activePage === 'batch' && <>
+        {['batch', 'batch-detail'].includes(activePage) && <>
           <button
             onClick={onClearOverrides}
             style={{

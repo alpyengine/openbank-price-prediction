@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { EU_MARKET_INDEX } from '../hooks/useMarketData.js'
 
 function Spinner({ light }) {
@@ -23,6 +24,8 @@ export default function FetchBar({
   fundLog, fundLoading, onFetchFundamentals,
   // market data
   marketLog, marketLoading, stocks, onFetchMarket,
+  // batch selector
+  batches, loadedBatchDate, onLoadBatch,
 }) {
   const suffix = detectSuffix(stocks ?? [])
   const isUS   = suffix === 'US' || !(stocks?.[0]?.t?.includes('.'))
@@ -79,12 +82,89 @@ export default function FetchBar({
         {fundLoading ? 'Loading…' : 'Fundamentals'}
       </button>
 
+      {/* Batch selector */}
+      {batches && <BatchSelector batches={batches} loadedBatchDate={loadedBatchDate} onLoadBatch={onLoadBatch} />}
+
       {/* Fetch market data */}
       {showMarket && (
         <button style={btn(false, marketLoading)} disabled={anyLoading} onClick={onFetchMarket}>
           {marketLoading ? <Spinner /> : '↓'}
           {marketLoading ? 'Loading…' : 'Market data'}
         </button>
+      )}
+    </div>
+  )
+}
+
+function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
+  const [open, setOpen] = useState(false)
+  const ref  = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const hasBatches = batches && batches.length > 0
+  const label = loadedBatchDate || (hasBatches ? batches[0].date : null) || 'No batches'
+
+  return (
+    <div ref={ref} style={{ position:'relative', flexShrink:0 }}>
+      <button
+        disabled={!hasBatches}
+        onClick={() => setOpen(v => !v)}
+        style={{
+          display:'flex', alignItems:'center', gap:6,
+          padding:'7px 12px', borderRadius:8,
+          border:'1px solid var(--tw-border)',
+          background:'var(--tw-card)',
+          color: hasBatches ? 'var(--tw-fg)' : 'var(--tw-muted-fg)',
+          fontSize:12, fontWeight:500, fontFamily:'inherit',
+          cursor: hasBatches ? 'pointer' : 'default',
+          opacity: hasBatches ? 1 : 0.6,
+          whiteSpace:'nowrap',
+        }}
+      >
+        {label}
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style={{ color:'var(--tw-muted-fg)', flexShrink:0 }}>
+          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/>
+        </svg>
+      </button>
+
+      {open && hasBatches && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 6px)', right:0,
+          background:'var(--tw-card)', border:'1px solid var(--tw-border)',
+          borderRadius:10, boxShadow:'0 4px 16px rgba(0,0,0,0.1)',
+          minWidth:180, zIndex:50, overflow:'hidden',
+        }}>
+          {batches.map(batch => {
+            const isActive = batch.date === loadedBatchDate
+            return (
+              <button
+                key={batch.id}
+                onClick={() => { onLoadBatch(batch); setOpen(false) }}
+                style={{
+                  width:'100%', display:'flex', alignItems:'center',
+                  justifyContent:'space-between',
+                  padding:'10px 14px', border:'none',
+                  borderBottom:'1px solid var(--tw-border)',
+                  background: isActive ? 'var(--tw-muted)' : 'var(--tw-card)',
+                  color:'var(--tw-fg)', fontSize:13,
+                  fontWeight: isActive ? 600 : 400,
+                  cursor:'pointer', fontFamily:'inherit',
+                  textAlign:'left',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-muted)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = isActive ? 'var(--tw-muted)' : 'var(--tw-card)' }}
+              >
+                {batch.date}
+                {isActive && <span style={{ color:'#16a34a', fontSize:12 }}>✓</span>}
+              </button>
+            )
+          })}
+        </div>
       )}
     </div>
   )

@@ -77,7 +77,7 @@ export function distancePct(price, target) {
  *   direction: 'bullish' | 'bearish' | 'neutral'
  *   verdict:   'hit' | 'close' | 'miss' | null
  */
-export function evaluatePrediction(price, target, basePrice) {
+export function evaluatePrediction(price, target, basePrice, margin = 5) {
   if (price == null || target == null) return { verdict: null, direction: 'neutral' }
 
   const direction = target > basePrice ? 'bullish'
@@ -87,34 +87,31 @@ export function evaluatePrediction(price, target, basePrice) {
   // Distance % from price to target (unsigned for proximity check)
   const distAbs = Math.abs((price - target) / target * 100)
 
-  // Within ±5% band → close to target regardless of direction
-  const isClose = distAbs <= 5
+  // Within ±margin% band → close to target regardless of direction
+  const isClose = distAbs <= margin
 
   let verdict
   if (direction === 'bullish') {
-    // Prediction: price will rise to target
     if (price >= target)  verdict = 'hit'
     else if (isClose)     verdict = 'close'
     else                  verdict = 'miss'
   } else if (direction === 'bearish') {
-    // Prediction: price will fall to target
     if (price <= target)  verdict = 'hit'
     else if (isClose)     verdict = 'close'
     else                  verdict = 'miss'
   } else {
-    // Neutral: treat as ±5% band
     verdict = isClose ? 'hit' : 'miss'
   }
 
   return { verdict, direction, distAbs }
 }
 
-// Legacy helper kept for SummaryCards compatibility
-export function priceStatus(price, target) {
+// Legacy helper
+export function priceStatus(price, target, margin = 5) {
   if (price == null) return null
   const ad = Math.abs(distancePct(price, target))
-  if (ad <= 5)  return 'hit'
-  if (ad <= 15) return 'close'
+  if (ad <= margin)      return 'hit'
+  if (ad <= margin * 3)  return 'close'
   return 'below'
 }
 

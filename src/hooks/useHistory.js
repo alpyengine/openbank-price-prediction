@@ -33,7 +33,7 @@ const HORIZONS = ['1M', '3M', '6M', '12M']
  * }
  */
 
-export function useHistory() {
+export function useHistory(margin = 5) {
   const [history,  setHistory]  = useState(null)   // null = not loaded yet
   const [loading,  setLoading]  = useState(false)
   const [saving,   setSaving]   = useState(false)
@@ -83,7 +83,7 @@ export function useHistory() {
         )
         const tgt     = getTarget(stock, h)
         const tgtDate = getTargetDate(stock, h)
-        const { verdict } = evaluatePrediction(p, tgt, stock.b)
+        const { verdict } = evaluatePrediction(p, tgt, stock.b, margin)
 
         results.push({
           ticker:      stock.t,
@@ -207,14 +207,14 @@ export function useHistory() {
       setSaving(false)
     }
   }, [configured])
-  const stats = computed(history)
+  const stats = computed(history, margin)
 
   return { history, stats, loading, saving, log, configured, load, saveBatch, deleteBatch }
 }
 
 // ── Compute accuracy stats from history ───────────────────────────────────────
 
-function computed(history) {
+function computed(history, margin = 5) {
   if (!history?.batches?.length) return null
 
   const HORIZONS = ['1M', '3M', '6M', '12M']
@@ -222,20 +222,24 @@ function computed(history) {
 
   // Per-horizon breakdown
   const byHorizon = HORIZONS.map(h => {
-    const rows     = all.filter(r => r.horizon === h && r.verdict !== 'awaiting')
+    const allRows  = all.filter(r => r.horizon === h)
+    const rows     = allRows.filter(r => r.verdict !== 'awaiting')
     const hit      = rows.filter(r => r.verdict === 'hit').length
     const close    = rows.filter(r => r.verdict === 'close').length
     const miss     = rows.filter(r => r.verdict === 'miss').length
-    const total    = rows.length
+    const awaiting = allRows.filter(r => r.verdict === 'awaiting').length
+    const total    = rows.length  // evaluated only (excludes awaiting)
     const hitRate  = total ? Math.round(hit / total * 100) : null
     const hitClose = total ? Math.round((hit + close) / total * 100) : null
-    return { horizon: h, total, hit, close, miss, hitRate, hitClose }
+    return { horizon: h, total, hit, close, miss, awaiting, hitRate, hitClose }
   })
 
   // Overall
-  const evaluated = all.filter(r => r.verdict !== 'awaiting')
-  const totalHit  = evaluated.filter(r => r.verdict === 'hit').length
-  const overallRate = evaluated.length ? Math.round(totalHit / evaluated.length * 100) : null
+  const evaluated    = all.filter(r => r.verdict !== 'awaiting')
+  const totalHit     = evaluated.filter(r => r.verdict === 'hit').length
+  const totalAwaiting = all.filter(r => r.verdict === 'awaiting').length
+  const overallRate  = evaluated.length ? Math.round(totalHit / evaluated.length * 100) : null
+  const uniqueTickers = new Set(all.map(r => r.ticker)).size
 
   // Best and worst horizon
   const ranked    = byHorizon.filter(h => h.hitRate !== null).sort((a, b) => b.hitRate - a.hitRate)
@@ -273,6 +277,8 @@ function computed(history) {
   return {
     byHorizon, overallRate, bestH, worstH,
     evaluated: evaluated.length,
+    totalAwaiting,
+    uniqueTickers,
     totalBatches: history.batches.length,
     batchSummary, chartData, chartLabels,
   }

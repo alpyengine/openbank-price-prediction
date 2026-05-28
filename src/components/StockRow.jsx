@@ -4,7 +4,7 @@ import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey 
 import { fmtMarketCap } from '../hooks/useFundamentals.js'
 import { SECTOR_ETF, INDUSTRY_ETF } from '../hooks/useMarketData.js'
 
-const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData, collapseAll, allExpanded, batchCurrency }) {
+const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5 }) {
   const [expanded,     setExpanded]     = useState(false)
   const [showDesc,     setShowDesc]     = useState(false)
   const [showNote,     setShowNote]     = useState(false)
@@ -26,7 +26,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
   )
 
   const dist               = distancePct(p, tgt)
-  const { verdict, direction } = evaluatePrediction(p, tgt, stock.b)
+  const { verdict, direction } = evaluatePrediction(p, tgt, stock.b, hitMargin)
   const hKey       = histKey(stock.t, horizon)
   const histEntry  = histPrices?.[hKey]
   const histLoading = horizonExpired && horizon !== 'best' && histEntry === undefined
@@ -151,11 +151,11 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           // Determine zone
           let zone = 'awaiting'
           if (expired) {
-            zone = distPct != null && distPct >= -5 ? 'hit' : 'miss'
+            zone = distPct != null && distPct >= -hitMargin ? 'hit' : 'miss'
           } else if (distPct != null) {
             if (distPct >= 0)       zone = 'exceeded'
-            else if (distPct >= -5) zone = 'near'
-            else if (distPct >= -15) zone = 'close'
+            else if (distPct >= -hitMargin) zone = 'near'
+            else if (distPct >= -(hitMargin * 3)) zone = 'close'
             else if (distPct >= -30) zone = 'far'
             else                    zone = 'vfar'
           }
@@ -163,9 +163,9 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           // Bar fill width (0-100%) — 100 = at or above target, 0 = very far
           const fillWidth = distPct == null ? 0
             : distPct >= 0   ? 100
-            : distPct >= -5  ? 88 + (distPct / -5) * (-12)    // 76-88
-            : distPct >= -15 ? 50 + ((distPct + 5) / -10) * (-26) // 24-50
-            : distPct >= -30 ? 10 + ((distPct + 15) / -15) * (-14) // 0-24 approx
+            : distPct >= -hitMargin        ? 88 + (distPct / -hitMargin) * (-12)
+            : distPct >= -(hitMargin * 3)  ? 50 + ((distPct + hitMargin) / -(hitMargin*2)) * (-26)
+            : distPct >= -(hitMargin * 6)  ? 10 + ((distPct + hitMargin*3) / -(hitMargin*3)) * (-14)
             : Math.max(0, 10 + distPct * 0.2)
 
           const ZONE_STYLES = {
@@ -323,13 +323,13 @@ function HorizonCards({ stock, tg, autoPrice, batchCurrency }) {
           let borderColor = 'var(--tw-border)'
 
           if (expired) {
-            verdict = distPct != null && distPct >= -5 ? 'HIT' : 'MISS'
+            verdict = distPct != null && distPct >= -hitMargin ? 'HIT' : 'MISS'
             if (verdict === 'HIT') { verdictColor = '#15803d'; verdictBg = '#dcfce7'; borderColor = '#86efac' }
             else { verdictColor = '#b91c1c'; verdictBg = '#fee2e2'; borderColor = '#fca5a5' }
           } else if (distPct != null) {
             if (distPct >= 0) { verdict = 'EXCEEDED'; verdictColor = '#15803d'; verdictBg = '#dcfce7'; borderColor = '#86efac' }
-            else if (distPct >= -5) { verdict = 'NEAR'; verdictColor = '#1d4ed8'; verdictBg = '#dbeafe'; borderColor = '#93c5fd' }
-            else if (distPct >= -15) { verdict = 'CLOSE'; verdictColor = '#a16207'; verdictBg = '#fef9c3'; borderColor = '#fcd34d' }
+            else if (distPct >= -hitMargin) { verdict = 'NEAR'; verdictColor = '#1d4ed8'; verdictBg = '#dbeafe'; borderColor = '#93c5fd' }
+            else if (distPct >= -(hitMargin * 3)) { verdict = 'CLOSE'; verdictColor = '#a16207'; verdictBg = '#fef9c3'; borderColor = '#fcd34d' }
           }
 
           const isActive = verdict === 'HIT' || verdict === 'EXCEEDED' || verdict === 'NEAR'

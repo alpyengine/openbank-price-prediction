@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { LayoutDashboard, BarChart2, Settings, TrendingUp, Upload, PanelLeftClose, PanelLeft } from 'lucide-react'
+import { LayoutDashboard, BarChart2, Settings, TrendingUp, Upload, PanelLeftClose, PanelLeft, TableProperties } from 'lucide-react'
 
 const NAV = [
-  { id: 'batch',    Icon: LayoutDashboard, label: 'Batch Overview' },
-  { id: 'accuracy', Icon: BarChart2,        label: 'Accuracy Stats' },
-  { id: 'settings', Icon: Settings,         label: 'Settings'       },
+  { id: 'batch',        Icon: LayoutDashboard,  label: 'Batch Overview'         },
+  { id: 'batch-detail', Icon: TableProperties,  label: 'Batch Overview Detail'  },
+  { id: 'accuracy',     Icon: BarChart2,         label: 'Accuracy Stats'         },
+  { id: 'import',       Icon: Upload,            label: 'Import CSV'             },
+  { id: 'settings',     Icon: Settings,          label: 'Settings'               },
 ]
 
-export default function Sidebar({ active, onNav, onUploadCSV }) {
+export default function Sidebar({ active, onNav }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -24,18 +26,13 @@ export default function Sidebar({ active, onNav, onUploadCSV }) {
     }}>
 
       {/* Logo */}
-      <div style={{ padding: '16px 12px', borderBottom: '1px solid var(--tw-sidebar-border)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: 'var(--tw-sidebar-primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}>
+      <div style={{ padding:'16px 12px', borderBottom:'1px solid var(--tw-sidebar-border)', flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:32, height:32, borderRadius:8, background:'var(--tw-sidebar-primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
             <TrendingUp size={16} color="var(--tw-sidebar-primary-fg)" />
           </div>
           {!collapsed && (
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--tw-sidebar-fg)', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize:13, fontWeight:600, color:'var(--tw-sidebar-fg)', whiteSpace:'nowrap' }}>
               Openbank Forecast
             </span>
           )}
@@ -43,7 +40,7 @@ export default function Sidebar({ active, onNav, onUploadCSV }) {
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '10px 8px' }}>
+      <nav style={{ flex:1, padding:'10px 8px', overflowY:'auto' }}>
         {NAV.map(({ id, Icon, label }) => {
           const isActive = active === id
           return (
@@ -52,70 +49,40 @@ export default function Sidebar({ active, onNav, onUploadCSV }) {
               title={collapsed ? label : undefined}
               onClick={() => onNav(id)}
               style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
+                width:'100%', display:'flex', alignItems:'center',
                 gap: collapsed ? 0 : 10,
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 padding: collapsed ? '10px 0' : '9px 12px',
-                marginBottom: 2,
-                borderRadius: 8,
-                border: 'none',
+                marginBottom:2, borderRadius:8, border:'none',
                 background: isActive ? 'var(--tw-sidebar-accent)' : 'transparent',
                 color: isActive ? 'var(--tw-sidebar-accent-fg)' : 'var(--tw-muted-fg)',
                 fontWeight: isActive ? 600 : 500,
-                fontSize: 13,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                transition: 'background .15s, color .15s',
-                whiteSpace: 'nowrap',
+                fontSize:13, cursor:'pointer', fontFamily:'inherit',
+                transition:'background .15s, color .15s',
+                whiteSpace:'nowrap',
               }}
               onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'var(--tw-sidebar-accent)'; e.currentTarget.style.color = 'var(--tw-sidebar-fg)' }}}
               onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--tw-muted-fg)' }}}
             >
-              <Icon size={16} style={{ flexShrink: 0 }} />
+              <Icon size={16} style={{ flexShrink:0 }} />
               {!collapsed && <span>{label}</span>}
             </button>
           )
         })}
       </nav>
 
-      {/* Bottom */}
-      <div style={{ padding: '8px', borderTop: '1px solid var(--tw-sidebar-border)', flexShrink: 0 }}>
-        {/* Upload CSV button */}
-        {collapsed ? (
-          <button
-            title="Upload CSV"
-            onClick={onUploadCSV}
-            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 0', marginBottom:4, borderRadius:8, border:'none', background:'transparent', color:'var(--tw-muted-fg)', cursor:'pointer', transition:'background .15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-sidebar-accent)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-          >
-            <Upload size={16} />
-          </button>
-        ) : (
-          <button
-            onClick={onUploadCSV}
-            style={{ width:'100%', display:'flex', alignItems:'center', gap:8, padding:'9px 12px', marginBottom:4, borderRadius:8, border:'1px solid var(--tw-sidebar-border)', background:'transparent', color:'var(--tw-muted-fg)', fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'inherit', transition:'background .15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-sidebar-accent)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-          >
-            <Upload size={16} />
-            <span>Upload CSV</span>
-          </button>
-        )}
-
-        {/* Collapse toggle */}
+      {/* Collapse toggle */}
+      <div style={{ padding:'8px', borderTop:'1px solid var(--tw-sidebar-border)', flexShrink:0 }}>
         <button
           onClick={() => setCollapsed(v => !v)}
           style={{
             width:'100%', display:'flex', alignItems:'center',
             justifyContent: collapsed ? 'center' : 'flex-start',
-            gap: 8, padding: collapsed ? '9px 0' : '9px 12px',
-            borderRadius: 8, border: 'none', background: 'transparent',
-            color: 'var(--tw-muted-fg)', fontSize: 13, fontWeight: 500,
-            cursor: 'pointer', fontFamily: 'inherit', transition: 'background .15s',
-            whiteSpace: 'nowrap',
+            gap:8, padding: collapsed ? '9px 0' : '9px 12px',
+            borderRadius:8, border:'none', background:'transparent',
+            color:'var(--tw-muted-fg)', fontSize:13, fontWeight:500,
+            cursor:'pointer', fontFamily:'inherit', transition:'background .15s',
+            whiteSpace:'nowrap',
           }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-sidebar-accent)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}

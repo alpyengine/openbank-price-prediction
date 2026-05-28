@@ -2485,3 +2485,80 @@ in HorizonTabs and StockRow expired horizon styling."
 git tag -a v6.1.5 -m "v6.1.5: full code review and critical fixes"
 git push origin main
 git push origin v6.1.5
+
+
+# ===========================================================================
+# STEP 73 — v6.1.5  UI: fetch bar unified + table scroll + market bars
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.1.5/. .
+
+git add .
+git commit -m "feat: unified fetch bar, table scroll, market bars Option B (v6.1.5)
+
+- FetchBar: 3 fetch buttons in one horizontal bar with per-button spinners
+- StockTable: overflowX auto for horizontal scroll on narrow screens
+- MarketComparison: Option B bars — centered axis, solid green/red, 10px height"
+
+git tag -a v6.1.5 -m "v6.1.5: fetch bar + scroll + market bars"
+git push origin main
+git push origin v6.1.5
+
+
+# ===========================================================================
+# STEP 74 — v6.2.0  New nav structure + BatchSimple + Import CSV page
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.2.0/. .
+
+git add .
+git commit -m "feat: new nav structure, BatchSimple, Import CSV page (v6.2.0)
+
+Sidebar now has 5 pages:
+- Batch Overview: new simple table — Ticker, Base date, 1M/3M/6M/12M status
+  (Acertado/Fallado/Pendiente with % and days remaining)
+- Batch Overview Detail: previous full table with proximity bars
+- Accuracy Stats: unchanged
+- Import CSV: ImportBox moved here as dedicated page with instructions
+- Settings: unchanged
+
+Removed ImportBox from Batch Overview page.
+Removed sidebar Upload CSV button (replaced by Import CSV nav item).
+FetchBar shown on both batch pages."
+
+git tag -a v6.2.0 -m "v6.2.0: new nav structure"
+git push origin main
+git push origin v6.2.0
+
+
+# ===========================================================================
+# STEP 75 — v6.3.0  Batch selector + Awaiting fix + margin slider
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.3.0/. .
+
+git add .
+git commit -m "feat: batch selector, margin slider, accuracy fixes (v6.3.0)
+
+- FetchBar: batch selector dropdown shows saved batches by date
+- Accuracy Stats: hit margin slider (±1-20%, default 5%)
+  - Margin is global — affects all components in real time
+  - evaluatePrediction() now accepts margin parameter
+- Accuracy fixes:
+  - Awaiting box: now correctly counts pending predictions
+  - Overall hit rate box: shows unique tickers + total batches
+  - Horizon cards: different colors per horizon (green/blue/orange/purple)
+- All components pass hitMargin: SummaryCards, BatchSimple, StockRow, StockTable"
+
+git tag -a v6.3.0 -m "v6.3.0: batch selector, margin slider, accuracy fixes"
+git push origin main
+git push origin v6.3.0
