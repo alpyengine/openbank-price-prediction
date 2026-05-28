@@ -2464,7 +2464,7 @@ git log --oneline --graph
 #    Run npm install fresh in each React version folder if needed.
 
 # ===========================================================================
-# STEP 74 — v6.1.5  Full code review + critical bug fixes
+# STEP 72 — v6.1.4  Full code review + critical bug fixes
 # ===========================================================================
 #
 # No npm install needed.

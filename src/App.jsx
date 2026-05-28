@@ -258,29 +258,20 @@ export default function App() {
               <FetchBar
                 log={log}
                 fetching={fetching}
-                chunkProgress={chunkProgress}
-                horizonExpired={horizonExpired}
-                horizon={horizon}
                 onFetch={() => fetchCurrentBatch(stocks)}
+                fundLog={fundLog}
+                fundLoading={fundLoading}
+                onFetchFundamentals={() => fetchFundamentals(stocks)}
+                marketLog={marketLog}
+                marketLoading={marketLoading}
+                stocks={stocks}
+                onFetchMarket={() => fetchMarketData({
+                  stocks,
+                  fundamentals,
+                  baseDate: stocks.find(s => s.base)?.base,
+                  existingMarketData: marketData,
+                })}
               />
-
-              <FundamentalsBar
-                log={fundLog}
-                loading={fundLoading}
-                onFetch={() => fetchFundamentals(stocks)}
-              />
-
-      <MarketBar
-        log={marketLog}
-        loading={marketLoading}
-        stocks={stocks}
-        onFetch={() => fetchMarketData({
-          stocks,
-          fundamentals,
-          baseDate: stocks.find(s => s.base)?.base,
-          existingMarketData: marketData,
-        })}
-      />
 
       <SummaryCards
         stocks={stocks}

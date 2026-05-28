@@ -416,24 +416,36 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
   const renderRow = (row) => {
     const isPos    = row.pct >= 0
     const pctColor = isPos ? '#16a34a' : '#dc2626'
-    const barColor = row.isStock
-      ? (isPos ? '#16a34a' : '#dc2626')
-      : (isPos ? '#86efac' : '#fca5a5')
-    const barPct  = Math.abs(row.pct) / absMax * 50
-    const barLeft = isPos ? '50%' : `${50 - barPct}%`
+    // Both stock and benchmark use same solid colors like the screenshot
+    const barColor = isPos ? '#16a34a' : '#dc2626'
+    const barPct   = Math.abs(row.pct) / absMax * 50
+    const barLeft  = isPos ? '50%' : `${50 - barPct}%`
 
     return (
-      <div key={row.key} style={{ display:'flex', alignItems:'center', gap:12, marginBottom:6 }}>
-        <div style={{ width:130, flexShrink:0, fontSize:12, fontWeight: row.isStock ? 700 : 500, color: row.isStock ? 'var(--tw-fg)' : 'var(--tw-muted-fg)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+      <div key={row.key} style={{ display:'flex', alignItems:'center', gap:14, marginBottom:8 }}>
+        {/* Label */}
+        <div style={{
+          width: 130, flexShrink: 0, fontSize: 13,
+          fontWeight: row.isStock ? 700 : 400,
+          color: row.isStock ? 'var(--tw-fg)' : 'var(--tw-muted-fg)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
           {row.label}
         </div>
-        <div style={{ flex:1, height:8, borderRadius:4, background:'var(--tw-muted)', position:'relative', overflow:'hidden' }}>
-          {/* Center axis */}
+        {/* Track — centered axis */}
+        <div style={{ flex:1, height:10, borderRadius:5, background:'var(--tw-muted)', position:'relative', overflow:'hidden' }}>
           <div style={{ position:'absolute', top:0, bottom:0, left:'50%', width:1.5, background:'var(--tw-border)', zIndex:1 }} />
-          {/* Bar */}
-          <div style={{ position:'absolute', top:0, height:'100%', borderRadius:2, background:barColor, left:barLeft, width:`${barPct}%`, transition:'all .4s ease' }} />
+          <div style={{
+            position:'absolute', top:0, height:'100%',
+            background: barColor,
+            left: isPos ? '50%' : `${50 - barPct}%`,
+            width: `${barPct}%`,
+            borderRadius: isPos ? '0 4px 4px 0' : '4px 0 0 4px',
+            transition: 'all .4s ease',
+          }} />
         </div>
-        <div style={{ width:52, flexShrink:0, fontSize:12, fontWeight:700, color:pctColor, textAlign:'right', whiteSpace:'nowrap' }}>
+        {/* % value */}
+        <div style={{ width:52, flexShrink:0, fontSize:13, fontWeight:600, color:pctColor, textAlign:'right', whiteSpace:'nowrap' }}>
           {fmt(row.pct)}
         </div>
       </div>
@@ -441,29 +453,26 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
   }
 
   const badge = (diff, label) => diff == null ? null : (
-    <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background: diff >= 0 ? '#dcfce7' : '#fee2e2', color: diff >= 0 ? '#16a34a' : '#dc2626' }}>
-      {diff >= 0 ? '▲' : '▼'} {diff >= 0 ? 'Beat' : 'Lagged'} {label} by {diff >= 0 ? '+' : ''}{diff.toFixed(2)}%
+    <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background: diff >= 0 ? '#dcfce7' : '#fee2e2', color: diff >= 0 ? '#16a34a' : '#dc2626' }}>
+      {diff >= 0 ? '▲' : '▼'} {diff >= 0 ? 'Beat' : 'Lagged'} {label} by {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
     </span>
   )
 
   return (
     <div style={{ marginBottom:16 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10, fontSize:12, fontWeight:600, color:'var(--tw-muted-fg)' }}>
-        <span>↑↓</span> Market Performance
-        <span style={{ fontSize:11, fontWeight:400, color:'var(--tw-muted-fg)', marginLeft:4 }}>since {baseDate}</span>
+      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12, fontSize:11, fontWeight:600, color:'var(--tw-muted-fg)', textTransform:'uppercase', letterSpacing:'.05em' }}>
+        ↑↓ Market Performance
+        <span style={{ fontSize:11, fontWeight:400, textTransform:'none', letterSpacing:0, color:'var(--tw-muted-fg)', marginLeft:4 }}>since {baseDate}</span>
       </div>
-      <div style={{ maxWidth:480, display:'flex', flexDirection:'column', gap:4 }}>
+      <div style={{ display:'flex', flexDirection:'column' }}>
         {rows.map(renderRow)}
       </div>
-      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:10 }}>
-        {badge(spyDiff, 'SPY')}
-        {badge(rspDiff, 'RSP')}
-        {isNASDAQ && badge(qqqDiff, 'QQQ')}
-        {badge(etfDiff, etfSymbol)}
-        {badge(indDiff, indEtfSym)}
-        {!sector && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontStyle:'italic' }}>Fetch fundamentals to see sector ETF comparison</span>}
-        {sector && !etfSymbol && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontStyle:'italic' }}>No sector ETF mapped for "{sector}"</span>}
-      </div>
+      {(!sector) && (
+        <div style={{ fontSize:11, color:'var(--tw-muted-fg)', fontStyle:'italic', marginTop:8 }}>Fetch fundamentals to see sector ETF comparison</div>
+      )}
+      {sector && !etfSymbol && (
+        <div style={{ fontSize:11, color:'var(--tw-muted-fg)', fontStyle:'italic', marginTop:8 }}>No sector ETF mapped for "{sector}"</div>
+      )}
     </div>
   )
 }

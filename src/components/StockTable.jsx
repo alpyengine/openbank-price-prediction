@@ -235,7 +235,7 @@ export default function StockTable({ stocks, horizon, autoPrices, histPrices, ov
         </div>
       </div>
 
-      <div style={{ border:'1px solid var(--tw-border)', borderRadius:10, overflow:'hidden', marginBottom:'1.5rem', boxShadow:'0 1px 3px rgba(0,0,0,0.05)', background:'var(--tw-card)' }}>
+      <div style={{ border:'1px solid var(--tw-border)', borderRadius:10, overflowX:'auto', marginBottom:'1.5rem', boxShadow:'0 1px 3px rgba(0,0,0,0.05)', background:'var(--tw-card)' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, tableLayout:'fixed', minWidth:900 }}>
           <thead>
             <tr style={{ background:'var(--tw-muted)', borderBottom:'1px solid var(--tw-border)' }}>
