@@ -183,20 +183,21 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
               <thead>
                 <tr style={{ background:'var(--tw-muted)', borderBottom:'1px solid var(--tw-border)' }}>
-                  {['Date','Stocks','Hit rate','Hits','Misses','Actions'].map(h => (
+                  {['Date','Stocks','Hit rate','Hits','Misses','Awaiting','Actions'].map(h => (
                     <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:11, fontWeight:500, color:'var(--tw-muted-fg)', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {(!batches||batches.length===0) && (
-                  <tr><td colSpan={6} style={{ padding:'24px', textAlign:'center', color:'var(--tw-muted-fg)', fontSize:13 }}>No batches saved yet</td></tr>
+                  <tr><td colSpan={7} style={{ padding:'24px', textAlign:'center', color:'var(--tw-muted-fg)', fontSize:13 }}>No batches saved yet</td></tr>
                 )}
                 {(stats?.batchSummary ?? batches)?.map(batch => {
-                  const hits = batch.hit ?? batch.results?.filter(r=>r.verdict==='hit').length ?? 0
-                  const miss = batch.miss ?? batch.results?.filter(r=>r.verdict==='miss').length ?? 0
-                  const total = batch.stocks ?? batch.results?.length ?? 0
-                  const rate = batch.hitRate ?? (batch.evaluated > 0 ? Math.round(hits/batch.evaluated*100) : null)
+                  const hits    = batch.hit ?? batch.results?.filter(r=>r.verdict==='hit').length ?? 0
+                  const miss    = batch.miss ?? batch.results?.filter(r=>r.verdict==='miss').length ?? 0
+                  const await_  = batch.awaiting ?? batch.results?.filter(r=>r.verdict==='awaiting').length ?? 0
+                  const total   = batch.stocks ?? batch.results?.length ?? 0
+                  const rate    = batch.hitRate ?? (batch.evaluated > 0 ? Math.round(hits/batch.evaluated*100) : null)
                   return (
                     <tr key={batch.id} style={{ borderBottom:'1px solid var(--tw-border)' }}
                       onMouseEnter={e=>e.currentTarget.style.background='var(--tw-muted)'}
@@ -212,6 +213,12 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
                       </td>
                       <td style={{ padding:'12px 14px', color:'#16a34a', fontWeight:600 }}>{hits}</td>
                       <td style={{ padding:'12px 14px', color:'#dc2626', fontWeight:600 }}>{miss}</td>
+                      <td style={{ padding:'12px 14px' }}>
+                        {await_ > 0
+                          ? <span style={{ fontSize:12, fontWeight:600, padding:'2px 8px', borderRadius:20, background:'#f3f4f6', color:'#6b7280' }}>⏳ {await_}</span>
+                          : <span style={{ fontSize:12, color:'var(--tw-muted-fg)' }}>—</span>
+                        }
+                      </td>
                       <td style={{ padding:'12px 14px' }}>
                         <div style={{ display:'flex', gap:6 }}>
                           <button

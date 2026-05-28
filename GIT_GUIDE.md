@@ -2562,3 +2562,27 @@ git commit -m "feat: batch selector, margin slider, accuracy fixes (v6.3.0)
 git tag -a v6.3.0 -m "v6.3.0: batch selector, margin slider, accuracy fixes"
 git push origin main
 git push origin v6.3.0
+
+
+# ===========================================================================
+# STEP 76 — v6.3.1  Hit rate bug fix + All horizons button
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.3.1/. .
+
+git add .
+git commit -m "fix: hit rate 200%/280% bug + All horizons button (v6.3.1)
+
+- AccuracyChart: batch table now uses batchSummary.hitRate (correct)
+  instead of raw batch.hit_rate (wrong field) or hits/stocks (wrong divisor)
+- HorizonTabs: added 'All' button — aggregates all 4 horizons
+- SummaryCards: handles horizon='all' — counts hits/close/awaiting
+  across 1M+3M+6M+12M simultaneously using current price
+- App.jsx: horizon='all' skips historical price fetch and horizonExpired"
+
+git tag -a v6.3.1 -m "v6.3.1: hit rate fix + All button"
+git push origin main
+git push origin v6.3.1
