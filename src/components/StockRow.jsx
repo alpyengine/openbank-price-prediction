@@ -503,7 +503,6 @@ function FundamentalsPanel({ fundamental, ticker, onShowDesc }) {
           <div><div style={lbl}>Industry</div><div style={val}>{fundamental.industry || '--'}</div></div>
           <div><div style={lbl}>Market Cap</div><div style={val}>{fmtMarketCap(fundamental.marketCap)}</div></div>
           <div><div style={lbl}>Beta</div><div style={val}>{fundamental.beta ? fundamental.beta.toFixed(2) : '--'}</div></div>
-          <div><div style={lbl}>Forward P/E</div><div style={val}>{fundamental.forwardPE ? fundamental.forwardPE.toFixed(2) : '--'}</div></div>
 
           <div><div style={lbl}>Last Dividend</div><div style={val}>{fundamental.lastDividend ? `$${fundamental.lastDividend}` : '--'}</div></div>
           {fundamental.website && (

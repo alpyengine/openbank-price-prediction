@@ -34,11 +34,6 @@ function fmpSymbol(ticker) {
   return ticker.replace(/\.US$/i, '')
 }
 
-// Strip .US suffix for Twelve Data — also strip EU suffixes as TD uses bare tickers
-function tdSymbol(ticker) {
-  return ticker.replace(/\.(US|DE|AS|PA|L|MC)$/i, '')
-}
-
 // FMP: GET /stable/profile?symbol=TER&apikey=KEY (or IFX.DE for EU)
 async function fetchFMPProfile(ticker) {
   const symbol = fmpSymbol(ticker)
@@ -56,18 +51,6 @@ async function fetchFMPProfile(ticker) {
     cik:          p.cik          || null,
     description:  p.description  || null,
   }
-}
-
-// FMP: GET /stable/key-metrics?symbol=TER&period=annual&apikey=KEY
-// Returns forwardPE (pe_ratio_ttm used as proxy when forwardPe is absent)
-async function fetchFMPForwardPE(ticker) {
-  const symbol = fmpSymbol(ticker)
-  const url    = `${FMP_URL}/key-metrics?symbol=${encodeURIComponent(symbol)}&period=annual&limit=1&apikey=${FMP_KEY}`
-  const data   = await fetchWithTimeout(url)
-  if (!Array.isArray(data) || !data.length) return null
-  const m = data[0]
-  // FMP free plan returns peRatio (TTM) — good proxy for forwardPE
-  return m.forwardPe ?? m.peRatio ?? null
 }
 
 export function useFundamentals() {
@@ -89,13 +72,8 @@ export function useFundamentals() {
       try {
         setLog(`Fetching ${s.t}...`)
 
-        // FMP profile + forwardPE in parallel (both from FMP free plan)
-        const [fmpResult, fwdPEResult] = await Promise.allSettled([
-          fetchFMPProfile(s.t),
-          fetchFMPForwardPE(s.t),
-        ])
-        const fmpData = fmpResult.status === 'fulfilled' ? fmpResult.value : {}
-        const fwdPE   = fwdPEResult.status === 'fulfilled' ? fwdPEResult.value : null
+        // FMP profile — single call, free plan
+        const fmpData = await fetchFMPProfile(s.t).catch(() => ({}))
 
         newData[s.t] = {
           sector:       fmpData.sector       || '--',
@@ -106,7 +84,6 @@ export function useFundamentals() {
           lastDividend: fmpData.lastDividend || null,
           cik:          fmpData.cik          || null,
           description:  fmpData.description  || null,
-          forwardPE:    fwdPE,
         }
 
         ok++

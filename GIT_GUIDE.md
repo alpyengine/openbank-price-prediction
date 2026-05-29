@@ -2829,3 +2829,57 @@ git commit -m "feat: CSV preview table in ImportBox + remove Forward P/E (v6.5.2
 git tag -a v6.5.2 -m "v6.5.2: CSV preview + remove Forward P/E"
 git push origin main
 git push origin v6.5.2
+
+
+# ===========================================================================
+# STEP 85 — v6.5.2  CSV preview + Forward P/E from FMP + remove TD /statistics
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.2/. .
+
+git add .
+git commit -m "feat: CSV preview table + Forward P/E via FMP free plan (v6.5.2)
+
+ImportBox:
+- Shows parsed CSV as a preview table immediately after load/import
+- Columns: Ticker, Company, CCY, Base, 1M, 3M, 6M, 12M, Date
+- Table clears when user clicks Clear
+
+Fundamentals:
+- Removed Twelve Data /statistics call (403 on free plan — no more console errors)
+- Added fetchFMPForwardPE() using FMP /key-metrics endpoint (free plan)
+- Profile + ForwardPE fetched in parallel via Promise.allSettled
+- Falls back to peRatio (TTM) if forwardPe field absent in FMP response
+- Forward P/E restored in StockRow fundamentals panel"
+
+git tag -a v6.5.2 -m "v6.5.2: CSV preview + Forward P/E via FMP"
+git push origin main
+git push origin v6.5.2
+
+
+# ===========================================================================
+# STEP 86 — v6.5.3  Remove P/E — not available on FMP free plan
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.3/. .
+
+git add .
+git commit -m "fix: remove P/E ratio — not available on FMP free plan (v6.5.3)
+
+curl test confirmed p.pe is absent from FMP /stable/profile free plan.
+/key-metrics returns 200 but field empty on free tier.
+- Removed peRatio from fetchFMPProfile return object
+- Removed forwardPE from fundamentals data object
+- Removed P/E (TTM) field from StockRow display
+- Removed unused tdSymbol function
+Zero API calls that can fail."
+
+git tag -a v6.5.3 -m "v6.5.3: remove P/E — not on free plan"
+git push origin main
+git push origin v6.5.3
