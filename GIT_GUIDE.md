@@ -2977,3 +2977,33 @@ HorizonCards:
 git tag -a v6.5.6 -m "v6.5.6: unified verdict + fix Awaiting"
 git push origin main
 git push origin v6.5.6
+
+
+# ===========================================================================
+# STEP 90 — v6.5.7  Proportional bars + avg % in summary boxes
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.7/. .
+
+git add .
+git commit -m "feat: proportional bars + avg % in summary boxes (v6.5.7)
+
+StockRow bars:
+- Bar width now proportional to distance from target (not fixed)
+- HIT: always 100% full green bar (hit is a hit at +128% or +5%)
+- CLOSE: 88-96% amber bar proportional within ±margin% band
+- MISS: 0-75% red bar — farther from target = shorter bar
+- Labels: HIT +128% / CLOSE -3% / MISS -22%
+
+SummaryCards:
+- Hit/Close/Miss sub-labels now show average distance to target
+- Format: 'avg +38% · today\\'s price'
+- Computed as mean of (price - target) / target * 100 per group
+- Awaiting sub-label unchanged"
+
+git tag -a v6.5.7 -m "v6.5.7: proportional bars + avg %"
+git push origin main
+git push origin v6.5.7

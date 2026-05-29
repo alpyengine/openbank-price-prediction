@@ -175,6 +175,27 @@ export function usePriceFetch() {
     setChunkProgress(null)
   }, [])
 
+  // Restore histPrices from saved batch results — avoids API calls for expired horizons
+  const restoreHistPrices = useCallback((results) => {
+    if (!results?.length) return
+    const restored = {}
+    for (const r of results) {
+      if (r.priceOnDate && r.ticker && r.horizon) {
+        const key = `${r.ticker}_${r.horizon}`
+        restored[key] = {
+          price:        r.priceOnDate,
+          date:         r.targetDate ?? null,
+          fromCache:    false,
+          isHistorical: true,
+        }
+      }
+    }
+    if (Object.keys(restored).length > 0) {
+      setHistPrices(restored)
+      setLog(`Prices restored from saved batch (${Object.keys(restored).length} historical)`)
+    }
+  }, [])
+
   // ── Fetch current prices ───────────────────────────────────────────────────
   const fetchCurrentBatch = useCallback(async (stocks) => {
     if (!stocks.length) return
@@ -274,6 +295,7 @@ export function usePriceFetch() {
     fetchCurrentBatch,
     fetchHistoricalForHorizon,
     reset: resetPrices,
+    restoreHistPrices,
     setLog,
   }
 }

@@ -47,13 +47,18 @@ export default function ImportBox({ onImport }) {
   const handleFileChange = useCallback((e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setError(''); setMsg('')
+    setError(''); setMsg(''); setPreview([])
     if (!file.name.endsWith('.csv') && !file.name.endsWith('.txt')) { setError('Please select a .csv file.'); return }
     const reader = new FileReader()
-    reader.onload = (ev) => { const text = ev.target.result; setCsv(text); parseCSV(text, onImport, setError, setCsv, setMsg, setPreview) }
+    reader.onload = (ev) => {
+      const text = ev.target.result
+      setCsv(text)
+      // Show in textarea only — user clicks Import to send to tables
+      setMsg(`✓ ${file.name} loaded — click Import to continue`)
+    }
     reader.onerror = () => setError('Could not read file.')
     reader.readAsText(file)
-  }, [onImport])
+  }, [])
 
   const handleSample = useCallback(() => {
     onImport(DEFAULT_STOCKS.map(s => ({ ...s })))

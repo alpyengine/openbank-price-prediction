@@ -44,7 +44,7 @@ export default function App() {
     return '$'
   }, [stocks])
 
-  const { autoPrices, histPrices, fetching, log, fetchCurrentBatch, fetchHistoricalForHorizon, reset: resetPrices } = usePriceFetch()
+  const { autoPrices, histPrices, fetching, log, fetchCurrentBatch, fetchHistoricalForHorizon, reset: resetPrices, restoreHistPrices } = usePriceFetch()
   const { history, stats, loading: histLoading, saving: histSaving, log: histLog, configured: histConfigured, load: loadHistory, saveBatch, deleteBatch } = useHistory(hitMargin)
   const { marketData, loading: marketLoading, log: marketLog, fetchMarketData, reset: resetMarketData, restoreMarketData } = useMarketData()
   const { fundamentals, loading: fundLoading, log: fundLog, fetchFundamentals, reset: resetFundamentals, restoreFundamentals } = useFundamentals()
@@ -136,8 +136,9 @@ export default function App() {
     setFilterIndustry('all')
     setGroupBySector(false)
     setSortBySector(false)
-    resetPrices()
-  }, [resetPrices, restoreMarketData, resetMarketData, restoreFundamentals, resetFundamentals])
+    // Restore historical prices from saved results — prevents API calls for expired horizons
+    restoreHistPrices(batch.results)
+  }, [resetPrices, restoreHistPrices, restoreMarketData, resetMarketData, restoreFundamentals, resetFundamentals])
 
   const handleOverrideChange = useCallback((ticker, value) => {
     setOverrides(prev => {
