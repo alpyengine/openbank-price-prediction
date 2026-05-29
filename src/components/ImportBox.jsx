@@ -3,7 +3,7 @@ import { parseDate, today as getToday } from '../utils/dates.js'
 import { DEFAULT_STOCKS } from '../utils/stocks.js'
 import { Upload, FileText, Trash2, Info } from 'lucide-react'
 
-function parseCSV(text, onImport, setError, setCsv, setMsg) {
+function parseCSV(text, onImport, setError, setCsv, setMsg, setPreview) {
   setError(''); setMsg('')
   const allLines = text.trim().split('\n').filter(l => l.trim())
   if (!allLines.length) { setError('No data found.'); return }
@@ -22,23 +22,25 @@ function parseCSV(text, onImport, setError, setCsv, setMsg) {
   })
   if (bad.length)     { setError(bad.join(' | ')); return }
   if (!stocks.length) { setError('No valid rows found.'); return }
+  setPreview(stocks)
   onImport(stocks)
   setMsg(`✓ ${stocks.length} stock${stocks.length>1?'s':''} imported${isHeader?' (header skipped)':''}`)
 }
 
 export default function ImportBox({ onImport }) {
-  const [csv,   setCsv]   = useState('')
-  const [error, setError] = useState('')
-  const [msg,   setMsg]   = useState('')
+  const [csv,     setCsv]     = useState('')
+  const [error,   setError]   = useState('')
+  const [msg,     setMsg]     = useState('')
+  const [preview, setPreview] = useState([])
   const fileRef = useRef(null)
 
   const handleImport = useCallback(() => {
     if (!csv.trim()) { setError('Paste CSV data or load a file first.'); return }
-    parseCSV(csv, onImport, setError, setCsv, setMsg)
+    parseCSV(csv, onImport, setError, setCsv, setMsg, setPreview)
   }, [csv, onImport])
 
   const handleClear = useCallback(() => {
-    setCsv(''); setError(''); setMsg('')
+    setCsv(''); setError(''); setMsg(''); setPreview([])
     if (fileRef.current) fileRef.current.value = ''
   }, [])
 
@@ -48,7 +50,7 @@ export default function ImportBox({ onImport }) {
     setError(''); setMsg('')
     if (!file.name.endsWith('.csv') && !file.name.endsWith('.txt')) { setError('Please select a .csv file.'); return }
     const reader = new FileReader()
-    reader.onload = (ev) => { const text = ev.target.result; setCsv(text); parseCSV(text, onImport, setError, setCsv, setMsg) }
+    reader.onload = (ev) => { const text = ev.target.result; setCsv(text); parseCSV(text, onImport, setError, setCsv, setMsg, setPreview) }
     reader.onerror = () => setError('Could not read file.')
     reader.readAsText(file)
   }, [onImport])
@@ -107,6 +109,40 @@ export default function ImportBox({ onImport }) {
 
         {error && <div style={{ marginTop:6, fontSize:12, color:'#dc2626', display:'flex', alignItems:'center', gap:4 }}>⚠ {error}</div>}
         {msg   && <div style={{ marginTop:6, fontSize:12, color:'#16a34a', fontWeight:600 }}>{msg}</div>}
+
+        {preview.length > 0 && (
+          <div style={{ marginTop:12, overflowX:'auto' }}>
+            <div style={{ fontSize:11, fontWeight:600, color:'var(--tw-muted-fg)', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>
+              Preview — {preview.length} stock{preview.length > 1 ? 's' : ''}
+            </div>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+              <thead>
+                <tr style={{ background:'var(--tw-muted)' }}>
+                  {['Ticker','Company','CCY','Base','1M','3M','6M','12M','Date'].map(h => (
+                    <th key={h} style={{ padding:'5px 8px', textAlign:'left', fontWeight:600, color:'var(--tw-muted-fg)', borderBottom:'1px solid var(--tw-border)', whiteSpace:'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {preview.map((s, i) => (
+                  <tr key={i} style={{ borderBottom:'1px solid var(--tw-border)', background: i % 2 === 0 ? 'transparent' : 'var(--tw-muted)' }}>
+                    <td style={{ padding:'5px 8px', fontWeight:600, color:'var(--tw-fg)', fontFamily:'monospace' }}>{s.t}</td>
+                    <td style={{ padding:'5px 8px', color:'var(--tw-fg)', maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.co}</td>
+                    <td style={{ padding:'5px 8px', color:'var(--tw-muted-fg)' }}>{s.cu}</td>
+                    <td style={{ padding:'5px 8px', color:'var(--tw-fg)' }}>{s.b.toFixed(2)}</td>
+                    <td style={{ padding:'5px 8px', color:'#16a34a' }}>{s.t1.toFixed(2)}</td>
+                    <td style={{ padding:'5px 8px', color:'#16a34a' }}>{s.t3.toFixed(2)}</td>
+                    <td style={{ padding:'5px 8px', color:'#16a34a' }}>{s.t6.toFixed(2)}</td>
+                    <td style={{ padding:'5px 8px', color:'#16a34a' }}>{s.t12.toFixed(2)}</td>
+                    <td style={{ padding:'5px 8px', color:'var(--tw-muted-fg)', fontFamily:'monospace', fontSize:11 }}>
+                      {s.base ? `${String(s.base.getDate()).padStart(2,'0')}/${String(s.base.getMonth()+1).padStart(2,'0')}/${s.base.getFullYear()}` : '--'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <div style={{ display:'flex', gap:8, marginTop:10, alignItems:'center', flexWrap:'wrap' }}>
           <button style={btn('primary')} onClick={() => fileRef.current?.click()}>

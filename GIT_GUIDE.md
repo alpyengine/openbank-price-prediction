@@ -2781,3 +2781,51 @@ README: full Supabase documentation section added"
 git tag -a v6.5.0 -m "v6.5.0: Supabase price_cache automation"
 git push origin main
 git push origin v6.5.0
+
+
+# ===========================================================================
+# STEP 84 — v6.5.1  Fix hitMargin not defined in HorizonCards
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.1/. .
+
+git add .
+git commit -m "fix: hitMargin not defined in HorizonCards subcomponent (v6.5.1)
+
+HorizonCards was using hitMargin from outer scope instead of
+receiving it as a prop. Fix:
+- Added hitMargin = 5 to HorizonCards props signature
+- Passed hitMargin prop at the HorizonCards call site in StockRow"
+
+git tag -a v6.5.1 -m "v6.5.1: fix HorizonCards hitMargin"
+git push origin main
+git push origin v6.5.1
+
+
+# ===========================================================================
+# STEP 85 — v6.5.2  Remove Forward P/E + CSV preview table in ImportBox
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.2/. .
+
+git add .
+git commit -m "feat: CSV preview table in ImportBox + remove Forward P/E (v6.5.2)
+
+- ImportBox: shows parsed data as a table immediately after loading
+  a CSV file or clicking Import — Ticker, Company, CCY, Base, 
+  1M/3M/6M/12M targets and Date all visible before going to batch view
+- Removed Forward P/E field — /statistics endpoint is not available
+  on Twelve Data free plan (403 Forbidden). Eliminates console errors
+  on every Fundamentals fetch.
+- useFundamentals: now fetches FMP only (no parallel TD call)
+- StockRow: Forward P/E row removed from fundamentals panel"
+
+git tag -a v6.5.2 -m "v6.5.2: CSV preview + remove Forward P/E"
+git push origin main
+git push origin v6.5.2

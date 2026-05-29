@@ -58,13 +58,16 @@ async function fetchFMPProfile(ticker) {
   }
 }
 
-// Twelve Data: GET /statistics?symbol=TER&apikey=KEY
-async function fetchTDForwardPE(ticker) {
-  const symbol = tdSymbol(ticker)
-  const url    = `${TD_URL}/statistics?symbol=${encodeURIComponent(symbol)}&apikey=${TD_KEY}`
+// FMP: GET /stable/key-metrics?symbol=TER&period=annual&apikey=KEY
+// Returns forwardPE (pe_ratio_ttm used as proxy when forwardPe is absent)
+async function fetchFMPForwardPE(ticker) {
+  const symbol = fmpSymbol(ticker)
+  const url    = `${FMP_URL}/key-metrics?symbol=${encodeURIComponent(symbol)}&period=annual&limit=1&apikey=${FMP_KEY}`
   const data   = await fetchWithTimeout(url)
-  if (data?.status === 'error') throw new Error(data.message || 'TD error')
-  return data?.statistics?.valuations_metrics?.forward_pe || null
+  if (!Array.isArray(data) || !data.length) return null
+  const m = data[0]
+  // FMP free plan returns peRatio (TTM) — good proxy for forwardPE
+  return m.forwardPe ?? m.peRatio ?? null
 }
 
 export function useFundamentals() {
@@ -86,14 +89,13 @@ export function useFundamentals() {
       try {
         setLog(`Fetching ${s.t}...`)
 
-        // FMP and Twelve Data in parallel
-        const [fmp, forwardPE] = await Promise.allSettled([
+        // FMP profile + forwardPE in parallel (both from FMP free plan)
+        const [fmpResult, fwdPEResult] = await Promise.allSettled([
           fetchFMPProfile(s.t),
-          fetchTDForwardPE(s.t),
+          fetchFMPForwardPE(s.t),
         ])
-
-        const fmpData  = fmp.status === 'fulfilled' ? fmp.value : {}
-        const fwdPE    = forwardPE.status === 'fulfilled' ? forwardPE.value : null
+        const fmpData = fmpResult.status === 'fulfilled' ? fmpResult.value : {}
+        const fwdPE   = fwdPEResult.status === 'fulfilled' ? fwdPEResult.value : null
 
         newData[s.t] = {
           sector:       fmpData.sector       || '--',
