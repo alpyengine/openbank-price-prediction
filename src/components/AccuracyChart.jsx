@@ -72,7 +72,7 @@ export default function AccuracyChart({ stats, history: batches, loading, log, c
         <span style={{ fontSize:12, fontWeight:700, color:'var(--tw-fg)', minWidth:32, textAlign:'center' }}>±{hitMargin}%</span>
       </div>
       <button style={btn('neutral')} onClick={onLoad} disabled={loading}>
-        <RefreshCw size={13} /> Load history
+        <RefreshCw size={13} /> Refresh
       </button>
 
     </div>
@@ -96,7 +96,7 @@ export default function AccuracyChart({ stats, history: batches, loading, log, c
         <BarChart2 size={32} color="var(--tw-muted-fg)" style={{ margin:'0 auto 12px' }} />
         <div style={{ fontSize:14, fontWeight:600, color:'var(--tw-fg)', marginBottom:6 }}>No history loaded</div>
         <div style={{ fontSize:13, color:'var(--tw-muted-fg)', marginBottom:16 }}>Click "Load history" to fetch accuracy data from Supabase.</div>
-        <button style={btn('neutral')} onClick={onLoad}><RefreshCw size={13} /> Load history</button>
+        <button style={btn('neutral')} onClick={onLoad}><RefreshCw size={13} /> Refresh</button>
       </div>
     </div>
   )

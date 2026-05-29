@@ -2660,3 +2660,64 @@ causing esbuild parse error. Removed unused duplicate on line 79."
 git tag -a v6.3.4 -m "v6.3.4: fix duplicate HKEYS"
 git push origin main
 git push origin v6.3.4
+
+
+# ===========================================================================
+# STEP 80 — v6.3.5  Move batch selector + Save batch to FetchBar right side
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.3.5/. .
+
+git add .
+git commit -m "feat: move Save batch to FetchBar, batch selector far right (v6.3.5)
+
+FetchBar order (left to right):
+  log | Fetch prices | Fundamentals | Market data | [date dropdown] | Save batch
+
+- Removed Save batch from AccuracyChart ActionBar
+- Save batch now in FetchBar on both Batch Overview pages
+- Batch selector moved to the right of Market data
+- FetchBar receives onSave + saving props from App"
+
+git tag -a v6.3.5 -m "v6.3.5: Save batch in FetchBar"
+git push origin main
+git push origin v6.3.5
+
+
+# ===========================================================================
+# STEP 81 — v6.4.0  Vitest + rename Load history → Refresh
+# ===========================================================================
+#
+# ⚠️  THIS VERSION REQUIRES npm install — new devDependency: vitest
+#
+cd /Users/alex/Downloads/openbank-price-prediction_v6.4.0
+npm install
+npm run test:run    # verify all 77 tests pass before committing
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.4.0/. .
+
+git add .
+git commit -m "feat: Vitest testing suite + rename Refresh button (v6.4.0)
+
+Testing suite — 77 tests across 4 files:
+- src/utils/stocks.test.js   (37 tests) evaluatePrediction, getTarget,
+  distancePct, getEffectivePrice, priceStatus
+- src/utils/dates.test.js    (20 tests) parseDate, targetDates,
+  daysLeft, dateStatus, formatDate
+- src/hooks/computed.test.js (10 tests) hit rate, awaiting, uniqueTickers,
+  batchSummary — includes regression test for 200%/280% bug
+- src/hooks/saveBatch.test.js (10 tests) future horizons always awaiting,
+  expired horizon evaluation, verdict never undefined
+
+Run tests: npm run test (watch) or npm run test:run (single run)
+
+UI: renamed 'Load history' to 'Refresh' in AccuracyChart ActionBar
+README: added full Vitest documentation section"
+
+git tag -a v6.4.0 -m "v6.4.0: Vitest testing suite"
+git push origin main
+git push origin v6.4.0
