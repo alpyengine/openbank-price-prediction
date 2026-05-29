@@ -2746,3 +2746,38 @@ All 77 tests pass on Node 18.20.8."
 git tag -a v6.4.1 -m "v6.4.1: Vitest Node 18 compatibility"
 git push origin main
 git push origin v6.4.1
+
+
+# ===========================================================================
+# STEP 83 — v6.5.0  Supabase price_cache automation
+# ===========================================================================
+#
+# No npm install needed — no new npm dependencies.
+#
+# ⚠️  BEFORE installing this version, complete the Supabase setup:
+#     See README.md → "Supabase — Architecture & Automation"
+#     Steps 1-5 must be run in Supabase SQL Editor first.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.0/. .
+
+git add .
+git commit -m "feat: Supabase price_cache automation (v6.5.0)
+
+Backend (Supabase SQL — run manually in dashboard):
+- price_cache table: stores closing prices fetched by pg_cron
+- fetch_expired_horizons() function: detects awaiting horizons,
+  calls Twelve Data API, updates verdicts automatically
+- pg_cron job: runs every weekday at 23:00 UTC
+
+Frontend (React):
+- storage.js: loadCachedPrice() reads from price_cache before API
+- usePriceFetch.js: cache-first strategy for historical prices
+  (Supabase cache → Twelve Data API fallback)
+- StockRow: shows 💾 cached / exp. indicator on historical prices
+
+README: full Supabase documentation section added"
+
+git tag -a v6.5.0 -m "v6.5.0: Supabase price_cache automation"
+git push origin main
+git push origin v6.5.0

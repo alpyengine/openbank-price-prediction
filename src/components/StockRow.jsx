@@ -255,7 +255,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           <td colSpan={16} style={{ padding:'16px 20px 20px 20px', background:'var(--tw-muted)' }}>
 
             {/* ── Horizon cards ── */}
-            <HorizonCards stock={stock} tg={tg} autoPrice={autoPrice} batchCurrency={batchCurrency} />
+            <HorizonCards stock={stock} tg={tg} autoPrice={autoPrice} batchCurrency={batchCurrency} hitMargin={hitMargin} />
 
             {/* ── Market Performance ── */}
             {marketData && <MarketComparison stock={stock} fundamental={fundamental} marketData={marketData} autoPrice={autoPrice} />}
@@ -297,7 +297,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 export default StockRow
 
 // ── Horizon Cards (v0 style) ──────────────────────────────────────────────────
-function HorizonCards({ stock, tg, autoPrice, batchCurrency }) {
+function HorizonCards({ stock, tg, autoPrice, batchCurrency, hitMargin = 5 }) {
   if (!tg) return null
   const cu = batchCurrency ?? '$'
   const horizons = [
