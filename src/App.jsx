@@ -189,6 +189,9 @@ export default function App() {
                 baseDate: stocks.find(s => s.base)?.base,
                 existingMarketData: marketData,
               })}
+              batches={history?.batches ?? []}
+              loadedBatchDate={loadedBatchDate}
+              onLoadBatch={handleLoadBatch}
             />
           )}
 

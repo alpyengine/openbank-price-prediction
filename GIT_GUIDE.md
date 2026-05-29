@@ -2586,3 +2586,77 @@ git commit -m "fix: hit rate 200%/280% bug + All horizons button (v6.3.1)
 git tag -a v6.3.1 -m "v6.3.1: hit rate fix + All button"
 git push origin main
 git push origin v6.3.1
+
+
+# ===========================================================================
+# STEP 77 — v6.3.2  Add Awaiting column to Historical batches table
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.3.2/. .
+
+git add .
+git commit -m "feat: add Awaiting column to Historical batches table (v6.3.2)
+
+- Historical batches table now shows 7 columns: Date, Stocks, Hit rate,
+  Hits, Misses, Awaiting, Actions
+- Awaiting shows ⏳ N when > 0, — when all predictions are closed
+- Data comes from batchSummary.awaiting (already computed correctly)"
+
+git tag -a v6.3.2 -m "v6.3.2: Awaiting column in batches table"
+git push origin main
+git push origin v6.3.2
+
+
+# ===========================================================================
+# STEP 78 — v6.3.3  Fix awaiting always 0 — correct horizon evaluation
+# ===========================================================================
+#
+# No npm install needed.
+#
+# IMPORTANT: Re-save existing batches after installing — old saved batches
+# have incorrect verdicts (future horizons marked as miss instead of awaiting).
+# Load each batch and click Save batch to recalculate correctly.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.3.3/. .
+
+git add .
+git commit -m "fix: awaiting always 0 — correct horizon evaluation in saveBatch (v6.3.3)
+
+Root cause: saveBatch evaluated ALL horizons using current price, marking
+future horizons as hit/miss instead of awaiting. A horizon should only
+be evaluated if its target date has ALREADY passed.
+
+Fix: each horizon checks its own expiry date independently.
+- Expired horizon + historical price → hit/miss/close
+- Expired horizon + no price → awaiting
+- Future horizon → always awaiting (regardless of current price)
+
+NOTE: Re-save existing batches to recalculate verdicts correctly."
+
+git tag -a v6.3.3 -m "v6.3.3: fix awaiting evaluation in saveBatch"
+git push origin main
+git push origin v6.3.3
+
+
+# ===========================================================================
+# STEP 79 — v6.3.4  Fix duplicate HKEYS declaration in useHistory.js
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.3.4/. .
+
+git add .
+git commit -m "fix: remove duplicate HKEYS declaration in useHistory.js (v6.3.4)
+
+HKEYS was declared twice in the same scope (lines 79 and 151),
+causing esbuild parse error. Removed unused duplicate on line 79."
+
+git tag -a v6.3.4 -m "v6.3.4: fix duplicate HKEYS"
+git push origin main
+git push origin v6.3.4

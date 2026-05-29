@@ -78,21 +78,39 @@ export function useHistory(margin = 5) {
     const results = []
     for (const stock of stocks) {
       for (const h of HORIZONS) {
-        const { price: p } = getEffectivePrice(
-          stock.t, h, autoPrices, histPrices, overrides, horizonExpired
-        )
         const tgt     = getTarget(stock, h)
         const tgtDate = getTargetDate(stock, h)
-        const { verdict } = evaluatePrediction(p, tgt, stock.b, margin)
+
+        // A horizon is only evaluable if its target date has passed
+        const thisHorizonExpired = tgtDate
+          ? dateStatus(tgtDate) === 'past'
+          : false
+
+        // Only use historical price for expired horizons
+        // Never evaluate a future horizon as hit/miss — mark as awaiting
+        let finalVerdict = 'awaiting'
+        let priceOnDate  = null
+
+        if (thisHorizonExpired) {
+          const { price: p } = getEffectivePrice(
+            stock.t, h, autoPrices, histPrices, overrides, true
+          )
+          if (p) {
+            const { verdict } = evaluatePrediction(p, tgt, stock.b, margin)
+            finalVerdict = verdict ?? 'awaiting'
+            priceOnDate  = p
+          }
+          // If no historical price available yet — stays awaiting
+        }
 
         results.push({
           ticker:      stock.t,
           company:     stock.co,
           horizon:     h,
-          verdict:     verdict ?? 'awaiting',
+          verdict:     finalVerdict,
           basePrice:   stock.b,
           targetPrice: tgt,
-          priceOnDate: p ?? null,
+          priceOnDate,
           targetDate:  tgtDate ? formatDate(tgtDate) : null,
           note:        h === '1M' ? (notes?.[stock.t] || '') : undefined,
         })
