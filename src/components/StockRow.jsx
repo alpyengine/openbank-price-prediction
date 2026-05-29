@@ -150,46 +150,41 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           let distPct = null
           if (currentP && t) distPct = ((currentP - t) / t) * 100
 
-          // Determine zone
+          // Determine zone using evaluatePrediction — same logic as SummaryCards boxes
+          const horizonTarget = t
+          const { verdict: barVerdict } = currentP && horizonTarget
+            ? evaluatePrediction(currentP, horizonTarget, stock.b, hitMargin)
+            : { verdict: null }
+
           let zone = 'awaiting'
-          if (expired) {
-            zone = distPct != null && distPct >= -hitMargin ? 'hit' : 'miss'
-          } else if (distPct != null) {
-            if (distPct >= 0)       zone = 'exceeded'
-            else if (distPct >= -hitMargin) zone = 'near'
-            else if (distPct >= -(hitMargin * 3)) zone = 'close'
-            else if (distPct >= -30) zone = 'far'
-            else                    zone = 'vfar'
+          if (currentP && horizonTarget) {
+            if (barVerdict === 'hit')        zone = 'hit'
+            else if (barVerdict === 'close') zone = 'close'
+            else if (barVerdict === 'miss')  zone = 'miss'
           }
 
-          // Bar fill width (0-100%) — 100 = at or above target, 0 = very far
-          const fillWidth = distPct == null ? 0
-            : distPct >= 0   ? 100
-            : distPct >= -hitMargin        ? 88 + (distPct / -hitMargin) * (-12)
-            : distPct >= -(hitMargin * 3)  ? 50 + ((distPct + hitMargin) / -(hitMargin*2)) * (-26)
-            : distPct >= -(hitMargin * 6)  ? 10 + ((distPct + hitMargin*3) / -(hitMargin*3)) * (-14)
-            : Math.max(0, 10 + distPct * 0.2)
+          // Bar fill width — 100% = hit, 66% = close, 33% = miss, 0% = awaiting
+          const fillWidth = zone === 'hit' ? 100
+            : zone === 'close' ? 66
+            : zone === 'miss'  ? 33
+            : 0
 
           const ZONE_STYLES = {
-            exceeded: { color:'#15803d', fill:'#16a34a' },
-            near:     { color:'#1d4ed8', fill:'#3b82f6' },
-            close:    { color:'#a16207', fill:'#eab308' },
-            far:      { color:'#c2410c', fill:'#f97316' },
-            vfar:     { color:'#b91c1c', fill:'#ef4444' },
             hit:      { color:'#15803d', fill:'#16a34a' },
-            miss:     { color:'#6b7280', fill:'#d1d5db' },
+            close:    { color:'#a16207', fill:'#eab308' },
+            miss:     { color:'#b91c1c', fill:'#ef4444' },
             awaiting: { color:'var(--tw-muted-fg)', fill:'var(--tw-border)' },
           }
-          const zs = ZONE_STYLES[zone]
+          const zs = ZONE_STYLES[zone] || ZONE_STYLES.awaiting
 
           // Label text
-          const label = expired
-            ? (zone === 'hit'
-                ? `HIT ${distPct!=null?(distPct>=0?'+':'')+(distPct.toFixed(1))+'%':''}`
-                : `MISS ${distPct!=null?distPct.toFixed(1)+'%':''}`)
-            : distPct != null
-              ? `${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}%${distPct >= 0 ? ' ↑' : ''}`
-              : '--'
+          const label = zone === 'hit'
+            ? `HIT ${distPct!=null?(distPct>=0?'+':'')+(distPct.toFixed(1))+'%':''}`
+            : zone === 'close'
+              ? `CLOSE ${distPct!=null?(distPct>=0?'+':'')+(distPct.toFixed(1))+'%':''}`
+              : zone === 'miss'
+                ? `MISS ${distPct!=null?(distPct>=0?'+':'')+(distPct.toFixed(1))+'%':''}`
+                : '--'
 
           return (
             <td key={i} style={{ ...td, minWidth:80 }}>
@@ -326,29 +321,36 @@ function HorizonCards({ stock, tg, autoPrice, batchCurrency, hitMargin = 5 }) {
           const expired = ds === 'past'
           const distPct = autoPrice && target ? ((autoPrice - target) / target) * 100 : null
 
-          let verdict = 'AWAITING'
-          let verdictColor = '#6b7280'
-          let verdictBg = '#f3f4f6'
-          let borderColor = 'var(--tw-border)'
+          // Use evaluatePrediction — consistent with boxes and bars
+          const { verdict: ev } = autoPrice && target
+            ? evaluatePrediction(autoPrice, target, stock.b, hitMargin)
+            : { verdict: null }
 
-          if (expired) {
-            verdict = distPct != null && distPct >= -hitMargin ? 'HIT' : 'MISS'
-            if (verdict === 'HIT') { verdictColor = '#15803d'; verdictBg = '#dcfce7'; borderColor = '#86efac' }
-            else { verdictColor = '#b91c1c'; verdictBg = '#fee2e2'; borderColor = '#fca5a5' }
-          } else if (distPct != null) {
-            if (distPct >= 0) { verdict = 'EXCEEDED'; verdictColor = '#15803d'; verdictBg = '#dcfce7'; borderColor = '#86efac' }
-            else if (distPct >= -hitMargin) { verdict = 'NEAR'; verdictColor = '#1d4ed8'; verdictBg = '#dbeafe'; borderColor = '#93c5fd' }
-            else if (distPct >= -(hitMargin * 3)) { verdict = 'CLOSE'; verdictColor = '#a16207'; verdictBg = '#fef9c3'; borderColor = '#fcd34d' }
-          }
-
-          const isActive = verdict === 'HIT' || verdict === 'EXCEEDED' || verdict === 'NEAR'
+          const hcVerdict   = !autoPrice ? 'awaiting' : ev ?? 'awaiting'
+          const verdictColor = hcVerdict === 'hit'   ? '#15803d'
+            : hcVerdict === 'close' ? '#a16207'
+            : hcVerdict === 'miss'  ? '#b91c1c'
+            : '#6b7280'
+          const verdictBg    = hcVerdict === 'hit'   ? '#dcfce7'
+            : hcVerdict === 'close' ? '#fef9c3'
+            : hcVerdict === 'miss'  ? '#fee2e2'
+            : 'var(--tw-muted)'
+          const borderColor  = hcVerdict === 'hit'   ? '#86efac'
+            : hcVerdict === 'close' ? '#fcd34d'
+            : hcVerdict === 'miss'  ? '#fca5a5'
+            : 'var(--tw-border)'
+          const isActive     = hcVerdict === 'hit' || hcVerdict === 'close'
+          const verdictLabel = hcVerdict === 'hit' ? '⊙ HIT'
+            : hcVerdict === 'close' ? '◷ CLOSE'
+            : hcVerdict === 'miss'  ? '⊗ MISS'
+            : '◷ AWAITING'
 
           return (
             <div key={key} style={{ background:'var(--tw-card)', border:`1px solid ${isActive ? borderColor : 'var(--tw-border)'}`, borderRadius:10, padding:'14px 16px', boxShadow: isActive ? `0 0 0 1px ${borderColor}20` : 'none' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
                 <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontWeight:500 }}>{key}</span>
                 <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, background:verdictBg, color:verdictColor }}>
-                  {verdict === 'EXCEEDED' ? '⊙ HIT' : verdict === 'HIT' ? '⊙ HIT' : verdict === 'NEAR' ? '◷ CLOSE' : verdict === 'CLOSE' ? '◷ CLOSE' : verdict === 'MISS' ? '⊗ MISS' : '◷ AWAITING'}
+                  {verdictLabel}
                 </span>
               </div>
               <div style={{ fontSize:18, fontWeight:700, color:'var(--tw-fg)', marginBottom:4 }}>

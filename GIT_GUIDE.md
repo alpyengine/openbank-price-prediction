@@ -2912,3 +2912,68 @@ git commit -m "fix: StockRow UI — notes alignment, website blue, description, 
 git tag -a v6.5.4 -m "v6.5.4: StockRow UI fixes"
 git push origin main
 git push origin v6.5.4
+
+
+# ===========================================================================
+# STEP 88 — v6.5.5  Chronological batch ordering everywhere
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.5/. .
+
+git add .
+git commit -m "feat: chronological batch ordering in chart, table and dropdown (v6.5.5)
+
+Root cause: date field is DD/MM/YYYY string — sorting alphabetically
+gives wrong order. Fix: parseBatchDate() converts to Date for comparison.
+
+- storage.js: Supabase query now orders by saved_at desc (timestamp)
+  instead of date string — reliable chronological ordering from DB
+- useHistory.js: added parseBatchDate() helper, sortedBatches array
+  (oldest→newest) used for chart axis; batchSummary reversed
+  (newest→oldest) for table display
+- FetchBar.jsx: BatchSelector dropdown sorts newest→oldest using
+  parseBatchDate() — most recent batch shown first"
+
+git tag -a v6.5.5 -m "v6.5.5: chronological batch ordering"
+git push origin main
+git push origin v6.5.5
+
+
+# ===========================================================================
+# STEP 89 — v6.5.6  Fix Awaiting + unified verdict system + 5 summary boxes
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.6/. .
+
+git add .
+git commit -m "feat: unified verdict + 5 summary boxes + fix Awaiting (v6.5.6)
+
+SummaryCards:
+- Fixed Awaiting count: now counts horizons not yet due (not no-price)
+  Added isHorizonExpired() helper using dateStatus() + targetDates()
+- 5 boxes: Total | Hit | Close (±N%) | Miss | Awaiting
+- Box numbers in verdict color (green/amber/red/neutral)
+- Icon backgrounds in pastel verdict color
+- Sub-label colored per verdict ('today\'s price' / 'historical price')
+- Miss box added with XCircle icon in red
+
+StockRow bars:
+- Removed 6-zone gradient system (exceeded/near/close/far/vfar/miss)
+- Now uses evaluatePrediction(): hit/close/miss/awaiting
+- Fill widths: hit=100% green | close=66% amber | miss=33% red | awaiting=0%
+- Labels: HIT +X% | CLOSE +X% | MISS X% | --
+
+HorizonCards:
+- Removed EXCEEDED/NEAR custom logic
+- Now uses evaluatePrediction: HIT/CLOSE/MISS/AWAITING badges
+- All colors aligned with same palette"
+
+git tag -a v6.5.6 -m "v6.5.6: unified verdict + fix Awaiting"
+git push origin main
+git push origin v6.5.6
