@@ -2883,3 +2883,32 @@ Zero API calls that can fail."
 git tag -a v6.5.3 -m "v6.5.3: remove P/E — not on free plan"
 git push origin main
 git push origin v6.5.3
+
+
+# ===========================================================================
+# STEP 87 — v6.5.4  StockRow UI fixes: notes, website, description, vs Sector
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.4/. .
+
+git add .
+git commit -m "fix: StockRow UI — notes alignment, website blue, description, vs Sector (v6.5.4)
+
+1. Notes button aligned left (was flex-end, now flex-start) — 
+   sits inline with fundamentals section
+2. Website link color fixed to #2563eb blue (was var(--tw-primary) green)
+3. Description restored — 'Read description ›' button inside 
+   FundamentalsPanel triggers the existing description modal
+4. vs Sector column improved — shows specific hints per state:
+   - No fundamentals fetched → 'fetch funds'
+   - Sector not mapped in SECTOR_ETF → '--'
+   - Fundamentals loaded but Market Data not fetched → 'XLK fetch mkt'
+   - No current price → 'XLK no price'
+   - All data available → ✅/❌ diff%"
+
+git tag -a v6.5.4 -m "v6.5.4: StockRow UI fixes"
+git push origin main
+git push origin v6.5.4

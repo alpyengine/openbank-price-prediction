@@ -116,6 +116,13 @@ export default function FetchBar({
   )
 }
 
+function parseBatchDate(str) {
+  if (!str) return new Date(0)
+  const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (dmy) return new Date(+dmy[3], +dmy[2] - 1, +dmy[1])
+  const d = new Date(str); return isNaN(d) ? new Date(0) : d
+}
+
 function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
   const [open, setOpen] = useState(false)
   const ref  = useRef(null)
@@ -126,8 +133,12 @@ function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const hasBatches = batches && batches.length > 0
-  const label = loadedBatchDate || (hasBatches ? batches[0].date : null) || 'No batches'
+  // Sort newest first for the dropdown
+  const sorted = batches
+    ? [...batches].sort((a, b) => parseBatchDate(b.date) - parseBatchDate(a.date))
+    : []
+  const hasBatches = sorted.length > 0
+  const label = loadedBatchDate || (hasBatches ? sorted[0].date : null) || 'No batches'
 
   return (
     <div ref={ref} style={{ position:'relative', flexShrink:0 }}>
@@ -159,7 +170,7 @@ function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
           borderRadius:10, boxShadow:'0 4px 16px rgba(0,0,0,0.1)',
           minWidth:180, zIndex:50, overflow:'hidden',
         }}>
-          {batches.map(batch => {
+          {sorted.map(batch => {
             const isActive = batch.date === loadedBatchDate
             return (
               <button

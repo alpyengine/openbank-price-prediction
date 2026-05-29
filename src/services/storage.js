@@ -38,7 +38,7 @@ export async function loadHistory() {
     return null
   }
   try {
-    const res  = await fetch(endpoint('?order=date.desc'), {
+    const res  = await fetch(endpoint('?order=saved_at.desc'), {
       headers: { ...headers(), 'Prefer': 'return=representation' },
       cache: 'no-store',
     })

@@ -232,11 +232,28 @@ export function useHistory(margin = 5) {
 
 // ── Compute accuracy stats from history ───────────────────────────────────────
 
+// Parse DD/MM/YYYY or "DD Mon YYYY" to a Date for sorting
+function parseBatchDate(str) {
+  if (!str) return new Date(0)
+  // DD/MM/YYYY
+  const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (dmy) return new Date(+dmy[3], +dmy[2] - 1, +dmy[1])
+  // fallback — let browser parse
+  const d = new Date(str)
+  return isNaN(d) ? new Date(0) : d
+}
+
 function computed(history, margin = 5) {
   if (!history?.batches?.length) return null
 
   const HORIZONS = ['1M', '3M', '6M', '12M']
-  const all = history.batches.flatMap(b => b.results)
+
+  // Sort batches chronologically (oldest first for chart, newest first for table)
+  const sortedBatches = [...history.batches].sort(
+    (a, b) => parseBatchDate(a.date) - parseBatchDate(b.date)
+  )
+
+  const all = sortedBatches.flatMap(b => b.results)
 
   // Per-horizon breakdown
   const byHorizon = HORIZONS.map(h => {
@@ -265,7 +282,7 @@ function computed(history, margin = 5) {
   const worstH    = ranked[ranked.length - 1] ?? null
 
   // Per-batch summary for the table
-  const batchSummary = history.batches.map(b => {
+  const batchSummary = [...sortedBatches].reverse().map(b => {
     const res       = b.results
     const evaluated = res.filter(r => r.verdict !== 'awaiting')
     const hit       = evaluated.filter(r => r.verdict === 'hit').length
@@ -282,7 +299,7 @@ function computed(history, margin = 5) {
   })
 
   // Chart data — hit% per horizon per batch (chronological)
-  const chartBatches = [...history.batches].reverse()
+  const chartBatches = sortedBatches  // already oldest→newest for chart
   const chartData = HORIZONS.map(h =>
     chartBatches.map(b => {
       const rows  = b.results.filter(r => r.horizon === h && r.verdict !== 'awaiting')
