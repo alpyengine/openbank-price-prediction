@@ -36,6 +36,7 @@ export default function App() {
   const [groupBySector,  setGroupBySector]  = useState(false)
   const [sortBySector,   setSortBySector]   = useState(false)
   const [loadedBatchDate, setLoadedBatchDate] = useState(null)
+  const [loadedBatchId,   setLoadedBatchId]   = useState(null)
 
   const batchCurrency = useMemo(() => {
     const cu = stocks.find(s => s.cu)?.cu ?? 'USD'
@@ -123,6 +124,7 @@ export default function App() {
     if (!newStocks.length) return
     setStocks(newStocks)
     setLoadedBatchDate(batch.date)
+    setLoadedBatchId(batch.id)
     setOverrides({})
     const restoredNotes = {}
     for (const r of batch.results) { if (r.note && !restoredNotes[r.ticker]) restoredNotes[r.ticker] = r.note }
@@ -270,6 +272,7 @@ export default function App() {
                 marketData={marketData}
                 batchCurrency={batchCurrency}
                 hitMargin={hitMargin}
+                batchId={loadedBatchId}
               />
 
               {showEmail && (

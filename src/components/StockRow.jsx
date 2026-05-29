@@ -3,8 +3,9 @@ import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js
 import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey } from '../utils/stocks.js'
 import { fmtMarketCap } from '../hooks/useFundamentals.js'
 import { SECTOR_ETF, INDUSTRY_ETF } from '../hooks/useMarketData.js'
+import PriceChart from './PriceChart.jsx'
 
-const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5 }) {
+const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5, batchId }) {
   const [expanded,     setExpanded]     = useState(false)
   const [showDesc,     setShowDesc]     = useState(false)
   const [showNote,     setShowNote]     = useState(false)
@@ -272,6 +273,11 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
             {/* ── Fundamentals ── */}
             <FundamentalsPanel fundamental={fundamental} ticker={stock.t} onShowDesc={() => setShowDesc(true)} />
+
+            {/* ── Price Chart ── */}
+            {batchId && (
+              <PriceChart stock={stock} batchId={batchId} />
+            )}
 
             {/* ── Add Note ── */}
             <div style={{ display:'flex', justifyContent:'flex-start', marginTop:12 }}>

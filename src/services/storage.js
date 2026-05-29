@@ -190,3 +190,28 @@ export async function isPriceCacheConfigured() {
     return false
   }
 }
+
+// ── Weekly prices — read chart data for ticker price evolution ────────────────
+
+/**
+ * loadWeeklyPrices(ticker, batchId)
+ * Reads all weekly closing prices for a ticker from a specific batch.
+ * Returns array of { week, week_date, close_price } sorted by week asc.
+ *
+ * @param {string} ticker   - e.g. "TER", "TER.US"
+ * @param {string} batchId  - e.g. "2026-03-17"
+ */
+export async function loadWeeklyPrices(ticker, batchId) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/weekly_prices?ticker=eq.${encodeURIComponent(ticker)}&batch_id=eq.${encodeURIComponent(batchId)}&select=week,week_date,close_price&order=week.asc`,
+      { headers: headers(), cache: 'no-store' }
+    )
+    if (!res.ok) return []
+    return await res.json()
+  } catch (err) {
+    console.warn('[storage] loadWeeklyPrices error:', err.message)
+    return []
+  }
+}

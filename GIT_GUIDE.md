@@ -3069,3 +3069,30 @@ Delete button unchanged (double-click confirmation)"
 git tag -a v6.5.9 -m "v6.5.9: fix action buttons"
 git push origin main
 git push origin v6.5.9
+
+
+# ===========================================================================
+# STEP 92 — v6.5.9  Fix action buttons + batch.results not iterable
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.9/. .
+
+git add .
+git commit -m "fix: batch.results not iterable + action buttons (v6.5.9)
+
+Root cause: AccuracyChart table renders stats.batchSummary (summary
+objects without results[]) but Load/Download needed full batch with
+results[]. Fixed by looking up full batch from history.batches by id.
+
+AccuracyChart:
+- handleLoadBatch: finds full batch via batches.find(b=>b.id===batch.id)
+- handleExportCSV: same lookup + guard if results missing
+- Load button: 600ms timeout, disabled during load, colored border
+- Download button: green checkmark feedback 1.5s + tooltip 'Download CSV'"
+
+git tag -a v6.5.9 -m "v6.5.9: fix batch.results + action buttons"
+git push origin main
+git push origin v6.5.9
