@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { loadCachedPrice } from '../services/storage.js'
 
 // ── API config ────────────────────────────────────────────────────────────────
 const TD_KEY   = import.meta.env.VITE_TWELVE_DATA_KEY
@@ -232,18 +233,34 @@ export function usePriceFetch() {
       const targetDate = targetDateMap[ticker]
       const horizonKey = `${ticker}_${horizon}`
       if (!targetDate) continue
-      const provider = detectProvider([ticker])
-      const isAV     = provider === 'alphavantage'
+
       setHistPrices(prev => ({ ...prev, [horizonKey]: undefined }))
+
       try {
+        // 1. Check Supabase price_cache first (populated by pg_cron automation)
+        const cached = await loadCachedPrice(ticker, targetDate)
+        if (cached?.price) {
+          setHistPrices(prev => ({
+            ...prev,
+            [horizonKey]: { price: cached.price, date: targetDate, fromCache: true }
+          }))
+          continue  // Skip API call — price already in cache
+        }
+
+        // 2. Fallback: fetch from API
+        const provider = detectProvider([ticker])
+        const isAV     = provider === 'alphavantage'
         const result = isAV
           ? await fetchHistoricalPrice_AV(ticker, targetDate)
           : await fetchHistoricalPrice_TD(ticker, targetDate)
+
+        if (result) result.fromCache = false
         setHistPrices(prev => ({ ...prev, [horizonKey]: result }))
       } catch (err) {
         console.warn(`[usePriceFetch] historical fetch failed for ${ticker}:`, err.message)
         setHistPrices(prev => ({ ...prev, [horizonKey]: null }))
       }
+
       if (i < stocks.length - 1) await sleep(600)
     }
   }, [])

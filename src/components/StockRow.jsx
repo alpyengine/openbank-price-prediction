@@ -122,7 +122,9 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           {!histLoading && isHistorical && histEntry && (
             <div>
               <span style={{ color:'var(--blue)', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{histEntry.price.toFixed(2)}</span>
-              <span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>exp.</span>
+              <span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>
+                {histEntry.fromCache ? '💾 cached' : 'exp.'}
+              </span>
             </div>
           )}
           {!histLoading && isHistorical && !histEntry && <span style={{ color:'#dc2626', fontSize:11 }}>n/a</span>}

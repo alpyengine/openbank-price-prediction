@@ -140,3 +140,53 @@ export function buildBatchId(dateStr) {
 export function isStorageConfigured() {
   return !!(SUPABASE_URL && SUPABASE_ANON_KEY)
 }
+
+// ── Price cache — read closing prices fetched by pg_cron ─────────────────────
+
+/**
+ * loadCachedPrice(ticker, targetDate)
+ * Reads a closing price from price_cache table (populated by pg_cron automation).
+ * Returns { price, fetchedAt } or null if not cached yet.
+ *
+ * @param {string} ticker      - e.g. "TER", "SLB"
+ * @param {Date}   targetDate  - the horizon target date
+ */
+export async function loadCachedPrice(ticker, targetDate) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
+  try {
+    // Format date as YYYY-MM-DD for Supabase query
+    const dateStr = targetDate.toISOString().split('T')[0]
+    // Strip .US suffix for the API lookup (Twelve Data uses bare tickers)
+    const cleanTicker = ticker.split('.')[0]
+
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/price_cache?ticker=eq.${cleanTicker}&target_date=eq.${dateStr}&select=close_price,fetched_at`,
+      { headers: headers(), cache: 'no-store' }
+    )
+    if (!res.ok) return null
+    const rows = await res.json()
+    if (!rows?.length) return null
+    return { price: parseFloat(rows[0].close_price), fetchedAt: rows[0].fetched_at }
+  } catch (err) {
+    console.warn('[storage] loadCachedPrice error:', err.message)
+    return null
+  }
+}
+
+/**
+ * isPriceCacheConfigured()
+ * Returns true if the price_cache table exists and is reachable.
+ * Used to show/hide the cache indicator in the UI.
+ */
+export async function isPriceCacheConfigured() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/price_cache?limit=0`,
+      { headers: headers() }
+    )
+    return res.ok
+  } catch {
+    return false
+  }
+}

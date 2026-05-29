@@ -157,6 +157,376 @@ Migrating to Supabase only requires rewriting that file.
 
 ---
 
+
+---
+
+## Supabase — Architecture & Automation
+
+### What is Supabase?
+
+Supabase is an open-source backend platform built on top of **PostgreSQL**. It provides:
+
+- **Database** — a real PostgreSQL database, not a NoSQL store. Every batch you save is a proper SQL row.
+- **Auth** — built-in authentication with email/password and OAuth providers (Google, GitHub, etc.)
+- **Storage** — file storage (not used in this app)
+- **Edge Functions** — serverless functions (not used)
+- **Extensions** — native PostgreSQL extensions including `pg_cron` (scheduled jobs) and `http` (outbound HTTP requests from SQL)
+
+This app uses Supabase for two purposes:
+1. **Batch persistence** — saving/loading prediction batches and their results
+2. **Automated price fetching** — a scheduled job that detects expired horizons and fetches closing prices automatically
+
+---
+
+### Database schema
+
+#### Table: `batches`
+
+Created during initial setup. Stores each saved batch:
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | text | Batch ID (base date formatted) |
+| `date` | text | Base date DD/MM/YYYY |
+| `stocks` | integer | Number of tickers |
+| `results` | jsonb | Array of prediction results (one per ticker×horizon) |
+| `fundamentals` | jsonb | Sector, industry, market cap per ticker |
+| `market_data` | jsonb | SPY, RSP, ETF performance data |
+| `hit_rate` | integer | Overall hit rate % at time of save |
+| `saved_at` | timestamptz | When the batch was saved |
+| `updated_at` | timestamptz | Last update time |
+
+#### Table: `price_cache` (v6.5.0+)
+
+Stores automatically fetched closing prices:
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | bigserial | Auto-increment primary key |
+| `ticker` | text | Stock symbol e.g. `TER`, `SLB.US` |
+| `target_date` | date | The horizon target date |
+| `close_price` | numeric | Closing price on that date |
+| `source` | text | `twelve_data` or `fmp` |
+| `fetched_at` | timestamptz | When it was fetched |
+
+Primary key constraint: `(ticker, target_date)` — one price per ticker per date.
+
+---
+
+### Extensions required
+
+Two PostgreSQL extensions must be enabled in **Supabase Dashboard → Database → Extensions**:
+
+| Extension | Purpose |
+|---|---|
+| `pg_cron` | Schedules SQL functions to run automatically (like a cron job but inside the database) |
+| `http` | Allows PostgreSQL functions to make outbound HTTP requests — used to call Twelve Data API |
+
+---
+
+### Supabase Vault (secret management)
+
+Never put API keys directly in SQL code. Supabase provides a built-in **Vault** — an encrypted secrets store inside PostgreSQL. Keys are stored once and retrieved securely by name:
+
+```sql
+-- Store a secret (run once in SQL Editor)
+select vault.create_secret('YOUR_TWELVE_DATA_KEY', 'twelve_data_key');
+
+-- Retrieve it inside a function
+select decrypted_secret into api_key
+from vault.decrypted_secrets
+where name = 'twelve_data_key';
+```
+
+---
+
+### How the automation works
+
+```
+Every weekday at 23:00 UTC
+         ↓
+pg_cron triggers: select fetch_expired_horizons();
+         ↓
+Function queries batches table:
+  Find all results where:
+    - verdict = 'awaiting'
+    - target_date <= today
+         ↓
+For each expired horizon:
+  Check price_cache first (avoid duplicate API calls)
+  If not cached → call Twelve Data API via http extension
+  Save close_price to price_cache
+  Update verdict in batches (hit/miss/close)
+         ↓
+Next time user opens app → Load history → verdicts already updated
+```
+
+**The user never needs to manually fetch historical prices again.**
+
+---
+
+### Setup — one time only
+
+The following steps are run once in the **Supabase SQL Editor** (`Database → SQL Editor → New query`).
+
+#### Step 1 — Enable extensions
+
+In **Database → Extensions**, enable:
+- `pg_cron`
+- `http`
+
+#### Step 2 — Store API key in Vault
+
+```sql
+-- Replace with your actual Twelve Data API key
+select vault.create_secret('YOUR_TWELVE_DATA_API_KEY', 'twelve_data_key');
+```
+
+Verify it was saved:
+```sql
+select name, created_at from vault.secrets where name = 'twelve_data_key';
+```
+
+#### Step 3 — Create price_cache table
+
+```sql
+create table if not exists price_cache (
+  id          bigserial primary key,
+  ticker      text        not null,
+  target_date date        not null,
+  close_price numeric     not null,
+  source      text        not null default 'twelve_data',
+  fetched_at  timestamptz not null default now(),
+  unique(ticker, target_date)
+);
+
+-- Index for fast lookups
+create index if not exists idx_price_cache_lookup
+  on price_cache(ticker, target_date);
+```
+
+#### Step 4 — Create the automation function
+
+```sql
+create or replace function fetch_expired_horizons()
+returns void
+language plpgsql
+security definer
+as $$
+declare
+  api_key     text;
+  rec         record;
+  url         text;
+  response    jsonb;
+  close_price numeric;
+  new_verdict text;
+  dist_abs    numeric;
+begin
+  -- Get API key from Vault
+  select decrypted_secret into api_key
+  from vault.decrypted_secrets
+  where name = 'twelve_data_key';
+
+  if api_key is null then
+    raise notice 'twelve_data_key not found in vault';
+    return;
+  end if;
+
+  -- Find all awaiting horizons whose target date has passed
+  for rec in
+    select distinct
+      b.id        as batch_id,
+      b.results,
+      r.value     as result_row
+    from batches b,
+         jsonb_array_elements(b.results) as r(value)
+    where r.value->>'verdict' = 'awaiting'
+      and (r.value->>'targetDate') is not null
+      and to_date(r.value->>'targetDate', 'DD Mon YYYY') <= current_date
+  loop
+    declare
+      ticker      text    := rec.result_row->>'ticker';
+      target_date date    := to_date(rec.result_row->>'targetDate', 'DD Mon YYYY');
+      target_price numeric := (rec.result_row->>'targetPrice')::numeric;
+      base_price  numeric := (rec.result_row->>'basePrice')::numeric;
+      cached_price numeric;
+    begin
+      -- Check cache first
+      select close_price into cached_price
+      from price_cache
+      where price_cache.ticker = ticker
+        and price_cache.target_date = target_date;
+
+      if cached_price is null then
+        -- Fetch from Twelve Data
+        url := format(
+          'https://api.twelvedata.com/eod?symbol=%s&date=%s&apikey=%s',
+          ticker,
+          target_date::text,
+          api_key
+        );
+
+        select content::jsonb into response
+        from http_get(url);
+
+        close_price := (response->>'close')::numeric;
+
+        if close_price is not null and close_price > 0 then
+          insert into price_cache(ticker, target_date, close_price)
+          values (ticker, target_date, close_price)
+          on conflict (ticker, target_date) do nothing;
+        end if;
+      else
+        close_price := cached_price;
+      end if;
+
+      -- Calculate verdict
+      if close_price is not null and close_price > 0 and target_price > 0 then
+        dist_abs := abs((close_price - target_price) / target_price * 100);
+
+        if target_price > base_price then
+          -- Bullish
+          new_verdict := case
+            when close_price >= target_price then 'hit'
+            when dist_abs <= 5              then 'close'
+            else                                 'miss'
+          end;
+        elsif target_price < base_price then
+          -- Bearish
+          new_verdict := case
+            when close_price <= target_price then 'hit'
+            when dist_abs <= 5              then 'close'
+            else                                 'miss'
+          end;
+        else
+          -- Neutral
+          new_verdict := case when dist_abs <= 5 then 'hit' else 'miss' end;
+        end if;
+
+        -- Update the verdict in the batch results array
+        update batches
+        set
+          results    = (
+            select jsonb_agg(
+              case
+                when elem->>'ticker'      = ticker
+                 and elem->>'targetDate'  = rec.result_row->>'targetDate'
+                 and elem->>'horizon'     = rec.result_row->>'horizon'
+                then elem
+                  || jsonb_build_object('verdict',     new_verdict)
+                  || jsonb_build_object('priceOnDate', close_price)
+                else elem
+              end
+            )
+            from jsonb_array_elements(batches.results) as elem
+          ),
+          updated_at = now()
+        where id = rec.batch_id;
+
+      end if;
+    end;
+
+    -- Small pause between API calls (rate limiting)
+    perform pg_sleep(0.5);
+  end loop;
+
+  raise notice 'fetch_expired_horizons completed at %', now();
+end;
+$$;
+```
+
+#### Step 5 — Schedule with pg_cron
+
+```sql
+-- Enable pg_cron extension first (done in Step 1)
+-- Schedule: every weekday (Mon-Fri) at 23:00 UTC
+-- (Markets close at ~21:00 UTC, giving 2h buffer)
+select cron.schedule(
+  'fetch-expired-horizons-daily',
+  '0 23 * * 1-5',
+  $$ select fetch_expired_horizons(); $$
+);
+```
+
+#### Step 6 — Verify the job is scheduled
+
+```sql
+select jobid, jobname, schedule, active
+from cron.job
+where jobname = 'fetch-expired-horizons-daily';
+```
+
+---
+
+### Testing & monitoring the automation
+
+**Run manually** (test before waiting for the cron):
+```sql
+select fetch_expired_horizons();
+```
+
+**Check execution history:**
+```sql
+select
+  start_time,
+  end_time,
+  status,
+  return_message
+from cron.job_run_details
+where jobid = (
+  select jobid from cron.job
+  where jobname = 'fetch-expired-horizons-daily'
+)
+order by start_time desc
+limit 10;
+```
+
+**Check price_cache contents:**
+```sql
+select ticker, target_date, close_price, source, fetched_at
+from price_cache
+order by fetched_at desc
+limit 20;
+```
+
+---
+
+### React app changes (v6.5.0)
+
+The app reads from `price_cache` before calling the Twelve Data API:
+
+```
+User clicks "Fetch prices"
+        ↓
+For each expired horizon:
+  1. Check price_cache in Supabase
+  2. If found → use cached price (no API call)
+  3. If not found → call Twelve Data API → cache result
+```
+
+This means on most days after the cron has run, **no API calls are needed** for historical prices — they're already in the database.
+
+A small indicator shows whether each price came from cache 💾 or live API 🌐.
+
+---
+
+### Disabling / pausing the automation
+
+```sql
+-- Pause (keeps the job but stops it running)
+select cron.unschedule('fetch-expired-horizons-daily');
+
+-- Re-enable
+select cron.schedule(
+  'fetch-expired-horizons-daily',
+  '0 23 * * 1-5',
+  $$ select fetch_expired_horizons(); $$
+);
+```
+
+---
+
+
 ## Changelog
 
 ### v6.1.3 — Fix Accuracy Stats crash

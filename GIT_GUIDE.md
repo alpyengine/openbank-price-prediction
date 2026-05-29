@@ -2721,3 +2721,28 @@ README: added full Vitest documentation section"
 git tag -a v6.4.0 -m "v6.4.0: Vitest testing suite"
 git push origin main
 git push origin v6.4.0
+
+
+# ===========================================================================
+# STEP 82 — v6.4.1  Fix Vitest compatibility with Node 18
+# ===========================================================================
+#
+# ⚠️  THIS VERSION REQUIRES npm install — Vitest devDependency
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.4.1/. .
+
+npm install
+npm run test:run    # verify all 77 tests pass
+npm run dev         # verify app starts
+
+git add .
+git commit -m "fix: downgrade Vitest to 0.34.6 for Node 18 compatibility (v6.4.1)
+
+Vitest 1.6.x requires Node 20+. Downgraded to 0.34.6 which is
+the last version fully compatible with Node 18.
+All 77 tests pass on Node 18.20.8."
+
+git tag -a v6.4.1 -m "v6.4.1: Vitest Node 18 compatibility"
+git push origin main
+git push origin v6.4.1
