@@ -6,13 +6,16 @@ const H_COLORS = ['#16a34a', '#3b82f6', '#d97706', '#8b5cf6']
 
 export default function AccuracyChart({ stats, history: batches, loading, log, configured, onLoad, onLoadBatch, onDeleteBatch, hitMargin = 5, onMarginChange }) {
   const [loadingBatch,  setLoadingBatch]  = useState(null)
+  const [downloadedBatch, setDownloadedBatch] = useState(null)
   const [deletingBatch, setDeletingBatch] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
   const handleLoadBatch = (batch) => {
+    // batch from batchSummary may not have results — find full batch from history
+    const fullBatch = batches?.find(b => b.id === batch.id) ?? batch
     setLoadingBatch(batch.id)
-    onLoadBatch(batch)
-    setTimeout(() => setLoadingBatch(null), 1200)
+    onLoadBatch(fullBatch)
+    setTimeout(() => setLoadingBatch(null), 600)
   }
 
   const handleDeleteBatch = async (batchId) => {
@@ -28,22 +31,28 @@ export default function AccuracyChart({ stats, history: batches, loading, log, c
   }
 
   const handleExportCSV = (batch) => {
+    // batch from batchSummary may not have results — find full batch from history
+    const fullBatch = batches?.find(b => b.id === batch.id) ?? batch
+    if (!fullBatch.results?.length) return
     const seen = new Set(), tickers = []
-    for (const r of batch.results) { if (!seen.has(r.ticker)) { seen.add(r.ticker); tickers.push(r.ticker) } }
+    for (const r of fullBatch.results) { if (!seen.has(r.ticker)) { seen.add(r.ticker); tickers.push(r.ticker) } }
     const rows = ['Ticker,Company,Currency,BasePrice,1M,3M,6M,12M,Date']
     for (const ticker of tickers) {
-      const res = batch.results.filter(r => r.ticker === ticker)
+      const res = fullBatch.results.filter(r => r.ticker === ticker)
       const get = (h) => res.find(r => r.horizon === h)?.targetPrice ?? ''
       const base = res[0]; if (!base) continue
       const suffix = ticker.split('.').pop().toUpperCase()
       const cu = ['DE','AS','PA','MC'].includes(suffix)?'EUR':suffix==='L'?'GBP':'USD'
-      rows.push([ticker, base.company, cu, base.basePrice, get('1M'), get('3M'), get('6M'), get('12M'), batch.date].join(','))
+      rows.push([ticker, base.company, cu, base.basePrice, get('1M'), get('3M'), get('6M'), get('12M'), fullBatch.date].join(','))
     }
     const blob = new Blob([rows.join('\n')], { type:'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `Openbank_${batch.date.split('/').reverse().join('')}.csv`; a.click()
+    a.href = url; a.download = `Openbank_${fullBatch.date.split('/').reverse().join('')}.csv`; a.click()
     URL.revokeObjectURL(url)
+    // Brief visual feedback
+    setDownloadedBatch(batch.id)
+    setTimeout(() => setDownloadedBatch(null), 1500)
   }
 
   const card = { background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:10, boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }
@@ -220,16 +229,18 @@ export default function AccuracyChart({ stats, history: batches, loading, log, c
                       <td style={{ padding:'12px 14px' }}>
                         <div style={{ display:'flex', gap:6 }}>
                           <button
-                            style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-fg)', cursor:'pointer', fontFamily:'inherit' }}
+                            style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:`1px solid ${loadingBatch===batch.id?'var(--tw-primary)':'var(--tw-border)'}`, background:'var(--tw-card)', color: loadingBatch===batch.id ? 'var(--tw-primary)' : 'var(--tw-fg)', cursor:'pointer', fontFamily:'inherit', minWidth:44 }}
                             onClick={()=>handleLoadBatch(batch)}
+                            disabled={loadingBatch===batch.id}
                           >
                             {loadingBatch===batch.id ? '…' : 'Load'}
                           </button>
                           <button
-                            style={{ fontSize:11, padding:'4px 8px', borderRadius:6, border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-muted-fg)', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:3 }}
+                            title="Download CSV"
+                            style={{ fontSize:11, padding:'4px 8px', borderRadius:6, border:`1px solid ${downloadedBatch===batch.id?'#16a34a':'var(--tw-border)'}`, background: downloadedBatch===batch.id?'#dcfce7':'var(--tw-card)', color: downloadedBatch===batch.id?'#15803d':'var(--tw-muted-fg)', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:3 }}
                             onClick={()=>handleExportCSV(batch)}
                           >
-                            <Download size={11} />
+                            {downloadedBatch===batch.id ? '✓' : <Download size={11} />}
                           </button>
                           <button
                             style={{ fontSize:11, padding:'4px 8px', borderRadius:6, border:`1px solid ${confirmDelete===batch.id?'#dc2626':'var(--tw-border)'}`, background: confirmDelete===batch.id?'#fee2e2':'var(--tw-card)', color: confirmDelete===batch.id?'#dc2626':'var(--tw-muted-fg)', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:3 }}

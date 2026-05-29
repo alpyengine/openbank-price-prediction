@@ -3007,3 +3007,65 @@ SummaryCards:
 git tag -a v6.5.7 -m "v6.5.7: proportional bars + avg %"
 git push origin main
 git push origin v6.5.7
+
+
+# ===========================================================================
+# STEP 91 — v6.5.8  Restore histPrices from batch + CSV shows in textarea
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.8/. .
+
+git add .
+git commit -m "fix: restore histPrices from batch + CSV textarea (v6.5.8)
+
+Fix 1 — histPrices restored from saved batch results:
+- usePriceFetch: added restoreHistPrices(results) function
+  Reconstructs histPrices from batch.results[].priceOnDate
+  Format: { 'TER_1M': { price, date, fromCache, isHistorical } }
+- App.jsx: handleLoadBatch now calls restoreHistPrices(batch.results)
+  instead of resetPrices() — no more API calls for expired horizons
+  that already have a saved price. Eliminates 429 errors on load.
+
+Fix 2 — CSV file shows in textarea before importing:
+- ImportBox: handleFileChange now only loads text into textarea
+  and shows 'click Import to continue' message
+- User can review the CSV content before clicking Import
+- Import button sends data to the batch tables as before"
+
+git tag -a v6.5.8 -m "v6.5.8: restore histPrices + CSV textarea"
+git push origin main
+git push origin v6.5.8
+
+
+# ===========================================================================
+# STEP 92 — v6.5.9  Fix action buttons in Accuracy Stats batch table
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.5.9/. .
+
+git add .
+git commit -m "fix: action buttons in Accuracy Stats batch table (v6.5.9)
+
+Load button:
+- Reduced timeout from 1200ms to 600ms (load is synchronous)
+- Shows '...' during load, returns to 'Load' after
+- Button disabled while loading to prevent double-click
+- Border/text color changes to primary while loading
+
+Download button (middle icon):
+- Was: silent download with no feedback
+- Now: button turns green with '✓' for 1.5s after click
+- Added title='Download CSV' tooltip on hover
+- Downloads batch as Openbank_YYYYMMDD.csv
+
+Delete button unchanged (double-click confirmation)"
+
+git tag -a v6.5.9 -m "v6.5.9: fix action buttons"
+git push origin main
+git push origin v6.5.9
