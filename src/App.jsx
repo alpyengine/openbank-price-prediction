@@ -192,6 +192,8 @@ export default function App() {
               batches={history?.batches ?? []}
               loadedBatchDate={loadedBatchDate}
               onLoadBatch={handleLoadBatch}
+              saving={histSaving}
+              onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData, fundamentals })}
             />
           )}
 
@@ -296,7 +298,6 @@ export default function App() {
               log={histLog}
               configured={histConfigured}
               onLoad={loadHistory}
-              onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData, fundamentals })}
               onLoadBatch={handleLoadBatch}
               onDeleteBatch={deleteBatch}
             />

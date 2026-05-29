@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { BarChart2, Target, CheckCircle, Clock, Download, RefreshCw, Save, Trash2 } from 'lucide-react'
+import { BarChart2, Target, CheckCircle, Clock, Download, RefreshCw, Trash2 } from 'lucide-react'
 
 const HORIZONS = ['1M', '3M', '6M', '12M']
 const H_COLORS = ['#16a34a', '#3b82f6', '#d97706', '#8b5cf6']
 
-export default function AccuracyChart({ stats, history: batches, loading, saving, log, configured, onLoad, onSave, onLoadBatch, onDeleteBatch, hitMargin = 5, onMarginChange }) {
+export default function AccuracyChart({ stats, history: batches, loading, log, configured, onLoad, onLoadBatch, onDeleteBatch, hitMargin = 5, onMarginChange }) {
   const [loadingBatch,  setLoadingBatch]  = useState(null)
   const [deletingBatch, setDeletingBatch] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -60,7 +60,7 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
   const ActionBar = () => (
     <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginBottom:'1.5rem', flexWrap:'wrap', alignItems:'center' }}>
       {log && <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontFamily:'monospace', flex:1 }}>{log}</span>}
-      {(loading||saving) && <div style={{ width:14, height:14, border:'2px solid var(--tw-border)', borderTopColor:'var(--tw-primary)', borderRadius:'50%', animation:'spin .7s linear infinite' }} />}
+      {loading && <div style={{ width:14, height:14, border:'2px solid var(--tw-border)', borderTopColor:'var(--tw-primary)', borderRadius:'50%', animation:'spin .7s linear infinite' }} />}
       {/* Hit margin slider */}
       <div style={{ display:'flex', alignItems:'center', gap:7, background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:8, padding:'5px 12px' }}>
         <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontWeight:500, whiteSpace:'nowrap' }}>Hit margin</span>
@@ -74,9 +74,7 @@ export default function AccuracyChart({ stats, history: batches, loading, saving
       <button style={btn('neutral')} onClick={onLoad} disabled={loading}>
         <RefreshCw size={13} /> Load history
       </button>
-      <button style={btn('green')} onClick={onSave} disabled={saving||loading}>
-        <Save size={13} /> Save batch
-      </button>
+
     </div>
   )
 

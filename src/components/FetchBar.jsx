@@ -24,8 +24,9 @@ export default function FetchBar({
   fundLog, fundLoading, onFetchFundamentals,
   // market data
   marketLog, marketLoading, stocks, onFetchMarket,
-  // batch selector
+  // batch selector + save
   batches, loadedBatchDate, onLoadBatch,
+  onSave, saving,
 }) {
   const suffix = detectSuffix(stocks ?? [])
   const isUS   = suffix === 'US' || !(stocks?.[0]?.t?.includes('.'))
@@ -82,14 +83,33 @@ export default function FetchBar({
         {fundLoading ? 'Loading…' : 'Fundamentals'}
       </button>
 
-      {/* Batch selector */}
-      {batches && <BatchSelector batches={batches} loadedBatchDate={loadedBatchDate} onLoadBatch={onLoadBatch} />}
-
       {/* Fetch market data */}
       {showMarket && (
         <button style={btn(false, marketLoading)} disabled={anyLoading} onClick={onFetchMarket}>
           {marketLoading ? <Spinner /> : '↓'}
           {marketLoading ? 'Loading…' : 'Market data'}
+        </button>
+      )}
+
+      {/* Batch selector — far right */}
+      {batches && <BatchSelector batches={batches} loadedBatchDate={loadedBatchDate} onLoadBatch={onLoadBatch} />}
+
+      {/* Save batch — rightmost */}
+      {onSave && (
+        <button
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+            fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer',
+            flexShrink: 0, whiteSpace: 'nowrap',
+            opacity: saving ? 0.65 : 1,
+            border: '1px solid #16a34a', background: '#16a34a', color: '#fff',
+            transition: 'opacity .15s',
+          }}
+          disabled={saving} onClick={onSave}
+        >
+          {saving ? <Spinner light /> : '💾'}
+          {saving ? 'Saving…' : 'Save batch'}
         </button>
       )}
     </div>
