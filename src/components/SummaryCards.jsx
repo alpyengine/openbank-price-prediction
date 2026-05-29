@@ -42,6 +42,9 @@ function Card({ label, value, valueColor, sub, subColor, iconBg, icon: Icon, ico
 export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, overrides, horizonExpired, hitMargin = 5 }) {
   let hits = 0, close = 0, miss = 0, awaiting = 0
 
+  // distPct accumulators for avg % in sub-labels
+  let hitDist = 0, closeDist = 0, missDist = 0
+
   if (horizon === 'all') {
     for (const stock of stocks) {
       for (const h of ALL_HORIZONS) {
@@ -49,10 +52,12 @@ export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, 
         if (!expired) { awaiting++; continue }
         const { price: p } = getEffectivePrice(stock.t, h, autoPrices, histPrices, overrides, expired)
         if (!p) { awaiting++; continue }
-        const { verdict } = evaluatePrediction(p, getTarget(stock, h), stock.b, hitMargin)
-        if (verdict === 'hit')        hits++
-        else if (verdict === 'close') close++
-        else                          miss++
+        const tgt = getTarget(stock, h)
+        const { verdict } = evaluatePrediction(p, tgt, stock.b, hitMargin)
+        const d = tgt ? (p - tgt) / tgt * 100 : 0
+        if (verdict === 'hit')        { hits++;  hitDist  += d }
+        else if (verdict === 'close') { close++; closeDist += d }
+        else                          { miss++;  missDist  += d }
       }
     }
   } else {
@@ -60,11 +65,24 @@ export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, 
       if (!horizonExpired) { awaiting++; continue }
       const { price: p } = getEffectivePrice(stock.t, horizon, autoPrices, histPrices, overrides, horizonExpired)
       if (!p) { awaiting++; continue }
-      const { verdict } = evaluatePrediction(p, getTarget(stock, horizon), stock.b, hitMargin)
-      if (verdict === 'hit')        hits++
-      else if (verdict === 'close') close++
-      else                          miss++
+      const tgt = getTarget(stock, horizon)
+      const { verdict } = evaluatePrediction(p, tgt, stock.b, hitMargin)
+      const d = tgt ? (p - tgt) / tgt * 100 : 0
+      if (verdict === 'hit')        { hits++;  hitDist  += d }
+      else if (verdict === 'close') { close++; closeDist += d }
+      else                          { miss++;  missDist  += d }
     }
+  }
+
+  // Average distances
+  const avgHit   = hits  ? hitDist  / hits  : null
+  const avgClose = close ? closeDist / close : null
+  const avgMiss  = miss  ? missDist  / miss  : null
+
+  function fmtAvg(avg) {
+    if (avg == null) return null
+    const sign = avg >= 0 ? '+' : ''
+    return `avg ${sign}${avg.toFixed(1)}%`
   }
 
   const isAll       = horizon === 'all'
@@ -88,7 +106,7 @@ export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, 
         icon={Target}
         iconBg={hits ? '#dcfce7' : undefined}
         iconColor={hits ? '#15803d' : undefined}
-        sub={hits ? priceLabel : 'None reached target yet'}
+        sub={hits ? `${fmtAvg(avgHit)} · ${priceLabel}` : 'None reached target yet'}
         subColor={hits ? '#16a34a' : undefined}
       />
       <Card
@@ -98,7 +116,7 @@ export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, 
         icon={CheckCircle}
         iconBg={close ? '#fef9c3' : undefined}
         iconColor={close ? '#a16207' : undefined}
-        sub={close ? priceLabel : `None within ${hitMargin}%`}
+        sub={close ? `${fmtAvg(avgClose)} · ${priceLabel}` : `None within ${hitMargin}%`}
         subColor={close ? '#ca8a04' : undefined}
       />
       <Card
@@ -108,7 +126,7 @@ export default function SummaryCards({ stocks, horizon, autoPrices, histPrices, 
         icon={XCircle}
         iconBg={miss ? '#fee2e2' : undefined}
         iconColor={miss ? '#b91c1c' : undefined}
-        sub={miss ? priceLabel : 'No misses yet'}
+        sub={miss ? `${fmtAvg(avgMiss)} · ${priceLabel}` : 'No misses yet'}
         subColor={miss ? '#dc2626' : undefined}
       />
       <Card

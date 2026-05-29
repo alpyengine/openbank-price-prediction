@@ -150,7 +150,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           let distPct = null
           if (currentP && t) distPct = ((currentP - t) / t) * 100
 
-          // Determine zone using evaluatePrediction — same logic as SummaryCards boxes
+          // Verdict via evaluatePrediction — single source of truth
           const horizonTarget = t
           const { verdict: barVerdict } = currentP && horizonTarget
             ? evaluatePrediction(currentP, horizonTarget, stock.b, hitMargin)
@@ -163,11 +163,21 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
             else if (barVerdict === 'miss')  zone = 'miss'
           }
 
-          // Bar fill width — 100% = hit, 66% = close, 33% = miss, 0% = awaiting
-          const fillWidth = zone === 'hit' ? 100
-            : zone === 'close' ? 66
-            : zone === 'miss'  ? 33
-            : 0
+          // Proportional bar width based on distance to target
+          // Hit: 100% base + bonus for how much it exceeded (capped at 100%)
+          // Close: 88-96% proportional within the ±margin% band
+          // Miss: 0-75% inversely proportional to how far away (farther = shorter bar)
+          const fillWidth = (() => {
+            if (zone === 'awaiting' || distPct == null) return 0
+            if (zone === 'hit') return 100
+            if (zone === 'close') {
+              // distPct is negative (below target), map -margin..0 → 88..96%
+              return Math.round(96 + (distPct / hitMargin) * 8)
+            }
+            // miss: map distance to 0-75% (closer to target = taller bar)
+            const absDist = Math.abs(distPct)
+            return Math.round(Math.max(0, Math.min(75, 75 - absDist * 0.8)))
+          })()
 
           const ZONE_STYLES = {
             hit:      { color:'#15803d', fill:'#16a34a' },
@@ -177,14 +187,12 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
           }
           const zs = ZONE_STYLES[zone] || ZONE_STYLES.awaiting
 
-          // Label text
-          const label = zone === 'hit'
-            ? `HIT ${distPct!=null?(distPct>=0?'+':'')+(distPct.toFixed(1))+'%':''}`
-            : zone === 'close'
-              ? `CLOSE ${distPct!=null?(distPct>=0?'+':'')+(distPct.toFixed(1))+'%':''}`
-              : zone === 'miss'
-                ? `MISS ${distPct!=null?(distPct>=0?'+':'')+(distPct.toFixed(1))+'%':''}`
-                : '--'
+          // Label: VERDICT ±X%
+          const pctStr = distPct != null ? ` ${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}%` : ''
+          const label = zone === 'hit'   ? `HIT${pctStr}`
+            : zone === 'close' ? `CLOSE${pctStr}`
+            : zone === 'miss'  ? `MISS${pctStr}`
+            : '--'
 
           return (
             <td key={i} style={{ ...td, minWidth:80 }}>
