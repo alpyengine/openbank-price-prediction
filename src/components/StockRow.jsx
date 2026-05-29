@@ -233,9 +233,16 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
             const etfData   = etfSym ? marketData?.etfs?.[etfSym] : null
             const etfPct    = etfData?.changePct ?? null
             const stockChg  = (stock.b && (p ?? autoPrice)) ? (((p ?? autoPrice) - stock.b) / stock.b * 100) : null
-            if (!etfSym || etfPct == null || stockChg == null) {
-              return <span style={{ fontSize:11, color:'var(--tw-muted-fg)' }}>{etfSym ?? '--'}</span>
-            }
+
+            // No fundamentals yet
+            if (!sector) return <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>fetch<br/>funds</span>
+            // Sector not mapped
+            if (!etfSym) return <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>--</span>
+            // No market data yet
+            if (etfPct == null) return <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>{etfSym}<br/>fetch mkt</span>
+            // No current price
+            if (stockChg == null) return <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>{etfSym}<br/>no price</span>
+
             const diff = stockChg - etfPct
             const beat = diff >= 0
             return (
@@ -264,7 +271,7 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
             <FundamentalsPanel fundamental={fundamental} ticker={stock.t} onShowDesc={() => setShowDesc(true)} />
 
             {/* ── Add Note ── */}
-            <div style={{ display:'flex', justifyContent:'flex-end', marginTop:12 }}>
+            <div style={{ display:'flex', justifyContent:'flex-start', marginTop:12 }}>
               {showNote ? (
                 <div style={{ width:'100%' }}>
                   <textarea
@@ -503,17 +510,27 @@ function FundamentalsPanel({ fundamental, ticker, onShowDesc }) {
           <div><div style={lbl}>Industry</div><div style={val}>{fundamental.industry || '--'}</div></div>
           <div><div style={lbl}>Market Cap</div><div style={val}>{fmtMarketCap(fundamental.marketCap)}</div></div>
           <div><div style={lbl}>Beta</div><div style={val}>{fundamental.beta ? fundamental.beta.toFixed(2) : '--'}</div></div>
-
           <div><div style={lbl}>Last Dividend</div><div style={val}>{fundamental.lastDividend ? `$${fundamental.lastDividend}` : '--'}</div></div>
           {fundamental.website && (
             <div>
               <div style={lbl}>Website</div>
               <a href={fundamental.website} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
-                style={{ fontSize:13, color:'var(--tw-primary)', fontWeight:500, textDecoration:'none' }}
+                style={{ fontSize:13, color:'#2563eb', fontWeight:500, textDecoration:'none' }}
               >
                 {fundamental.website.replace(/^https?:\/\/(www\.)?/, '')}
               </a>
+            </div>
+          )}
+          {fundamental.description && (
+            <div>
+              <div style={lbl}>About</div>
+              <button
+                onClick={e => { e.stopPropagation(); onShowDesc() }}
+                style={{ fontSize:12, color:'#2563eb', fontWeight:500, background:'none', border:'none', padding:0, cursor:'pointer', fontFamily:'inherit', textDecoration:'underline' }}
+              >
+                Read description ›
+              </button>
             </div>
           )}
         </div>
