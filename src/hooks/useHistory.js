@@ -1,9 +1,72 @@
+/**
+ * useHistory.js — Batch history management hook (Supabase persistence)
+ *
+ * Manages saving, loading, and deleting prediction batches from Supabase.
+ * Also computes accuracy statistics across all saved batches.
+ *
+ * A "batch" is a snapshot of stock predictions at a specific base date,
+ * evaluated against real prices at each horizon expiry date.
+ *
+ * Batch shape saved to Supabase:
+ * {
+ *   id:        "2026-03-18"          — YYYY-MM-DD from base date
+ *   date:      "18/03/2026"          — DD/MM/YYYY for display
+ *   savedAt:   "2026-05-21T10:00Z"   — ISO timestamp
+ *   stocks:    5                      — number of unique tickers
+ *   results: [                        — one row per ticker × horizon
+ *     {
+ *       ticker:      "TER",
+ *       company:     "Teradyne",
+ *       horizon:     "1M",
+ *       verdict:     "hit",           — "hit" | "close" | "miss" | "awaiting"
+ *       basePrice:   299.40,
+ *       targetPrice: 353.92,
+ *       priceOnDate: 337.87,          — null if awaiting
+ *       targetDate:  "17/04/2026",
+ *     }
+ *   ],
+ *   marketData:    {...} | null,      — saved market benchmark data
+ *   fundamentals:  {...} | null,      — saved fundamentals data
+ * }
+ *
+ * computed() — derives accuracy stats from history:
+ *   overallRate     — hit % across all batches and horizons
+ *   byHorizon       — hit rate per horizon (1M/3M/6M/12M)
+ *   batchSummary    — per-batch hit/miss/awaiting counts
+ *   chartData       — accuracy % per horizon over time (for AreaChart)
+ *   chartLabels     — batch dates for X axis
+ *   uniqueTickers   — count of unique tickers across all batches
+ *   totalAwaiting   — count of predictions still awaiting expiry
+ *   evaluated       — count of predictions that have been evaluated
+ *   totalBatches    — number of saved batches
+ *
+ * Hook returns:
+ *   history           — raw history object { batches: [...] }
+ *   stats             — computed accuracy stats (null until loaded)
+ *   loading           — true while loading history
+ *   saving            — true while saving a batch
+ *   log               — status message
+ *   configured        — true if Supabase credentials are in .env
+ *   load()            — reload history from Supabase
+ *   saveBatch(data)   — evaluate and save current batch
+ *   deleteBatch(id)   — delete a batch from Supabase
+ */
 import { useState, useCallback, useEffect } from 'react'
 import { loadHistory, saveHistory, buildBatchId, isStorageConfigured, deleteHistoryBatch } from '../services/storage.js'
 import { formatDate, today as getToday, targetDates, dateStatus } from '../utils/dates.js'
 import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
 
 const HORIZONS = ['1M', '3M', '6M', '12M']
+
+/**
+ * computed — derives accuracy statistics from the raw history object.
+ * Called with useMemo whenever history or margin changes.
+ * Returns null if no history is loaded yet.
+ *
+ * @param {Object} history — raw history { batches: [...] }
+ * @param {number} margin  — hit tolerance in % (from Settings)
+ * @returns {Object|null}  — accuracy stats object
+ */
 
 /**
  * useHistory — manages the accuracy history
@@ -61,7 +124,17 @@ export function useHistory(margin = 5) {
     setLoading(false)
   }, [configured])
 
-  // ── Evaluate current stocks and save batch ─────────────────────────────────
+  // ── Save batch ────────────────────────────────────────────────────────────────
+  /**
+   * saveBatch — evaluates all stocks across all horizons and saves to Supabase.
+   *
+   * For each stock × horizon:
+   *   - Expired horizons: records actual price and evaluates verdict
+   *   - Future horizons: saves as "awaiting" with null priceOnDate
+   *
+   * Also saves: notes, marketData, fundamentals alongside results.
+   * Merges with existing batch if one already exists for the same date.
+   */
   const saveBatch = useCallback(async ({
     stocks, autoPrices, histPrices, overrides,
     horizonExpired, horizon, notes, marketData, fundamentals,

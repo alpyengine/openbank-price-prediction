@@ -1,3 +1,46 @@
+/**
+ * useMarketData.js — Market benchmark fetching hook
+ *
+ * Fetches market performance data to compare stocks against benchmarks
+ * since the batch base date. Used in the MarketComparison panel (StockRow).
+ *
+ * US batches fetch:
+ *   - SPY (S&P 500) — primary benchmark
+ *   - RSP (equal-weight S&P 500) — always included
+ *   - QQQ (NASDAQ 100) — included if any stock trades on NASDAQ
+ *   - Sector ETFs (XLK, XLE, XLF, etc.) — for each sector in the batch
+ *   - Industry ETFs (SOXX, XBI, etc.) — for each industry in the batch
+ *
+ * EU batches fetch:
+ *   - iShares country ETF (EWG for .DE, EWN for .AS, etc.) as local benchmark
+ *
+ * Performance is calculated as % change from closing price on base date
+ * to current price (base → now).
+ *
+ * Optimization: base prices are saved in batch.marketData and reused on
+ * subsequent fetches — this halves the number of API calls needed.
+ *
+ * API: Twelve Data (US), Alpha Vantage (EU indices)
+ * Rate limit: 20s pause between symbols (TD 8 req/min)
+ *
+ * marketData shape:
+ * {
+ *   market:      'US' | 'DE' | 'AS' | 'PA' | 'L' | 'MC'
+ *   baseDate:    'YYYY-MM-DD'
+ *   spy:         { basePrice, currentPrice, changePct }   ← SPY or local index
+ *   benchmark:   { symbol, label }                        ← what spy actually is
+ *   etfs:        { [symbol]: { basePrice, currentPrice, changePct } }
+ *   industryEtfs:{ [symbol]: { basePrice, currentPrice, changePct } }
+ * }
+ *
+ * Hook returns:
+ *   marketData         — current market data object (null until fetched)
+ *   loading            — true while fetching
+ *   log                — status message for FetchBar
+ *   fetchMarketData()  — trigger fetch
+ *   reset()            — clear market data
+ *   restoreMarketData(saved) — restore from saved batch
+ */
 import { useState, useCallback } from 'react'
 
 const TD_KEY = import.meta.env.VITE_TWELVE_DATA_KEY
@@ -7,6 +50,11 @@ const AV_URL = 'https://www.alphavantage.co/query'
 const TIMEOUT = 20000
 
 // ── Sector → ETF SPDR mapping (US) ───────────────────────────────────────────
+/**
+ * SECTOR_ETF — maps FMP sector names to SPDR sector ETF symbols.
+ * Used in MarketComparison (StockRow) and vs Sector column (StockTable).
+ * All ETFs confirmed available on Twelve Data free tier.
+ */
 export const SECTOR_ETF = {
   // Technology
   'Technology':                          'XLK',
@@ -62,6 +110,11 @@ export const SECTOR_ETF = {
 // ── Industry → ETF mapping (US) — all confirmed free tier ────────────────────
 // Verified against TD free plan. Removed unavailable: BITE,CARZ,REZ,INDS,RTL,
 // SIL,COPX,SLX,OGIG,CLOU,IHI,IHF,IAI,KRE
+/**
+ * INDUSTRY_ETF — maps FMP industry names to industry ETF symbols.
+ * Used in MarketComparison (StockRow) for industry-level benchmarking.
+ * All ETFs confirmed available on Twelve Data free tier.
+ */
 export const INDUSTRY_ETF = {
   // Technology
   'Semiconductors':                       'SOXX',  // ✅
@@ -102,6 +155,11 @@ export const INDUSTRY_ETF = {
 // ── European market index mapping — iShares ETFs ─────────────────────────────
 // Direct EU indices (AEX, CAC40, UKX, IBEX35) are NOT on free tier
 // Using iShares MSCI country ETFs — all trade on NYSE, confirmed free ✅
+/**
+ * EU_MARKET_INDEX — maps EU market suffixes to iShares country ETFs.
+ * Direct EU indices (DAX, CAC40, AEX) are not on the TD free plan.
+ * iShares ETFs trade on NYSE and are available on the free tier.
+ */
 export const EU_MARKET_INDEX = {
   'DE': { symbol: 'EWG', label: 'iShares Germany (EWG)',     provider: 'td' },
   'AS': { symbol: 'EWN', label: 'iShares Netherlands (EWN)', provider: 'td' },
@@ -190,6 +248,10 @@ function pctChange(base, current) {
 
 // ── Detect batch market ───────────────────────────────────────────────────────
 
+/**
+ * detectBatchMarket — infers the market from ticker suffixes.
+ * Returns the EU suffix ('DE', 'AS', etc.) or 'US' for US stocks.
+ */
 function detectBatchMarket(stocks) {
   if (!stocks.length) return 'US'
   const suffix = stocks[0].t.split('.').pop().toUpperCase()
@@ -199,6 +261,11 @@ function detectBatchMarket(stocks) {
 
 // ── Fetch one symbol — reuse basePrice if already saved ───────────────────────
 
+/**
+ * fetchSymbolData — fetches base price (on date) and current price for one ETF/index symbol.
+ * If existingEntry has a basePrice already saved, skips the historical fetch (saves 1 API call).
+ * Returns { basePrice, currentPrice, changePct, hadBasePrice }.
+ */
 async function fetchSymbolData(symbol, date, provider = 'td', existingEntry = null) {
   // If basePrice already saved — skip historical fetch (saves 1 TD credit per symbol)
   let basePrice = existingEntry?.basePrice ?? null
@@ -233,6 +300,10 @@ async function fetchSymbolData(symbol, date, provider = 'td', existingEntry = nu
 //   industryEtfs: { 'SOXX': {...} }               ← industry ETFs (US only)
 // }
 
+/**
+ * useMarketData — React hook for fetching and managing market benchmark data.
+ * See module header for full documentation.
+ */
 export function useMarketData() {
   const [marketData, setMarketData] = useState(null)
   const [loading,    setLoading]    = useState(false)

@@ -1,3 +1,35 @@
+/**
+ * usePriceFetch.js — Price fetching hook (current + historical)
+ *
+ * Handles all price data for the batch view:
+ *
+ * 1. Current prices (autoPrices)
+ *    - Twelve Data API: US stocks, chunks of 8, rate limit 8 req/min
+ *    - Alpha Vantage: European stocks (.DE, .AS, .PA, .L, .MC), 1 req/s
+ *    - Provider is auto-detected from ticker suffixes
+ *
+ * 2. Historical prices (histPrices)
+ *    - Used when a horizon has expired — shows closing price on target date
+ *    - First checks Supabase price_cache (populated by pg_cron automation)
+ *    - Falls back to API if not cached
+ *    - Key format: "TICKER_HORIZON" e.g. "TER_1M"
+ *
+ * 3. Restore from saved batch (restoreHistPrices)
+ *    - When loading a batch from history, histPrices are rebuilt from
+ *      batch.results[].priceOnDate — avoids all API calls
+ *
+ * Hook returns:
+ *   autoPrices              — { [ticker]: number | null } current prices
+ *   histPrices              — { [ticker_horizon]: { price, date, fromCache } | null }
+ *   fetching                — true while fetching current prices
+ *   log                     — status message for FetchBar
+ *   chunkProgress           — { total, done, waiting, waitSecs } for multi-chunk progress bar
+ *   fetchCurrentBatch(stocks)                           — fetch current prices
+ *   fetchHistoricalForHorizon(stocks, horizon, dateMap) — fetch expired horizon prices
+ *   reset()                 — clear all price state
+ *   restoreHistPrices(results)                          — restore from batch.results
+ *   setLog(msg)             — manually set log message
+ */
 import { useState, useCallback } from 'react'
 import { loadCachedPrice } from '../services/storage.js'
 
@@ -20,6 +52,11 @@ function getSuffix(ticker) {
   return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : 'US'
 }
 
+/**
+ * detectProvider — determines which API to use based on ticker suffixes.
+ * Returns 'alphavantage' if any ticker has an EU suffix (.DE, .AS, .PA, .L, .MC).
+ * Returns 'twelvedata' otherwise (US market).
+ */
 function detectProvider(tickers) {
   // If ANY ticker has a EU suffix → use Alpha Vantage for the whole batch
   const hasEU = tickers.some(t => EU_SUFFIXES.includes(getSuffix(t)))
@@ -72,6 +109,11 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 // ── Twelve Data: current prices (chunks of 8, 62s pause) ─────────────────────
 
+/**
+ * fetchCurrentPrices_TD — fetches current prices for US tickers via Twelve Data.
+ * Processes tickers in chunks of CHUNK_SIZE (8) to respect the 8 req/min limit.
+ * Waits 62 seconds between chunks. Calls onProgress() after each chunk.
+ */
 async function fetchCurrentPrices_TD(tickers, onProgress) {
   const result = {}
   const chunks = []
@@ -108,6 +150,10 @@ async function fetchCurrentPrices_TD(tickers, onProgress) {
 
 // ── Alpha Vantage: current prices (1 req/s, 25/day) ──────────────────────────
 
+/**
+ * fetchCurrentPrices_AV — fetches current prices for EU tickers via Alpha Vantage.
+ * Processes one ticker at a time with 1.2s pause (1 req/s limit, 25 req/day).
+ */
 async function fetchCurrentPrices_AV(tickers, onProgress) {
   const result = {}
   for (let i = 0; i < tickers.length; i++) {
@@ -129,6 +175,11 @@ async function fetchCurrentPrices_AV(tickers, onProgress) {
 
 // ── Twelve Data: historical price ─────────────────────────────────────────────
 
+/**
+ * fetchHistoricalPrice_TD — fetches historical closing price from Twelve Data.
+ * Searches the 7-day window ending on targetDate for the nearest trading day.
+ * Returns { price, date, isHistorical: true }.
+ */
 async function fetchHistoricalPrice_TD(ticker, targetDate) {
   const start = toYMD(addDays(targetDate, -7))
   const end   = toYMD(targetDate)
@@ -144,6 +195,11 @@ async function fetchHistoricalPrice_TD(ticker, targetDate) {
 
 // ── Alpha Vantage: historical price ──────────────────────────────────────────
 
+/**
+ * fetchHistoricalPrice_AV — fetches historical closing price from Alpha Vantage.
+ * Finds the closest trading day on or before targetDate in the daily time series.
+ * Returns { price, date, isHistorical: true }.
+ */
 async function fetchHistoricalPrice_AV(ticker, targetDate) {
   const url  = `${AV_URL}?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(ticker)}&outputsize=compact&apikey=${AV_KEY}`
   const data = await fetchJSON(url)
@@ -161,6 +217,10 @@ async function fetchHistoricalPrice_AV(ticker, targetDate) {
 
 // ── Main hook ─────────────────────────────────────────────────────────────────
 
+/**
+ * usePriceFetch — React hook for fetching and managing stock prices.
+ * See module header for full documentation.
+ */
 export function usePriceFetch() {
   const [autoPrices,    setAutoPrices]    = useState({})
   const [histPrices,    setHistPrices]    = useState({})

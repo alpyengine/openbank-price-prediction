@@ -1,3 +1,44 @@
+/**
+ * App.jsx — Root application component
+ *
+ * The single top-level component that owns all application state and
+ * coordinates between the sidebar navigation, data fetching hooks,
+ * and page-level components.
+ *
+ * Architecture:
+ *   App owns state → passes props down → components call callbacks up
+ *   No global state library (Redux/Zustand) — props and callbacks only.
+ *
+ * State managed here:
+ *   stocks          — current batch of stock objects from CSV
+ *   horizon         — selected horizon tab ('1M'|'3M'|'6M'|'12M'|'all'|'best')
+ *   overrides       — manual price overrides { [ticker]: number }
+ *   notes           — notes per ticker { [ticker]: string }
+ *   activePage      — current sidebar page id
+ *   darkMode        — dark/light mode toggle
+ *   showEmail       — whether email report modal is visible
+ *   hitMargin       — hit tolerance % (default 5, configurable in Settings)
+ *   loadedBatchDate — DD/MM/YYYY of the batch loaded from history
+ *   loadedBatchId   — YYYY-MM-DD id of the loaded batch (for PriceChart)
+ *   batchCurrency   — currency symbol derived from batch stocks
+ *   groupBySector   — whether to group table rows by sector
+ *   filterSector    — sector filter value ('all' or sector name)
+ *   filterIndustry  — industry filter value
+ *   sortBySector    — whether to sort rows alphabetically by sector
+ *
+ * Hooks used:
+ *   usePriceFetch()    — current + historical price fetching
+ *   useFundamentals()  — FMP fundamentals fetching
+ *   useMarketData()    — SPY/ETF benchmark fetching
+ *   useHistory()       — Supabase batch history (save/load/delete)
+ *
+ * Pages (sidebar nav):
+ *   batch        — BatchSimple: quick overview table
+ *   batch-detail — StockTable: full analysis with bars and market comparison
+ *   accuracy     — AccuracyChart: historical accuracy stats
+ *   import       — ImportPage: CSV import
+ *   settings     — Settings: hit margin, dark mode
+ */
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { usePriceFetch }     from './hooks/usePriceFetch.js'
 import { useFundamentals }   from './hooks/useFundamentals.js'
@@ -17,6 +58,9 @@ import EmailPreview     from './components/EmailPreview.jsx'
 import AccuracyChart    from './components/AccuracyChart.jsx'
 import { useMarketData } from './hooks/useMarketData.js'
 
+/**
+ * App — the root component. See module header for full documentation.
+ */
 export default function App() {
   const [stocks,       setStocks]       = useState(DEFAULT_STOCKS)
   const [horizon,      setHorizon]      = useState('best')
@@ -90,6 +134,11 @@ export default function App() {
     setNotes(prev => ({ ...prev, [ticker]: text }))
   }, [])
 
+  /**
+   * handleImport — called by ImportPage when a CSV is successfully parsed.
+   * Resets all batch-dependent state and navigates to the Batch Overview page.
+   * Also computes the batchId from the base date for PriceChart data loading.
+   */
   const handleImport = useCallback((newStocks) => {
     setStocks(newStocks)
     setLoadedBatchDate(null)
@@ -117,6 +166,11 @@ export default function App() {
     setActivePage('batch')
   }, [resetPrices, resetFundamentals, resetMarketData])
 
+  /**
+   * handleLoadBatch — called by AccuracyChart when user clicks "Load" on a batch.
+   * Restores all batch state (stocks, prices, fundamentals, market data, notes)
+   * from the saved batch object — avoids any API calls.
+   */
   const handleLoadBatch = useCallback((batch) => {
     const seen = new Set()
     const newStocks = []

@@ -1,3 +1,26 @@
+/**
+ * useFundamentals.js — Fundamentals data fetching hook
+ *
+ * Fetches company fundamentals from Financial Modeling Prep (FMP) API:
+ * sector, industry, market cap, beta, website, last dividend, description.
+ *
+ * Data is fetched once per ticker per session and cached in component state.
+ * When a saved batch is loaded, fundamentals are restored from the batch
+ * instead of fetching again (restoreFundamentals).
+ *
+ * API used: FMP /stable/profile (free tier — 250 req/day)
+ * Rate limit: 800ms pause between requests (safe for FMP free plan)
+ *
+ * Hook returns:
+ *   fundamentals     — { [ticker]: { sector, industry, marketCap, ... } | null }
+ *                      undefined = not yet fetched
+ *                      null      = fetch failed
+ *   loading          — true while fetching
+ *   log              — status message for FetchBar
+ *   fetchFundamentals(stocks) — fetch for all stocks in batch
+ *   reset()          — clear all fundamentals state
+ *   restoreFundamentals(saved) — restore from saved batch (avoids API calls)
+ */
 import { useState, useCallback } from 'react'
 
 const TD_KEY  = import.meta.env.VITE_TWELVE_DATA_KEY
@@ -6,6 +29,11 @@ const TD_URL  = 'https://api.twelvedata.com'
 const FMP_URL = 'https://financialmodelingprep.com/stable'
 const TIMEOUT = 15000
 
+/**
+ * fmtMarketCap — formats a raw market cap number into a human-readable string.
+ * @param {number|null} val — market cap in USD
+ * @returns {string} e.g. "45.2B", "1.3T", "850M", or "--"
+ */
 export function fmtMarketCap(val) {
   if (!val) return '--'
   if (val >= 1e12) return (val / 1e12).toFixed(1) + 'T'
@@ -14,6 +42,10 @@ export function fmtMarketCap(val) {
   return val.toLocaleString()
 }
 
+/**
+ * fetchWithTimeout — wraps fetch() with a configurable abort timeout.
+ * Aborts the request if it takes longer than TIMEOUT milliseconds.
+ */
 async function fetchWithTimeout(url) {
   const ctrl = new AbortController()
   const tid  = setTimeout(() => ctrl.abort(), TIMEOUT)
@@ -30,6 +62,11 @@ async function fetchWithTimeout(url) {
 
 // Strip .US suffix for US markets — FMP uses bare ticker for NYSE/NASDAQ
 // European suffixes (.DE, .AS, .PA, .L) are kept as FMP supports them
+/**
+ * fmpSymbol — strips the .US suffix from a ticker for FMP API calls.
+ * FMP uses bare tickers for NYSE/NASDAQ (e.g. "TER" not "TER.US").
+ * European suffixes (.DE, .AS, .PA, .L) are preserved as FMP supports them.
+ */
 function fmpSymbol(ticker) {
   return ticker.replace(/\.US$/i, '')
 }
@@ -53,6 +90,10 @@ async function fetchFMPProfile(ticker) {
   }
 }
 
+/**
+ * useFundamentals — React hook for fetching and managing company fundamentals.
+ * See module header for full documentation.
+ */
 export function useFundamentals() {
   const [fundamentals, setFundamentals] = useState({})
   const [loading,      setLoading]      = useState(false)

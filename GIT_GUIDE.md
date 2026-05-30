@@ -3418,3 +3418,50 @@ Tests: 107/107 passing"
 git tag -a v6.9.3 -m "v6.9.3: Phase 3 medium components"
 git push origin main
 git push origin v6.9.3
+
+
+# ===========================================================================
+# STEP 101 — v6.9.4  Phase 4: complex components + legacy CSS vars removed
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.9.4/. .
+
+git add .
+git commit -m "feat: Phase 4 — complex components + legacy CSS aliases removed (v6.9.4)
+
+Migrated all remaining components. Zero var(--tw-*) in entire codebase.
+Legacy --tw-* aliases removed from global.css (no longer needed).
+
+StockTable.jsx:
+- ColHelpModal: fixed overlay + max-w-[480px] card
+- Th: Tailwind header cell with ? help trigger
+- Table: border-collapse + bg-muted thead + hover:bg-muted rows
+- Legend: Tailwind color dots
+- Sector group rows: bg-muted collapsible headers
+
+StockRow.jsx:
+- Main row: hover:bg-muted + transition-colors
+- Price cells: text-blue-600 / text-success / text-destructive
+- Horizon bars: proportional width, hardcoded hex colors for accuracy
+- vs SPY / vs Sector: cn() for beat/lagged colors
+- HorizonCards: cn() for border and badge colors per verdict
+- MarketComparison: centered bar chart with Tailwind layout
+- FundamentalsPanel: text-blue-600 links, uppercase tracking-wider labels
+- Description modal: fixed overlay identical to PriceChart
+- Notes: shadcn Textarea
+- PriceChart trigger: shadcn Button
+
+Also migrated: Header, SectorControls, ImportPage
+
+global.css:
+- Legacy --tw-* aliases block fully removed
+- Only shadcn standard variable names remain
+
+Tests: 107/107 passing"
+
+git tag -a v6.9.4 -m "v6.9.4: Phase 4 complete — zero legacy vars"
+git push origin main
+git push origin v6.9.4
