@@ -70,6 +70,11 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  /** refreshRole — manually re-fetches the role. Call after SQL role update. */
+  const refreshRole = useCallback(async () => {
+    if (user?.id) await fetchRole(user.id)
+  }, [user, fetchRole])
+
   /**
    * Listen to Supabase auth state changes.
    * Fires on: initial load, login, logout, token refresh, OAuth callback.
@@ -105,10 +110,12 @@ export function AuthProvider({ children }) {
     setUser(null)
     setSession(null)
     setRole(null)
+    // Force full page reload to clear all cached state
+    window.location.reload()
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, loading, signOut, refreshRole }}>
       {children}
     </AuthContext.Provider>
   )

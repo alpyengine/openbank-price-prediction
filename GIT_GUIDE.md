@@ -3520,3 +3520,64 @@ Tests: 107/107 passing"
 git tag -a v6.9.5 -m "v6.9.5: Phase 5 documentation complete"
 git push origin main
 git push origin v6.9.5
+
+
+# ===========================================================================
+# STEP 103 — v7.0.0  Authentication + Role-based access
+# ===========================================================================
+#
+# ⚠️  npm install needed — @supabase/supabase-js was added.
+#
+# ⚠️  BEFORE running the app:
+#     1. Complete Supabase SQL setup (already done if following this guide)
+#     2. Sign in once with your email/Google
+#     3. Run this SQL to make yourself admin:
+#
+#        update public.profiles set role = 'admin'
+#        where id = (select id from auth.users where email = 'YOUR_EMAIL' limit 1);
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.0.0/. .
+npm install
+
+git add .
+git commit -m "feat: authentication + role-based access (v7.0.0)
+
+Supabase Auth with email/password + Google OAuth.
+Invitation-only — users cannot self-register.
+Two roles: admin (full access) and readonly (view only).
+
+New files:
+  src/lib/supabase.js           — Supabase client (persistSession, autoRefresh)
+  src/contexts/AuthContext.jsx  — auth state provider (user, session, role, loading)
+  src/hooks/useAuth.js          — convenience hook for auth state
+  src/hooks/useRole.js          — convenience hook for role only
+  src/components/LoginPage.jsx  — full-page login (email + Google OAuth + reset)
+  src/components/ProtectedRoute.jsx — auth gate (spinner → login → app)
+  src/components/UserPanel.jsx  — sidebar dropdown (profile, manage users, dark mode, sign out)
+  src/components/ManageUsers.jsx — admin-only user management (invite, role change, delete)
+
+Modified files:
+  src/main.jsx    — wrapped with AuthProvider + ProtectedRoute
+  src/App.jsx     — useRole() + manage-users page + import page admin-only
+  src/components/Sidebar.jsx  — UserPanel at bottom, darkMode/onManageUsers props
+  src/components/FetchBar.jsx — fetch/save buttons hidden for readonly users
+
+Supabase setup (completed separately — no code changes):
+  - profiles table with role + trigger auto-create on user signup
+  - RLS policies on profiles, batches, weekly_prices
+  - Signups disabled (invitation-only)
+  - Google OAuth configured
+
+docs/AUTH.md — complete authentication documentation:
+  - Password security (bcrypt, what admin can/cannot do)
+  - Google OAuth setup guide (step by step)
+  - Role permissions matrix
+  - Database schema + RLS policies
+  - React architecture
+
+Tests: 107/107 passing"
+
+git tag -a v7.0.0 -m "v7.0.0: authentication + role-based access"
+git push origin main
+git push origin v7.0.0
