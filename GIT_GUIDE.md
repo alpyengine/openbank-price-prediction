@@ -3279,3 +3279,46 @@ Tests: 107/107 passing — no logic changes"
 git tag -a v6.9.0 -m "v6.9.0: Phase 0 shadcn migration prep"
 git push origin main
 git push origin v6.9.0
+
+
+# ===========================================================================
+# STEP 98 — v6.9.1  Phase 1: shadcn/ui base components installed
+# ===========================================================================
+#
+# ⚠️  npm install needed — @radix-ui/react-label was added.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.9.1/. .
+npm install
+
+git add .
+git commit -m "feat: Phase 1 — shadcn/ui base components (v6.9.1)
+
+Created src/components/ui/ with 12 base components:
+  button.jsx    — variants: default|destructive|outline|secondary|ghost|link
+  card.jsx      — Card + CardHeader + CardTitle + CardDescription + CardContent + CardFooter
+  badge.jsx     — variants: default|secondary|destructive|outline
+  separator.jsx — horizontal/vertical divider (Radix UI)
+  tooltip.jsx   — floating label (Radix UI, accessible)
+  tabs.jsx      — tab interface (Radix UI, keyboard navigation)
+  select.jsx    — dropdown select (Radix UI, with scroll buttons)
+  dialog.jsx    — modal overlay (Radix UI, focus trap + Esc key)
+  table.jsx     — Table + Header + Body + Footer + Row + Head + Cell + Caption
+  input.jsx     — single-line text input
+  textarea.jsx  — multi-line text input
+  label.jsx     — accessible form label (Radix UI)
+
+New dependency: @radix-ui/react-label
+
+All components:
+  - Fully documented with JSDoc and usage examples
+  - Use @/ path alias for imports
+  - Reference CSS variables (--background, --border, etc.)
+  - Accessible by default via Radix UI primitives
+  - Owned by the project (copy-paste pattern, no black box)
+
+Tests: 107/107 passing"
+
+git tag -a v6.9.1 -m "v6.9.1: Phase 1 shadcn base components"
+git push origin main
+git push origin v6.9.1

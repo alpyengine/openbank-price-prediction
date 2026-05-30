@@ -1,201 +1,243 @@
+/**
+ * FetchBar
+ *
+ * The main action bar displayed at the top of batch pages.
+ * Contains all fetch actions, a status log, the batch selector,
+ * and the save batch button.
+ *
+ * Layout (left → right):
+ *   [Log message] [Fetch prices] [Fundamentals] [Market data?] [Batch selector] [Save batch]
+ *
+ * The Market data button only appears for US or EU market batches.
+ * All buttons are disabled while any fetch is in progress.
+ *
+ * @param {string}   log              — price fetch status message
+ * @param {boolean}  fetching         — true while fetching prices
+ * @param {Function} onFetch          — trigger price fetch
+ * @param {string}   fundLog          — fundamentals fetch status message
+ * @param {boolean}  fundLoading      — true while fetching fundamentals
+ * @param {Function} onFetchFundamentals — trigger fundamentals fetch
+ * @param {string}   marketLog        — market data fetch status message
+ * @param {boolean}  marketLoading    — true while fetching market data
+ * @param {Object[]} stocks           — current stock array (used to detect market)
+ * @param {Function} onFetchMarket    — trigger market data fetch
+ * @param {Object[]} batches          — saved batches for the selector
+ * @param {string}   loadedBatchDate  — date of currently loaded batch
+ * @param {Function} onLoadBatch      — called when user selects a batch
+ * @param {Function} onSave           — trigger save batch
+ * @param {boolean}  saving           — true while saving
+ */
 import { useState, useRef, useEffect } from 'react'
-import { EU_MARKET_INDEX } from '../hooks/useMarketData.js'
+import { EU_MARKET_INDEX } from '@/hooks/useMarketData.js'
+import { Button } from '@/components/ui/button'
+import { ChevronDown, Check } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-function Spinner({ light }) {
-  return (
-    <div style={{
-      width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
-      border: light ? '2px solid rgba(255,255,255,0.35)' : '2px solid var(--tw-border)',
-      borderTopColor: light ? '#fff' : 'var(--tw-fg)',
-      animation: 'spin 0.7s linear infinite',
-    }} />
-  )
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Detects the market suffix from the first stock ticker (e.g. 'US', 'DE', 'AS') */
 function detectSuffix(stocks) {
   if (!stocks.length) return 'US'
   return stocks[0].t.split('.').pop().toUpperCase()
 }
 
-export default function FetchBar({
-  // price fetch
-  log, fetching, onFetch,
-  // fundamentals
-  fundLog, fundLoading, onFetchFundamentals,
-  // market data
-  marketLog, marketLoading, stocks, onFetchMarket,
-  // batch selector + save
-  batches, loadedBatchDate, onLoadBatch,
-  onSave, saving,
-}) {
-  const suffix = detectSuffix(stocks ?? [])
-  const isUS   = suffix === 'US' || !(stocks?.[0]?.t?.includes('.'))
-  const isEU   = ['DE','AS','PA','L','MC'].includes(suffix)
-  const showMarket = (stocks?.length > 0) && (isUS || isEU)
-
-  const anyLoading = fetching || fundLoading || marketLoading
-
-  const combinedLog = fetching     ? log
-    : fundLoading  ? fundLog
-    : marketLoading ? marketLog
-    : log || fundLog || marketLog || 'Import stocks, then click Fetch'
-
-  const btn = (active, loading) => ({
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '7px 14px', borderRadius: 8,
-    fontSize: 12, fontWeight: 500,
-    fontFamily: 'inherit', cursor: loading ? 'default' : 'pointer',
-    flexShrink: 0, whiteSpace: 'nowrap',
-    transition: 'opacity .15s',
-    opacity: loading ? 0.65 : 1,
-    ...(active
-      ? { border: '1px solid #16a34a', background: '#16a34a', color: '#fff' }
-      : { border: '1px solid var(--tw-border)', background: 'var(--tw-card)', color: 'var(--tw-fg)' }
-    ),
-  })
-
+/**
+ * Inline spinner — shown inside buttons while loading.
+ * Uses border animation instead of an SVG to keep it lightweight.
+ *
+ * @param {boolean} light — white spinner (for dark/green buttons)
+ */
+function Spinner({ light }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      marginBottom: '1.5rem', padding: '10px 14px',
-      border: '1px solid var(--tw-border)',
-      borderRadius: 8, background: 'var(--tw-card)',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-    }}>
-      {/* Combined log message */}
-      <span style={{
-        fontSize: 11, color: 'var(--tw-muted-fg)',
-        fontFamily: 'monospace', flex: 1,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>
-        {combinedLog}
-      </span>
-
-      {/* Fetch prices */}
-      <button style={btn(true, fetching)} disabled={anyLoading} onClick={onFetch}>
-        {fetching ? <Spinner light /> : '↓'}
-        {fetching ? 'Fetching…' : 'Fetch prices'}
-      </button>
-
-      {/* Fetch fundamentals */}
-      <button style={btn(false, fundLoading)} disabled={anyLoading} onClick={onFetchFundamentals}>
-        {fundLoading ? <Spinner /> : '↓'}
-        {fundLoading ? 'Loading…' : 'Fundamentals'}
-      </button>
-
-      {/* Fetch market data */}
-      {showMarket && (
-        <button style={btn(false, marketLoading)} disabled={anyLoading} onClick={onFetchMarket}>
-          {marketLoading ? <Spinner /> : '↓'}
-          {marketLoading ? 'Loading…' : 'Market data'}
-        </button>
-      )}
-
-      {/* Batch selector — far right */}
-      {batches && <BatchSelector batches={batches} loadedBatchDate={loadedBatchDate} onLoadBatch={onLoadBatch} />}
-
-      {/* Save batch — rightmost */}
-      {onSave && (
-        <button
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-            fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer',
-            flexShrink: 0, whiteSpace: 'nowrap',
-            opacity: saving ? 0.65 : 1,
-            border: '1px solid #16a34a', background: '#16a34a', color: '#fff',
-            transition: 'opacity .15s',
-          }}
-          disabled={saving} onClick={onSave}
-        >
-          {saving ? <Spinner light /> : '💾'}
-          {saving ? 'Saving…' : 'Save batch'}
-        </button>
-      )}
-    </div>
+    <div className={cn(
+      'w-3 h-3 rounded-full border-2 shrink-0 animate-spin',
+      light
+        ? 'border-white/30 border-t-white'
+        : 'border-border border-t-foreground'
+    )} />
   )
 }
 
+/**
+ * Parses a DD/MM/YYYY date string to a Date object for sorting.
+ * Falls back to epoch (Jan 1, 1970) for invalid strings.
+ */
 function parseBatchDate(str) {
   if (!str) return new Date(0)
   const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   if (dmy) return new Date(+dmy[3], +dmy[2] - 1, +dmy[1])
-  const d = new Date(str); return isNaN(d) ? new Date(0) : d
+  const d = new Date(str)
+  return isNaN(d) ? new Date(0) : d
 }
 
+// ── BatchSelector ─────────────────────────────────────────────────────────────
+
+/**
+ * BatchSelector
+ *
+ * Dropdown showing all saved batches sorted newest-first.
+ * The currently loaded batch is marked with a checkmark.
+ * Clicking a batch calls onLoadBatch and closes the dropdown.
+ *
+ * Uses a custom dropdown instead of shadcn Select because we need
+ * the trigger to display the currently loaded date (not the select value).
+ */
 function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
   const [open, setOpen] = useState(false)
   const ref  = useRef(null)
 
+  // Close dropdown when clicking outside
   useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Sort newest first for the dropdown
-  const sorted = batches
-    ? [...batches].sort((a, b) => parseBatchDate(b.date) - parseBatchDate(a.date))
-    : []
+  // Sort batches newest first
+  const sorted     = batches ? [...batches].sort((a, b) => parseBatchDate(b.date) - parseBatchDate(a.date)) : []
   const hasBatches = sorted.length > 0
-  const label = loadedBatchDate || (hasBatches ? sorted[0].date : null) || 'No batches'
+  const label      = loadedBatchDate || (hasBatches ? sorted[0].date : null) || 'No batches'
 
   return (
-    <div ref={ref} style={{ position:'relative', flexShrink:0 }}>
-      <button
+    <div ref={ref} className="relative shrink-0">
+      {/* Trigger button */}
+      <Button
+        variant="outline"
+        size="sm"
         disabled={!hasBatches}
         onClick={() => setOpen(v => !v)}
-        style={{
-          display:'flex', alignItems:'center', gap:6,
-          padding:'7px 12px', borderRadius:8,
-          border:'1px solid var(--tw-border)',
-          background:'var(--tw-card)',
-          color: hasBatches ? 'var(--tw-fg)' : 'var(--tw-muted-fg)',
-          fontSize:12, fontWeight:500, fontFamily:'inherit',
-          cursor: hasBatches ? 'pointer' : 'default',
-          opacity: hasBatches ? 1 : 0.6,
-          whiteSpace:'nowrap',
-        }}
+        className={cn(
+          'gap-1.5 font-medium whitespace-nowrap',
+          !hasBatches && 'opacity-60'
+        )}
       >
         {label}
-        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style={{ color:'var(--tw-muted-fg)', flexShrink:0 }}>
-          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/>
-        </svg>
-      </button>
+        <ChevronDown size={12} className="text-muted-foreground shrink-0" />
+      </Button>
 
+      {/* Dropdown panel */}
       {open && hasBatches && (
-        <div style={{
-          position:'absolute', top:'calc(100% + 6px)', right:0,
-          background:'var(--tw-card)', border:'1px solid var(--tw-border)',
-          borderRadius:10, boxShadow:'0 4px 16px rgba(0,0,0,0.1)',
-          minWidth:180, zIndex:50, overflow:'hidden',
-        }}>
+        <div className={cn(
+          'absolute top-[calc(100%+6px)] right-0 z-50',
+          'bg-card border border-border rounded-lg shadow-lg',
+          'min-w-[180px] overflow-hidden'
+        )}>
           {sorted.map(batch => {
             const isActive = batch.date === loadedBatchDate
             return (
               <button
                 key={batch.id}
                 onClick={() => { onLoadBatch(batch); setOpen(false) }}
-                style={{
-                  width:'100%', display:'flex', alignItems:'center',
-                  justifyContent:'space-between',
-                  padding:'10px 14px', border:'none',
-                  borderBottom:'1px solid var(--tw-border)',
-                  background: isActive ? 'var(--tw-muted)' : 'var(--tw-card)',
-                  color:'var(--tw-fg)', fontSize:13,
-                  fontWeight: isActive ? 600 : 400,
-                  cursor:'pointer', fontFamily:'inherit',
-                  textAlign:'left',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-muted)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = isActive ? 'var(--tw-muted)' : 'var(--tw-card)' }}
+                className={cn(
+                  'w-full flex items-center justify-between px-3.5 py-2.5',
+                  'border-b border-border last:border-0',
+                  'text-sm text-left cursor-pointer font-inherit',
+                  'transition-colors hover:bg-muted',
+                  isActive ? 'bg-muted font-semibold' : 'bg-card font-normal'
+                )}
               >
                 {batch.date}
-                {isActive && <span style={{ color:'#16a34a', fontSize:12 }}>✓</span>}
+                {isActive && <Check size={13} className="text-success shrink-0" />}
               </button>
             )
           })}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export default function FetchBar({
+  log, fetching, onFetch,
+  fundLog, fundLoading, onFetchFundamentals,
+  marketLog, marketLoading, stocks, onFetchMarket,
+  batches, loadedBatchDate, onLoadBatch,
+  onSave, saving,
+}) {
+  const suffix     = detectSuffix(stocks ?? [])
+  const isUS       = suffix === 'US' || !(stocks?.[0]?.t?.includes('.'))
+  const isEU       = ['DE', 'AS', 'PA', 'L', 'MC'].includes(suffix)
+  const showMarket = (stocks?.length > 0) && (isUS || isEU)
+  const anyLoading = fetching || fundLoading || marketLoading
+
+  // Show the most relevant log message
+  const combinedLog = fetching     ? log
+    : fundLoading                  ? fundLog
+    : marketLoading                ? marketLog
+    : log || fundLog || marketLog || 'Import stocks, then click Fetch'
+
+  return (
+    <div className={cn(
+      'flex items-center gap-2.5 mb-6 px-3.5 py-2.5',
+      'border border-border rounded-lg bg-card',
+      'shadow-sm'
+    )}>
+      {/* ── Status log ─────────────────────────────────────────────────── */}
+      <span className="text-[11px] text-muted-foreground font-mono flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+        {combinedLog}
+      </span>
+
+      {/* ── Fetch prices ───────────────────────────────────────────────── */}
+      <Button
+        size="sm"
+        className="shrink-0 whitespace-nowrap bg-success hover:bg-success/90 text-white border-success"
+        disabled={anyLoading}
+        onClick={onFetch}
+      >
+        {fetching ? <Spinner light /> : '↓'}
+        {fetching ? 'Fetching…' : 'Fetch prices'}
+      </Button>
+
+      {/* ── Fetch fundamentals ─────────────────────────────────────────── */}
+      <Button
+        size="sm"
+        variant="outline"
+        className="shrink-0 whitespace-nowrap"
+        disabled={anyLoading}
+        onClick={onFetchFundamentals}
+      >
+        {fundLoading ? <Spinner /> : '↓'}
+        {fundLoading ? 'Loading…' : 'Fundamentals'}
+      </Button>
+
+      {/* ── Fetch market data — only for US/EU batches ─────────────────── */}
+      {showMarket && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0 whitespace-nowrap"
+          disabled={anyLoading}
+          onClick={onFetchMarket}
+        >
+          {marketLoading ? <Spinner /> : '↓'}
+          {marketLoading ? 'Loading…' : 'Market data'}
+        </Button>
+      )}
+
+      {/* ── Batch selector ─────────────────────────────────────────────── */}
+      {batches && (
+        <BatchSelector
+          batches={batches}
+          loadedBatchDate={loadedBatchDate}
+          onLoadBatch={onLoadBatch}
+        />
+      )}
+
+      {/* ── Save batch ─────────────────────────────────────────────────── */}
+      {onSave && (
+        <Button
+          size="sm"
+          className="shrink-0 whitespace-nowrap bg-success hover:bg-success/90 text-white border-success"
+          disabled={saving}
+          onClick={onSave}
+        >
+          {saving ? <Spinner light /> : '💾'}
+          {saving ? 'Saving…' : 'Save batch'}
+        </Button>
       )}
     </div>
   )
