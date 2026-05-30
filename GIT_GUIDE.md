@@ -3322,3 +3322,52 @@ Tests: 107/107 passing"
 git tag -a v6.9.1 -m "v6.9.1: Phase 1 shadcn base components"
 git push origin main
 git push origin v6.9.1
+
+
+# ===========================================================================
+# STEP 99 — v6.9.2  Phase 2: simple components migrated to shadcn/ui
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.9.2/. .
+
+git add .
+git commit -m "feat: Phase 2 — simple components migrated to shadcn/ui (v6.9.2)
+
+Migrated 4 components from inline styles to Tailwind + shadcn/ui.
+Zero var(--tw-*) references remain in any migrated file.
+
+SummaryCards.jsx:
+- Replaced custom Card div with shadcn Card + CardContent
+- Verdict colors via cn() with Tailwind color classes
+- isHorizonExpired() and fmtAvg() documented with JSDoc
+- Grid: grid-cols-5 gap-3 mb-6
+
+HorizonTabs.jsx:
+- Tab buttons replaced with shadcn Button (variant=default|outline|ghost)
+- Status dots use Tailwind bg-red-500 / bg-amber-500 / bg-green-500
+- Tag and Banner sub-components use cn() for variant styles
+- No inline style blocks remain
+
+ImportBox.jsx:
+- Card + CardHeader + CardContent layout
+- Textarea from @/components/ui/textarea
+- Table + TableRow + TableCell for preview
+- Button variants for Load CSV (success), Import (outline), Clear (ghost)
+- Separator between Clear and Sample data buttons
+- File input: className='hidden' instead of style={{ display:'none' }}
+
+FetchBar.jsx:
+- All buttons use shadcn Button (size=sm)
+- Spinner component uses Tailwind animate-spin + border utilities
+- BatchSelector: custom dropdown with Button trigger + Tailwind panel
+- Success/save buttons use bg-success class
+- parseBatchDate() documented with JSDoc
+
+Tests: 107/107 passing"
+
+git tag -a v6.9.2 -m "v6.9.2: Phase 2 simple components"
+git push origin main
+git push origin v6.9.2

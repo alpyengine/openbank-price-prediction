@@ -1,32 +1,60 @@
+/**
+ * BatchSimple
+ *
+ * Batch Overview page — simple table showing prediction status per horizon.
+ * One row per stock, one column per horizon (1M / 3M / 6M / 12M).
+ *
+ * Each cell shows:
+ *   - ⏳ Pending (days left) — horizon not yet expired
+ *   - ✅ Hit (+X%) — price reached target on expiry date
+ *   - ❌ Miss (X%) — price did not reach target
+ *   - Expired · no price — horizon expired but no price available
+ *
+ * @param {Object[]} stocks     — array of stock objects
+ * @param {Object}   autoPrices — current prices { [ticker]: price }
+ * @param {Object}   histPrices — historical prices { [ticker_horizon]: { price } }
+ * @param {Object}   overrides  — manual price overrides
+ * @param {number}   hitMargin  — hit tolerance in % (default 5)
+ */
 import { useMemo } from 'react'
-import { targetDates, daysLeft, dateStatus, formatDate } from '../utils/dates.js'
-import { getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
+import { targetDates, daysLeft, dateStatus, formatDate } from '@/utils/dates.js'
+import { getEffectivePrice, evaluatePrediction } from '@/utils/stocks.js'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const HORIZONS = [
-  { key: '1M', label: '1 Month',  tKey: 't1', dKey: 'd1' },
-  { key: '3M', label: '3 Months', tKey: 't3', dKey: 'd3' },
-  { key: '6M', label: '6 Months', tKey: 't6', dKey: 'd6' },
+  { key: '1M',  label: '1 Month',   tKey: 't1',  dKey: 'd1' },
+  { key: '3M',  label: '3 Months',  tKey: 't3',  dKey: 'd3' },
+  { key: '6M',  label: '6 Months',  tKey: 't6',  dKey: 'd6' },
   { key: '12M', label: '12 Months', tKey: 't12', dKey: 'd12' },
 ]
 
-function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, overrides, hitMargin = 5 }) {
-  const target = stock[tKey]
-  const tg     = stock.base ? targetDates(stock.base) : null
-  const date   = tg ? tg[dKey] : null
-  const dl     = date ? daysLeft(date) : null
-  const ds     = date ? dateStatus(date) : null
+// ── HorizonCell ───────────────────────────────────────────────────────────────
+
+/**
+ * Renders a single verdict cell for one stock × one horizon combination.
+ * Determines expiry state, fetches the effective price, and shows the verdict.
+ */
+function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, overrides, hitMargin }) {
+  const target  = stock[tKey]
+  const tg      = stock.base ? targetDates(stock.base) : null
+  const date    = tg ? tg[dKey] : null
+  const dl      = date ? daysLeft(date) : null
+  const ds      = date ? dateStatus(date) : null
   const expired = ds === 'past'
 
-  const { price } = getEffectivePrice(
-    stock.t, horizonKey, autoPrices, histPrices, overrides, expired
-  )
+  const { price } = getEffectivePrice(stock.t, horizonKey, autoPrices, histPrices, overrides, expired)
 
-  // No target set
+  // No target defined for this horizon
   if (!target) {
-    return <td style={td}><span style={{ color:'var(--tw-muted-fg)', fontSize:12 }}>--</span></td>
+    return <TableCell><span className="text-muted-foreground text-xs">--</span></TableCell>
   }
 
-  // Not expired — show days remaining
+  // Horizon not yet expired — show days remaining
   if (!expired) {
     const daysText = dl != null
       ? dl <= 0  ? 'Today'
@@ -35,123 +63,102 @@ function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, ov
       : '--'
 
     return (
-      <td style={td}>
-        <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-          <span style={{
-            fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
-            background:'#f3f4f6', color:'var(--tw-muted-fg)',
-            display:'inline-block', width:'fit-content',
-          }}>
-            ⏳ Pending
-          </span>
-          <span style={{ fontSize:11, color:'var(--tw-muted-fg)' }}>{daysText}</span>
+      <TableCell>
+        <div className="flex flex-col gap-0.5">
+          <Badge variant="secondary" className="w-fit text-[11px]">⏳ Pending</Badge>
+          <span className="text-[11px] text-muted-foreground">{daysText}</span>
         </div>
-      </td>
+      </TableCell>
     )
   }
 
-  // Expired — show result
+  // Expired but no price available
   if (!price) {
     return (
-      <td style={td}>
-        <span style={{
-          fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
-          background:'#f3f4f6', color:'var(--tw-muted-fg)', display:'inline-block',
-        }}>⏳ Expired · no price</span>
-      </td>
+      <TableCell>
+        <Badge variant="secondary" className="text-[11px]">⏳ Expired · no price</Badge>
+      </TableCell>
     )
   }
 
+  // Evaluate verdict
   const { verdict } = evaluatePrediction(price, target, stock.b, hitMargin)
-  const distPct = ((price - target) / target * 100)
-  const sign    = distPct >= 0 ? '+' : ''
-  const pctStr  = `${sign}${distPct.toFixed(1)}%`
+  const distPct = (price - target) / target * 100
+  const pctStr  = `${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}%`
 
   if (verdict === 'hit') {
     return (
-      <td style={td}>
-        <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-          <span style={{
-            fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
-            background:'#dcfce7', color:'#15803d',
-            display:'inline-block', width:'fit-content',
-          }}>✅ Hit ({pctStr})</span>
-          <span style={{ fontSize:11, color:'var(--tw-muted-fg)' }}>{formatDate(date)}</span>
+      <TableCell>
+        <div className="flex flex-col gap-0.5">
+          <Badge className="w-fit text-[11px] bg-green-50 text-green-700 border-green-200 hover:bg-green-50">
+            ✅ Hit ({pctStr})
+          </Badge>
+          <span className="text-[11px] text-muted-foreground">{formatDate(date)}</span>
         </div>
-      </td>
+      </TableCell>
     )
   }
 
   return (
-    <td style={td}>
-      <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-        <span style={{
-          fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
-          background:'#fee2e2', color:'#b91c1c',
-          display:'inline-block', width:'fit-content',
-        }}>❌ Miss ({pctStr})</span>
-        <span style={{ fontSize:11, color:'var(--tw-muted-fg)' }}>{formatDate(date)}</span>
+    <TableCell>
+      <div className="flex flex-col gap-0.5">
+        <Badge className="w-fit text-[11px] bg-red-50 text-red-700 border-red-200 hover:bg-red-50">
+          ❌ Miss ({pctStr})
+        </Badge>
+        <span className="text-[11px] text-muted-foreground">{formatDate(date)}</span>
       </div>
-    </td>
+    </TableCell>
   )
 }
 
-const td = { padding:'12px 16px', borderBottom:'1px solid var(--tw-border)', verticalAlign:'middle' }
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function BatchSimple({ stocks, autoPrices, histPrices, overrides, hitMargin = 5 }) {
   if (!stocks.length) {
     return (
-      <div style={{ background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:10, padding:'48px', textAlign:'center', color:'var(--tw-muted-fg)', fontSize:14 }}>
+      <Card className="flex items-center justify-center p-12 text-muted-foreground text-sm">
         No stocks loaded — import a CSV to get started
-      </div>
+      </Card>
     )
   }
 
   return (
-    <div style={{ background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:10, overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
-      <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--tw-border)' }}>
-        <div style={{ fontSize:15, fontWeight:700, color:'var(--tw-fg)' }}>Batch Overview</div>
-        <div style={{ fontSize:12, color:'var(--tw-muted-fg)', marginTop:2 }}>
+    <Card className="overflow-hidden">
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <CardHeader className="py-3.5 px-4 border-b border-border space-y-0.5">
+        <div className="text-[15px] font-bold">Batch Overview</div>
+        <div className="text-xs text-muted-foreground">
           Prediction status per horizon — {stocks.length} stock{stocks.length > 1 ? 's' : ''}
         </div>
-      </div>
+      </CardHeader>
 
-      <div style={{ overflowX:'auto' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-          <thead>
-            <tr style={{ background:'var(--tw-muted)', borderBottom:'1px solid var(--tw-border)' }}>
-              <th style={{ ...td, fontWeight:500, fontSize:11, color:'var(--tw-muted-fg)', borderBottom:'1px solid var(--tw-border)', width:120 }}>Ticker</th>
-              <th style={{ ...td, fontWeight:500, fontSize:11, color:'var(--tw-muted-fg)', borderBottom:'1px solid var(--tw-border)', width:110 }}>Base date</th>
+      {/* ── Table ──────────────────────────────────────────────────────── */}
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted">
+              <TableHead className="w-[120px] text-xs py-2.5 px-4">Ticker</TableHead>
+              <TableHead className="w-[110px] text-xs py-2.5 px-4">Base date</TableHead>
               {HORIZONS.map(h => (
-                <th key={h.key} style={{ ...td, fontWeight:500, fontSize:11, color:'var(--tw-muted-fg)', borderBottom:'1px solid var(--tw-border)' }}>
-                  {h.label}
-                </th>
+                <TableHead key={h.key} className="text-xs py-2.5 px-4">{h.label}</TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {stocks.map(stock => (
-              <tr key={stock.t}
-                style={{ transition:'background .1s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--tw-muted)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                {/* Ticker */}
-                <td style={td}>
-                  <div style={{ fontWeight:700, fontSize:14, color:'var(--tw-fg)' }}>
-                    {stock.t.split('.')[0]}
-                  </div>
-                  <div style={{ fontSize:11, color:'var(--tw-muted-fg)', marginTop:1 }}>
-                    {stock.co}
-                  </div>
-                </td>
+              <TableRow key={stock.t}>
+                {/* Ticker + company name */}
+                <TableCell className="py-3 px-4">
+                  <div className="font-bold text-sm">{stock.t.split('.')[0]}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">{stock.co}</div>
+                </TableCell>
 
                 {/* Base date */}
-                <td style={{ ...td, fontSize:12, color:'var(--tw-muted-fg)' }}>
+                <TableCell className="py-3 px-4 text-xs text-muted-foreground">
                   {stock.base ? formatDate(stock.base) : '--'}
-                </td>
+                </TableCell>
 
-                {/* Horizon cells */}
+                {/* Horizon verdict cells */}
                 {HORIZONS.map(h => (
                   <HorizonCell
                     key={h.key}
@@ -165,11 +172,11 @@ export default function BatchSimple({ stocks, autoPrices, histPrices, overrides,
                     hitMargin={hitMargin}
                   />
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   )
 }

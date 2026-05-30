@@ -1,46 +1,63 @@
+/**
+ * Sidebar
+ *
+ * Left navigation panel with collapsible width.
+ * Contains the app logo and 5 navigation items.
+ *
+ * Collapsed state: 64px wide — shows icons only with title tooltips.
+ * Expanded state: 220px wide — shows icons + labels.
+ *
+ * @param {string}   active — currently active page id
+ * @param {Function} onNav  — called with page id when user clicks a nav item
+ */
 import { useState } from 'react'
-import { LayoutDashboard, BarChart2, Settings, TrendingUp, Upload, PanelLeftClose, PanelLeft, TableProperties } from 'lucide-react'
+import {
+  LayoutDashboard, BarChart2, Settings, TrendingUp,
+  Upload, PanelLeftClose, PanelLeft, TableProperties,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
+
+// ── Navigation items ──────────────────────────────────────────────────────────
 
 const NAV = [
-  { id: 'batch',        Icon: LayoutDashboard,  label: 'Batch Overview'         },
-  { id: 'batch-detail', Icon: TableProperties,  label: 'Batch Overview Detail'  },
-  { id: 'accuracy',     Icon: BarChart2,         label: 'Accuracy Stats'         },
-  { id: 'import',       Icon: Upload,            label: 'Import CSV'             },
-  { id: 'settings',     Icon: Settings,          label: 'Settings'               },
+  { id: 'batch',        Icon: LayoutDashboard, label: 'Batch Overview'        },
+  { id: 'batch-detail', Icon: TableProperties, label: 'Batch Overview Detail' },
+  { id: 'accuracy',     Icon: BarChart2,        label: 'Accuracy Stats'        },
+  { id: 'import',       Icon: Upload,           label: 'Import CSV'            },
+  { id: 'settings',     Icon: Settings,         label: 'Settings'              },
 ]
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function Sidebar({ active, onNav }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <aside style={{
-      width: collapsed ? 64 : 220,
-      flexShrink: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      background: 'var(--tw-sidebar)',
-      borderRight: '1px solid var(--tw-sidebar-border)',
-      transition: 'width .25s ease',
-      overflow: 'hidden',
-      height: '100%',
-    }}>
-
-      {/* Logo */}
-      <div style={{ padding:'16px 12px', borderBottom:'1px solid var(--tw-sidebar-border)', flexShrink:0 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ width:32, height:32, borderRadius:8, background:'var(--tw-sidebar-primary)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <TrendingUp size={16} color="var(--tw-sidebar-primary-fg)" />
-          </div>
-          {!collapsed && (
-            <span style={{ fontSize:13, fontWeight:600, color:'var(--tw-sidebar-fg)', whiteSpace:'nowrap' }}>
-              Openbank Forecast
-            </span>
-          )}
+    <aside
+      className={cn(
+        'flex flex-col h-full bg-sidebar border-r border-sidebar-border',
+        'transition-[width] duration-250 ease-in-out overflow-hidden shrink-0',
+        collapsed ? 'w-16' : 'w-[220px]'
+      )}
+    >
+      {/* ── Logo ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2.5 px-3 py-4 border-b border-sidebar-border shrink-0">
+        {/* Icon mark */}
+        <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
+          <TrendingUp size={16} className="text-sidebar-primary-foreground" />
         </div>
+        {/* App name — hidden when collapsed */}
+        {!collapsed && (
+          <span className="text-[13px] font-semibold text-sidebar-foreground whitespace-nowrap">
+            Openbank Forecast
+          </span>
+        )}
       </div>
 
-      {/* Nav */}
-      <nav style={{ flex:1, padding:'10px 8px', overflowY:'auto' }}>
+      {/* ── Navigation ───────────────────────────────────────────────────── */}
+      <nav className="flex-1 p-2 overflow-y-auto">
         {NAV.map(({ id, Icon, label }) => {
           const isActive = active === id
           return (
@@ -48,44 +65,38 @@ export default function Sidebar({ active, onNav }) {
               key={id}
               title={collapsed ? label : undefined}
               onClick={() => onNav(id)}
-              style={{
-                width:'100%', display:'flex', alignItems:'center',
-                gap: collapsed ? 0 : 10,
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                padding: collapsed ? '10px 0' : '9px 12px',
-                marginBottom:2, borderRadius:8, border:'none',
-                background: isActive ? 'var(--tw-sidebar-accent)' : 'transparent',
-                color: isActive ? 'var(--tw-sidebar-accent-fg)' : 'var(--tw-muted-fg)',
-                fontWeight: isActive ? 600 : 500,
-                fontSize:13, cursor:'pointer', fontFamily:'inherit',
-                transition:'background .15s, color .15s',
-                whiteSpace:'nowrap',
-              }}
-              onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'var(--tw-sidebar-accent)'; e.currentTarget.style.color = 'var(--tw-sidebar-fg)' }}}
-              onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--tw-muted-fg)' }}}
+              className={cn(
+                // Base layout
+                'w-full flex items-center gap-2.5 mb-0.5 rounded-lg border-none',
+                'text-[13px] font-medium cursor-pointer transition-colors duration-150',
+                // Collapsed: center icon only
+                collapsed ? 'justify-center px-0 py-2.5' : 'justify-start px-3 py-2',
+                // Active vs inactive styles
+                isActive
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                  : 'bg-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
+              )}
+              style={{ fontFamily: 'inherit' }}
             >
-              <Icon size={16} style={{ flexShrink:0 }} />
+              <Icon size={16} className="shrink-0" />
               {!collapsed && <span>{label}</span>}
             </button>
           )
         })}
       </nav>
 
-      {/* Collapse toggle */}
-      <div style={{ padding:'8px', borderTop:'1px solid var(--tw-sidebar-border)', flexShrink:0 }}>
+      {/* ── Collapse toggle ───────────────────────────────────────────────── */}
+      <div className="p-2 border-t border-sidebar-border shrink-0">
         <button
           onClick={() => setCollapsed(v => !v)}
-          style={{
-            width:'100%', display:'flex', alignItems:'center',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            gap:8, padding: collapsed ? '9px 0' : '9px 12px',
-            borderRadius:8, border:'none', background:'transparent',
-            color:'var(--tw-muted-fg)', fontSize:13, fontWeight:500,
-            cursor:'pointer', fontFamily:'inherit', transition:'background .15s',
-            whiteSpace:'nowrap',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--tw-sidebar-accent)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          className={cn(
+            'w-full flex items-center gap-2 rounded-lg border-none',
+            'text-[13px] font-medium text-muted-foreground cursor-pointer',
+            'bg-transparent hover:bg-sidebar-accent hover:text-sidebar-foreground',
+            'transition-colors duration-150',
+            collapsed ? 'justify-center px-0 py-2.5' : 'justify-start px-3 py-2'
+          )}
+          style={{ fontFamily: 'inherit' }}
         >
           {collapsed
             ? <PanelLeft size={16} />
