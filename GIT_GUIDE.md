@@ -3165,3 +3165,39 @@ modal — position:fixed, backdrop blur, click outside or Esc to close.
 git tag -a v6.7.1 -m "v6.7.1: PriceChart modal"
 git push origin main
 git push origin v6.7.1
+
+
+# ===========================================================================
+# STEP 95 — v6.8.0  Supabase tests (storage + restoreHistPrices)
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.8.0/. .
+
+git add .
+git commit -m "test: Supabase storage + restoreHistPrices tests (v6.8.0)
+
+2 new test files — 107 tests total (was 77):
+
+src/services/storage.test.js (18 tests):
+- loadWeeklyPrices URL construction (ticker encoding, batchId, ordering)
+- loadWeeklyPrices response parsing (rows, empty, non-array)
+- loadCachedPrice URL construction (.US/.DE suffix stripping, date format)
+- loadCachedPrice response parsing (price as float, cache miss, multi-row)
+
+src/hooks/restoreHistPrices.test.js (12 tests):
+- Null/empty input handling
+- Single result with priceOnDate
+- Multiple horizons per ticker
+- Multiple tickers
+- Skips results without priceOnDate/ticker/horizon
+- Awaiting results skipped gracefully
+- Key format TICKER_HORIZON
+- fromCache always false
+- isHistorical always true"
+
+git tag -a v6.8.0 -m "v6.8.0: Supabase tests"
+git push origin main
+git push origin v6.8.0

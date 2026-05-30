@@ -1,7 +1,43 @@
-# Openbank Price Prediction — v6.1.3
+# Openbank Price Prediction — v6.8.1
 
-Web app for monitoring Openbank stock price forecasts against real market prices.
-Built with React + Vite. No backend required.
+Web app for tracking and evaluating Openbank stock price forecasts against real market data.
+Built with React 18 + Vite + Tailwind 3. No backend required for the UI — Supabase handles persistence and automation.
+
+---
+
+## What this app does
+
+[Openbank](https://www.openbank.es) publishes periodic stock price forecasts — predictions of where a stock's price will be in 1, 3, 6, and 12 months. This app tracks those forecasts over time and tells you whether they came true.
+
+### The problem it solves
+
+Without a tracking tool, evaluating forecast accuracy is tedious:
+- You'd need to manually record each forecast at the time it was published
+- Then go back months later to check whether the price reached the target
+- Then repeat across dozens of stocks and multiple time horizons
+- With no easy way to compare performance across batches or time periods
+
+### How this app solves it
+
+1. **Import** — paste or upload a CSV with the forecast data (ticker, base price, targets for 1M/3M/6M/12M)
+2. **Fetch** — the app pulls current prices from Twelve Data API automatically
+3. **Evaluate** — each prediction is evaluated as Hit ✅ / Close 🟡 / Miss ❌ / Awaiting ⏳ based on whether the current price has reached the target
+4. **Save** — confirmed batches are saved to Supabase (PostgreSQL) for long-term tracking
+5. **Automate** — a Supabase cron job runs every weekday at 23:00 UTC, fetching historical closing prices for expired horizons and updating verdicts automatically — no manual action needed
+6. **Visualise** — accuracy stats, hit rates per horizon, weekly price charts per ticker, market comparison vs sector ETFs
+
+### What "Hit / Close / Miss" means
+
+All evaluations use a single unified function `evaluatePrediction()`:
+
+| Verdict | Condition | Color |
+|---|---|---|
+| **Hit** | Price reached or exceeded the target (bullish) / reached or went below (bearish) | 🟢 Green |
+| **Close** | Price is within ±5% of the target but hasn't reached it yet | 🟡 Amber |
+| **Miss** | Price is more than 5% away from the target | 🔴 Red |
+| **Awaiting** | Horizon target date hasn't arrived yet | ⚫ Grey |
+
+The ±5% margin is configurable in Settings.
 
 ---
 
@@ -522,6 +558,78 @@ select cron.schedule(
   '0 23 * * 1-5',
   $$ select fetch_expired_horizons(); $$
 );
+```
+
+---
+
+
+---
+
+## Testing
+
+### What is Vitest?
+
+[Vitest](https://vitest.dev) is a fast unit testing framework built on top of Vite — the same build tool the app uses. It runs in Node.js, not in the browser, so tests execute instantly without opening a browser window.
+
+### Running tests
+
+```bash
+# Run all tests once and show results
+npm run test:run
+
+# Watch mode — re-runs automatically when you change code
+npm run test
+```
+
+Expected output:
+```
+Test Files  6 passed (6)
+     Tests  107 passed (107)
+  Duration  ~2s
+```
+
+### Test files
+
+| File | Tests | What it covers |
+|---|---|---|
+| `src/utils/stocks.test.js` | 37 | `evaluatePrediction`, `getTarget`, `distancePct`, `getEffectivePrice`, `priceStatus` |
+| `src/utils/dates.test.js` | 20 | `parseDate`, `targetDates`, `daysLeft`, `dateStatus`, `formatDate` |
+| `src/hooks/computed.test.js` | 10 | Hit rate, awaiting count, unique tickers, batch summary |
+| `src/hooks/saveBatch.test.js` | 10 | Future horizons saved as awaiting, expired horizons evaluated correctly |
+| `src/hooks/restoreHistPrices.test.js` | 12 | Restoring `histPrices` from `batch.results` — skips missing prices, correct key format, fromCache/isHistorical flags |
+| `src/services/storage.test.js` | 18 | Supabase URL construction and response parsing for `loadWeeklyPrices` and `loadCachedPrice` |
+
+### Key functions tested
+
+**`evaluatePrediction(price, target, base, margin)`**
+The core verdict function. Takes the current price, the predicted target, the base price at forecast time, and the hit margin (default 5%). Returns `{ verdict, direction }` where verdict is `hit/close/miss/awaiting`. Every visual element in the app — bars, boxes, badges — uses this function.
+
+**`restoreHistPrices(results)`**
+Reconstructs the `histPrices` map from saved batch results. Used when loading a batch from Supabase to avoid re-fetching historical prices from the API. Key format: `TICKER_HORIZON` (e.g. `TER_1M`).
+
+**`loadWeeklyPrices(ticker, batchId)`** / **`loadCachedPrice(ticker, targetDate)`**
+Supabase read functions. Tests verify URL construction (ticker encoding, suffix stripping, date formatting) and response parsing (float conversion, null handling, cache miss detection).
+
+### Adding new tests
+
+Test files live next to the code they test:
+- `src/utils/myFunction.js` → `src/utils/myFunction.test.js`
+- `src/hooks/myHook.js` → `src/hooks/myHook.test.js`
+
+Pattern:
+```js
+import { describe, it, expect } from 'vitest'
+import { myFunction } from './myFunction.js'
+
+describe('myFunction', () => {
+  it('returns expected value for valid input', () => {
+    expect(myFunction(input)).toBe(expectedOutput)
+  })
+
+  it('handles edge case gracefully', () => {
+    expect(myFunction(null)).toBeNull()
+  })
+})
 ```
 
 ---
