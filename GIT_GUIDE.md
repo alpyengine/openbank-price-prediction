@@ -3137,3 +3137,31 @@ React frontend:
 git tag -a v6.7.0 -m "v6.7.0: weekly price chart"
 git push origin main
 git push origin v6.7.0
+
+
+# ===========================================================================
+# STEP 94 — v6.7.1  PriceChart as modal (like description modal)
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.7.1/. .
+
+git add .
+git commit -m "feat: PriceChart as modal overlay (v6.7.1)
+
+PriceChart now opens as a modal overlay identical to the description
+modal — position:fixed, backdrop blur, click outside or Esc to close.
+
+- Button '📈 Price chart' in StockRow expanded panel
+- Click → loads data from Supabase weekly_prices → opens modal
+- Modal header: ticker name + base price + weeks of data
+- Legend: blue line = weekly close, red dots = targets
+- Target pills: 1M/3M/6M/12M with prices
+- Chart: 260px height, smooth line, red dots at target weeks
+- Close: ✕ button, Esc key, or click backdrop"
+
+git tag -a v6.7.1 -m "v6.7.1: PriceChart modal"
+git push origin main
+git push origin v6.7.1
