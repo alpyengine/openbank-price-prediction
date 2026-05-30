@@ -124,45 +124,6 @@
   --sidebar-primary-foreground: #1a1f2e;
 }
 
-/*
- * ─────────────────────────────────────────────────────────────────────────────
- * Legacy aliases (--tw-* prefix)
- *
- * These map the old variable names to the new shadcn names.
- * They allow existing inline styles (style={{ color: 'var(--tw-fg)' }})
- * to keep working during the gradual component migration.
- *
- * REMOVED IN: v6.9.4 (once all components use Tailwind classes)
- * ─────────────────────────────────────────────────────────────────────────────
- */
-:root, .dark {
-  --tw-bg:                  var(--background);
-  --tw-fg:                  var(--foreground);
-  --tw-card:                var(--card);
-  --tw-card-fg:             var(--card-foreground);
-  --tw-border:              var(--border);
-  --tw-input:               var(--input);
-  --tw-ring:                var(--ring);
-  --tw-primary:             var(--primary);
-  --tw-primary-fg:          var(--primary-foreground);
-  --tw-secondary:           var(--secondary);
-  --tw-secondary-fg:        var(--secondary-foreground);
-  --tw-muted:               var(--muted);
-  --tw-muted-fg:            var(--muted-foreground);
-  --tw-accent:              var(--accent);
-  --tw-accent-fg:           var(--accent-foreground);
-  --tw-sidebar:             var(--sidebar);
-  --tw-sidebar-fg:          var(--sidebar-foreground);
-  --tw-sidebar-border:      var(--sidebar-border);
-  --tw-sidebar-accent:      var(--sidebar-accent);
-  --tw-sidebar-accent-fg:   var(--sidebar-accent-foreground);
-  --tw-sidebar-primary:     var(--sidebar-primary);
-  --tw-sidebar-primary-fg:  var(--sidebar-primary-foreground);
-  --tw-success:             var(--success);
-  --tw-warning:             var(--warning);
-  --tw-danger:              var(--destructive);
-  --radius-lg:              var(--radius);
-}
 
 /*
  * ─────────────────────────────────────────────────────────────────────────────

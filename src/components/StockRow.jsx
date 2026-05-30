@@ -1,57 +1,74 @@
+/**
+ * StockRow
+ *
+ * Individual stock row in the batch prediction table.
+ * Renders as a collapsed summary row with expandable detail panel.
+ *
+ * Collapsed row contains:
+ *   Ticker | Company | Base price | Current price | 4 horizon bars | vs SPY | vs Sector
+ *
+ * Expanded panel contains:
+ *   - HorizonCards — 4 cards with target price, date, and verdict
+ *   - MarketComparison — bar chart comparing stock vs SPY/ETF since base date
+ *   - FundamentalsPanel — sector, industry, market cap, beta, website, description
+ *   - PriceChart — weekly price chart modal (only when batchId is available)
+ *   - Notes — free-text note per stock
+ *
+ * All verdict colors use evaluatePrediction() as single source of truth.
+ *
+ * @param {Object}   stock           — stock object { t, co, b, t1, t3, t6, t12, base }
+ * @param {string}   horizon         — selected horizon key
+ * @param {number}   autoPrice       — current fetched price
+ * @param {Object}   histPrices      — historical prices map
+ * @param {number}   override        — manual price override
+ * @param {boolean}  horizonExpired  — whether selected horizon has passed
+ * @param {Object}   fundamental     — fundamentals data (undefined=loading, null=error)
+ * @param {Function} onOverrideChange — called when user enters manual price
+ * @param {string}   note            — saved note text
+ * @param {Function} onNoteChange    — called when note is saved
+ * @param {Object}   marketData      — SPY/ETF performance data
+ * @param {number}   collapseAll     — counter incremented to trigger collapse
+ * @param {boolean}  allExpanded     — true when "Expand all" is active
+ * @param {string}   batchCurrency   — currency symbol ('$', '€', etc.)
+ * @param {number}   hitMargin       — hit tolerance in % (default 5)
+ * @param {string}   batchId         — Supabase batch id for PriceChart
+ */
 import { memo, useState, useCallback, useEffect } from 'react'
-import { formatDate, targetDates, daysLeft, dateStatus } from '../utils/dates.js'
-import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey } from '../utils/stocks.js'
-import { fmtMarketCap } from '../hooks/useFundamentals.js'
-import { SECTOR_ETF, INDUSTRY_ETF } from '../hooks/useMarketData.js'
+import { formatDate, targetDates, daysLeft, dateStatus } from '@/utils/dates.js'
+import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey } from '@/utils/stocks.js'
+import { fmtMarketCap } from '@/hooks/useFundamentals.js'
+import { SECTOR_ETF, INDUSTRY_ETF } from '@/hooks/useMarketData.js'
 import PriceChart from './PriceChart.jsx'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
-const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices, override, horizonExpired, fundamental, onOverrideChange, note, onNoteChange, marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5, batchId }) {
-  const [expanded,     setExpanded]     = useState(false)
-  const [showDesc,     setShowDesc]     = useState(false)
-  const [showNote,     setShowNote]     = useState(false)
-  const [noteVal,      setNoteVal]      = useState(note || '')
+// ── Main StockRow ─────────────────────────────────────────────────────────────
 
-  // Toggle expand/collapse when parent requests it
-  useEffect(() => {
-    if (collapseAll > 0) setExpanded(allExpanded)
-  }, [collapseAll])
+const StockRow = memo(function StockRow({
+  stock, horizon, autoPrice, histPrices, override, horizonExpired,
+  fundamental, onOverrideChange, note, onNoteChange,
+  marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5, batchId,
+}) {
+  const [expanded,  setExpanded]  = useState(false)
+  const [showDesc,  setShowDesc]  = useState(false)
+  const [showNote,  setShowNote]  = useState(false)
+  const [noteVal,   setNoteVal]   = useState(note || '')
+  const [val,       setVal]       = useState(override ? String(override) : '')
 
-  const best      = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
-  const tgt       = getTarget(stock, horizon)
-  const tg        = stock.base ? targetDates(stock.base) : null
-  const bestLabel = best===stock.t12?'12M':best===stock.t6?'6M':best===stock.t3?'3M':'1M'
+  // ── Side effects ──────────────────────────────────────────────────────────
 
-  const { price: p, isHistorical, historicalDate } = getEffectivePrice(
-    stock.t, horizon, { [stock.t]: autoPrice }, histPrices,
-    override ? { [stock.t]: override } : {}, horizonExpired
-  )
-
-  const dist               = distancePct(p, tgt)
-  const { verdict, direction } = evaluatePrediction(p, tgt, stock.b, hitMargin)
-  const hKey       = histKey(stock.t, horizon)
-  const histEntry  = histPrices?.[hKey]
-  const histLoading = horizonExpired && horizon !== 'best' && histEntry === undefined
-
-  const horizonDates = tg
-    ? [{ val:stock.t1,date:tg.d1 },{ val:stock.t3,date:tg.d3 },{ val:stock.t6,date:tg.d6 },{ val:stock.t12,date:tg.d12 }]
-    : [{ val:stock.t1 },{ val:stock.t3 },{ val:stock.t6 },{ val:stock.t12 }]
-
-  const [val, setVal] = useState(override ? String(override) : '')
-  useEffect(() => { if (override==null) setVal(''); else setVal(String(override)) }, [override])
-
-  const handleCommit  = useCallback((e) => {
-    const v = parseFloat(e.target.value)
-    onOverrideChange(stock.t, isNaN(v)||v<=0 ? null : v)
-    if (isNaN(v)||v<=0) setVal('')
-  }, [stock.t, onOverrideChange])
-
-  const handleKeyDown = useCallback((e) => {
-    if (e.key==='Enter')  e.target.blur()
-    if (e.key==='Escape') { setVal(''); onOverrideChange(stock.t, null); e.target.blur() }
-  }, [stock.t, onOverrideChange])
+  // Sync collapse/expand state when parent triggers collapseAll
+  useEffect(() => { if (collapseAll > 0) setExpanded(allExpanded) }, [collapseAll])
 
   // Sync note from outside (e.g. batch loaded from history)
   useEffect(() => { setNoteVal(note || '') }, [note])
+
+  // Sync override input from outside
+  useEffect(() => { if (override == null) setVal(''); else setVal(String(override)) }, [override])
+
+  // Close description modal on Escape
   useEffect(() => {
     if (!showDesc) return
     const handler = (e) => { if (e.key === 'Escape') setShowDesc(false) }
@@ -59,34 +76,71 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
     return () => window.removeEventListener('keydown', handler)
   }, [showDesc])
 
-  const sectorText   = fundamental===undefined?'...':fundamental===null?'--':fundamental.sector  ||'--'
-  const industryText = fundamental===undefined?'...':fundamental===null?'--':fundamental.industry ||'--'
-  const fundColor    = (fundamental===undefined||fundamental===null) ? 'var(--tw-muted-fg)' : 'var(--tw-muted-fg)'
+  // ── Price computation ─────────────────────────────────────────────────────
 
-  const td = { padding:'12px 14px', verticalAlign:'middle', borderBottom:'1px solid var(--tw-border)' }
+  const best      = Math.max(stock.t1, stock.t3, stock.t6, stock.t12)
+  const tgt       = getTarget(stock, horizon)
+  const tg        = stock.base ? targetDates(stock.base) : null
+  const bestLabel = best === stock.t12 ? '12M' : best === stock.t6 ? '6M' : best === stock.t3 ? '3M' : '1M'
+
+  const { price: p, isHistorical } = getEffectivePrice(
+    stock.t, horizon, { [stock.t]: autoPrice }, histPrices,
+    override ? { [stock.t]: override } : {}, horizonExpired
+  )
+
+  const { verdict, direction } = evaluatePrediction(p, tgt, stock.b, hitMargin)
+  const hKey       = histKey(stock.t, horizon)
+  const histEntry  = histPrices?.[hKey]
+  const histLoading = horizonExpired && horizon !== 'best' && histEntry === undefined
+
+  const horizonDates = tg
+    ? [{ val: stock.t1, date: tg.d1 }, { val: stock.t3, date: tg.d3 }, { val: stock.t6, date: tg.d6 }, { val: stock.t12, date: tg.d12 }]
+    : [{ val: stock.t1 }, { val: stock.t3 }, { val: stock.t6 }, { val: stock.t12 }]
+
+  // ── Override input handlers ───────────────────────────────────────────────
+
+  const handleCommit = useCallback((e) => {
+    const v = parseFloat(e.target.value)
+    onOverrideChange(stock.t, isNaN(v) || v <= 0 ? null : v)
+    if (isNaN(v) || v <= 0) setVal('')
+  }, [stock.t, onOverrideChange])
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter')  e.target.blur()
+    if (e.key === 'Escape') { setVal(''); onOverrideChange(stock.t, null); e.target.blur() }
+  }, [stock.t, onOverrideChange])
+
+  // ── Table cell base class ─────────────────────────────────────────────────
+
+  const tdClass = 'py-3 px-3.5 align-middle border-b border-border'
 
   return (
     <>
-      {/* Description modal */}
+      {/* ── Description modal ──────────────────────────────────────────── */}
       {showDesc && fundamental?.description && (
-        <tr style={{ display:'contents' }}>
-          <td style={{ padding:0 }}>
+        <tr style={{ display: 'contents' }}>
+          <td style={{ padding: 0 }}>
             <div
-              style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, backdropFilter:'blur(2px)' }}
+              className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-5 backdrop-blur-sm"
               onClick={() => setShowDesc(false)}
             >
               <div
-                style={{ background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:'var(--radius-lg)', maxWidth:540, width:'100%', maxHeight:'80vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.3)' }}
+                className="bg-card border border-border rounded-lg max-w-[540px] w-full max-h-[80vh] overflow-y-auto shadow-2xl"
                 onClick={e => e.stopPropagation()}
               >
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderBottom:'1px solid var(--tw-border)' }}>
+                <div className="flex items-center justify-between px-4.5 py-3.5 border-b border-border">
                   <div>
-                    <div style={{ fontSize:'var(--fs-sm)', fontWeight:700, color:'var(--tw-fg)' }}>{stock.t} — {stock.co}</div>
-                    <div style={{ fontSize:'var(--fs-xs)', color:'var(--tw-muted-fg)', marginTop:2 }}>{fundamental.industry} · {fundamental.sector}</div>
+                    <div className="text-sm font-bold">{stock.t} — {stock.co}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {fundamental.industry} · {fundamental.sector}
+                    </div>
                   </div>
-                  <button style={{ fontSize:18, border:'none', background:'transparent', cursor:'pointer', color:'var(--tw-muted-fg)', padding:'2px 6px', borderRadius:'var(--radius)', fontFamily:'inherit' }} onClick={() => setShowDesc(false)}>✕</button>
+                  <button
+                    className="text-lg text-muted-foreground hover:text-foreground bg-transparent border-none cursor-pointer rounded px-1.5"
+                    onClick={() => setShowDesc(false)}
+                  >✕</button>
                 </div>
-                <div style={{ padding:18, fontSize:'var(--fs-sm)', color:'var(--tw-muted-fg)', lineHeight:1.7 }}>
+                <div className="p-4.5 text-sm text-muted-foreground leading-relaxed">
                   {fundamental.description}
                 </div>
               </div>
@@ -95,115 +149,132 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
         </tr>
       )}
 
-      <tr style={{ borderBottom: expanded ? 'none' : '1px solid var(--tw-border)', cursor:'pointer', transition:'background .1s' }}
-        onMouseEnter={e => e.currentTarget.style.background = 'var(--tw-muted)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-        onClick={() => setExpanded(v=>!v)}>
-
+      {/* ── Main row ───────────────────────────────────────────────────── */}
+      <tr
+        className={cn(
+          'cursor-pointer transition-colors hover:bg-muted',
+          !expanded && 'border-b border-border'
+        )}
+        onClick={() => setExpanded(v => !v)}
+      >
         {/* Ticker */}
-        <td style={{ ...td, fontWeight:600, fontSize:14, color:'var(--tw-fg)', whiteSpace:'nowrap' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-            <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>{expanded ? '▾' : '›'}</span>
+        <td className={tdClass}>
+          <div className="flex items-center gap-1.5 font-semibold text-sm whitespace-nowrap">
+            <span className="text-[10px] text-muted-foreground">{expanded ? '▾' : '›'}</span>
             {stock.t.split('.')[0]}
           </div>
-          <div style={{ fontSize:10, color:'var(--tw-muted-fg)', fontWeight:400, marginTop:1 }}>{stock.t.includes('.') ? stock.t.split('.').pop() : 'US'}</div>
+          <div className="text-[10px] text-muted-foreground font-normal mt-0.5">
+            {stock.t.includes('.') ? stock.t.split('.').pop() : 'US'}
+          </div>
         </td>
 
         {/* Company */}
-        <td style={{ ...td, fontSize:13, color:'var(--tw-muted-fg)' }}>{stock.co}</td>
+        <td className={cn(tdClass, 'text-[13px] text-muted-foreground')}>{stock.co}</td>
 
-        {/* Base Price */}
-        <td style={{ ...td, fontSize:13, color:'var(--tw-muted-fg)', fontFamily:'monospace' }}>
+        {/* Base price */}
+        <td className={cn(tdClass, 'text-[13px] text-muted-foreground font-mono')}>
           {stock.b ? `${batchCurrency ?? '$'}${stock.b.toFixed(2)}` : '--'}
         </td>
 
-        {/* Price */}
-        <td style={td}>
-          {histLoading && <span style={{ color:'var(--tw-muted-fg)', fontSize:11 }}>…</span>}
+        {/* Current price */}
+        <td className={tdClass}>
+          {histLoading && <span className="text-muted-foreground text-[11px]">…</span>}
           {!histLoading && isHistorical && histEntry && (
             <div>
-              <span style={{ color:'var(--blue)', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{histEntry.price.toFixed(2)}</span>
-              <span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>
+              <span className="text-blue-600 font-semibold text-xs">
+                {batchCurrency ?? ''}{histEntry.price.toFixed(2)}
+              </span>
+              <span className="block text-[9px] text-muted-foreground mt-0.5">
                 {histEntry.fromCache ? '💾 cached' : 'exp.'}
               </span>
             </div>
           )}
-          {!histLoading && isHistorical && !histEntry && <span style={{ color:'#dc2626', fontSize:11 }}>n/a</span>}
+          {!histLoading && isHistorical && !histEntry && (
+            <span className="text-destructive text-[11px]">n/a</span>
+          )}
           {!isHistorical && (
             <div>
-              {autoPrice==null
-                ? <span style={{ color:'var(--tw-muted-fg)', fontSize:11 }}>--</span>
-                : <span style={{ color:'#16a34a', fontWeight:600, fontSize:12 }}>{batchCurrency ?? ''}{autoPrice.toFixed(2)}</span>
+              {autoPrice == null
+                ? <span className="text-muted-foreground text-[11px]">--</span>
+                : <span className="text-success font-semibold text-xs">
+                    {batchCurrency ?? ''}{autoPrice.toFixed(2)}
+                  </span>
               }
             </div>
           )}
         </td>
 
-        {/* Horizon bar columns — 1M / 3M / 6M / 12M */}
-        {horizonDates.map(({ val:t, date }, i) => {
-          const KEYS = ['1M','3M','6M','12M']
-          const hKey = KEYS[i]
-          const ds   = date ? dateStatus(date) : null
-          const expired = ds === 'past'
+        {/* ── Horizon bar columns 1M / 3M / 6M / 12M ──────────────────── */}
+        {horizonDates.map(({ val: t, date }, i) => {
+          const KEYS    = ['1M', '3M', '6M', '12M']
+          const hKey    = KEYS[i]
+          const ds      = date ? dateStatus(date) : null
           const currentP = p ?? autoPrice
 
-          // Calculate distance % from current price to target
+          // Distance % from current price to target
           let distPct = null
           if (currentP && t) distPct = ((currentP - t) / t) * 100
 
           // Verdict via evaluatePrediction — single source of truth
-          const horizonTarget = t
-          const { verdict: barVerdict } = currentP && horizonTarget
-            ? evaluatePrediction(currentP, horizonTarget, stock.b, hitMargin)
+          const { verdict: barVerdict } = currentP && t
+            ? evaluatePrediction(currentP, t, stock.b, hitMargin)
             : { verdict: null }
 
+          // Map verdict to zone for styling
           let zone = 'awaiting'
-          if (currentP && horizonTarget) {
+          if (currentP && t) {
             if (barVerdict === 'hit')        zone = 'hit'
             else if (barVerdict === 'close') zone = 'close'
             else if (barVerdict === 'miss')  zone = 'miss'
           }
 
-          // Proportional bar width based on distance to target
-          // Hit: 100% base + bonus for how much it exceeded (capped at 100%)
-          // Close: 88-96% proportional within the ±margin% band
-          // Miss: 0-75% inversely proportional to how far away (farther = shorter bar)
+          /**
+           * Proportional bar width:
+           *   hit   → always 100% (a hit is a hit regardless of margin)
+           *   close → 88-96% proportional within the ±margin% band
+           *   miss  → 0-75% inversely proportional (farther = shorter bar)
+           */
           const fillWidth = (() => {
             if (zone === 'awaiting' || distPct == null) return 0
             if (zone === 'hit') return 100
-            if (zone === 'close') {
-              // distPct is negative (below target), map -margin..0 → 88..96%
-              return Math.round(96 + (distPct / hitMargin) * 8)
-            }
-            // miss: map distance to 0-75% (closer to target = taller bar)
+            if (zone === 'close') return Math.round(96 + (distPct / hitMargin) * 8)
             const absDist = Math.abs(distPct)
             return Math.round(Math.max(0, Math.min(75, 75 - absDist * 0.8)))
           })()
 
-          const ZONE_STYLES = {
-            hit:      { color:'#15803d', fill:'#16a34a' },
-            close:    { color:'#a16207', fill:'#eab308' },
-            miss:     { color:'#b91c1c', fill:'#ef4444' },
-            awaiting: { color:'var(--tw-muted-fg)', fill:'var(--tw-border)' },
-          }
-          const zs = ZONE_STYLES[zone] || ZONE_STYLES.awaiting
+          // Zone colors (Tailwind + hardcoded for exact shade matching)
+          const zoneColor = zone === 'hit'   ? '#15803d'
+            : zone === 'close'               ? '#a16207'
+            : zone === 'miss'                ? '#b91c1c'
+            : 'var(--muted-foreground)'
 
-          // Label: VERDICT ±X%
+          const zoneFill = zone === 'hit'   ? '#16a34a'
+            : zone === 'close'              ? '#eab308'
+            : zone === 'miss'              ? '#ef4444'
+            : 'var(--border)'
+
           const pctStr = distPct != null ? ` ${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}%` : ''
-          const label = zone === 'hit'   ? `HIT${pctStr}`
+          const label  = zone === 'hit'   ? `HIT${pctStr}`
             : zone === 'close' ? `CLOSE${pctStr}`
             : zone === 'miss'  ? `MISS${pctStr}`
             : '--'
 
           return (
-            <td key={i} style={{ ...td, minWidth:80 }}>
-              <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
-                  <span style={{ fontSize:9, fontWeight:600, color:'var(--tw-muted-fg)' }}>{hKey}</span>
-                  <span style={{ fontSize:10, fontWeight:700, color:zs.color, whiteSpace:'nowrap' }}>{label}</span>
+            <td key={i} className={cn(tdClass, 'min-w-[80px]')}>
+              <div className="flex flex-col gap-0.5">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-[9px] font-semibold text-muted-foreground">{hKey}</span>
+                  <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: zoneColor }}>{label}</span>
                 </div>
-                <div style={{ width:'100%', height:6, borderRadius:3, background:'var(--tw-muted)', overflow:'hidden' }}>
-                  <div style={{ height:'100%', borderRadius:3, background:zs.fill, width:`${Math.max(0,Math.min(100,fillWidth))}%`, transition:'width .3s' }} />
+                {/* Progress bar */}
+                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-300"
+                    style={{
+                      background: zoneFill,
+                      width: `${Math.max(0, Math.min(100, fillWidth))}%`,
+                    }}
+                  />
                 </div>
               </div>
             </td>
@@ -211,97 +282,109 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
         })}
 
         {/* vs SPY */}
-        <td style={td}>
+        <td className={tdClass}>
           {(() => {
-            const spyPct  = marketData?.spy?.changePct ?? null
-            const stockChg = (stock.b && (p ?? autoPrice)) ? (((p ?? autoPrice) - stock.b) / stock.b * 100) : null
-            if (spyPct == null || stockChg == null) return <span style={{ fontSize:11, color:'var(--tw-muted-fg)' }}>--</span>
+            const spyPct   = marketData?.spy?.changePct ?? null
+            const stockChg = (stock.b && (p ?? autoPrice))
+              ? (((p ?? autoPrice) - stock.b) / stock.b * 100)
+              : null
+            if (spyPct == null || stockChg == null) {
+              return <span className="text-[11px] text-muted-foreground">--</span>
+            }
             const diff = stockChg - spyPct
             const beat = diff >= 0
             return (
-              <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
-                <span style={{ fontSize:11, fontWeight:600, color: beat ? '#15803d' : '#b91c1c', whiteSpace:'nowrap' }}>
+              <div className="flex flex-col gap-0.5">
+                <span className={cn('text-[11px] font-semibold whitespace-nowrap', beat ? 'text-success' : 'text-destructive')}>
                   {beat ? '✅' : '❌'} {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
                 </span>
-                <span style={{ fontSize:9, color:'var(--tw-muted-fg)' }}>SPY</span>
+                <span className="text-[9px] text-muted-foreground">SPY</span>
               </div>
             )
           })()}
         </td>
 
         {/* vs Sector ETF */}
-        <td style={td}>
+        <td className={tdClass}>
           {(() => {
-            const sector    = fundamental?.sector
-            const etfSym    = sector ? SECTOR_ETF[sector] : null
-            const etfData   = etfSym ? marketData?.etfs?.[etfSym] : null
-            const etfPct    = etfData?.changePct ?? null
-            const stockChg  = (stock.b && (p ?? autoPrice)) ? (((p ?? autoPrice) - stock.b) / stock.b * 100) : null
+            const sector   = fundamental?.sector
+            const etfSym   = sector ? SECTOR_ETF[sector] : null
+            const etfData  = etfSym ? marketData?.etfs?.[etfSym] : null
+            const etfPct   = etfData?.changePct ?? null
+            const stockChg = (stock.b && (p ?? autoPrice))
+              ? (((p ?? autoPrice) - stock.b) / stock.b * 100)
+              : null
 
-            // No fundamentals yet
-            if (!sector) return <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>fetch<br/>funds</span>
-            // Sector not mapped
-            if (!etfSym) return <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>--</span>
-            // No market data yet
-            if (etfPct == null) return <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>{etfSym}<br/>fetch mkt</span>
-            // No current price
-            if (stockChg == null) return <span style={{ fontSize:10, color:'var(--tw-muted-fg)' }}>{etfSym}<br/>no price</span>
+            if (!sector)         return <span className="text-[10px] text-muted-foreground">fetch<br />funds</span>
+            if (!etfSym)         return <span className="text-[10px] text-muted-foreground">--</span>
+            if (etfPct == null)  return <span className="text-[10px] text-muted-foreground">{etfSym}<br />fetch mkt</span>
+            if (stockChg == null) return <span className="text-[10px] text-muted-foreground">{etfSym}<br />no price</span>
 
             const diff = stockChg - etfPct
             const beat = diff >= 0
             return (
-              <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
-                <span style={{ fontSize:11, fontWeight:600, color: beat ? '#15803d' : '#b91c1c', whiteSpace:'nowrap' }}>
+              <div className="flex flex-col gap-0.5">
+                <span className={cn('text-[11px] font-semibold whitespace-nowrap', beat ? 'text-success' : 'text-destructive')}>
                   {beat ? '✅' : '❌'} {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
                 </span>
-                <span style={{ fontSize:9, color:'var(--tw-muted-fg)' }}>{etfSym}</span>
+                <span className="text-[9px] text-muted-foreground">{etfSym}</span>
               </div>
             )
           })()}
         </td>
       </tr>
 
+      {/* ── Expanded detail panel ─────────────────────────────────────── */}
       {expanded && (
-        <tr style={{ borderBottom:'1px solid var(--tw-border)' }}>
-          <td colSpan={16} style={{ padding:'16px 20px 20px 20px', background:'var(--tw-muted)' }}>
+        <tr className="border-b border-border">
+          <td colSpan={16} className="py-4 px-5 bg-muted">
 
-            {/* ── Horizon cards ── */}
-            <HorizonCards stock={stock} tg={tg} autoPrice={autoPrice} batchCurrency={batchCurrency} hitMargin={hitMargin} />
+            <HorizonCards
+              stock={stock} tg={tg}
+              autoPrice={autoPrice} batchCurrency={batchCurrency}
+              hitMargin={hitMargin}
+            />
 
-            {/* ── Market Performance ── */}
-            {marketData && <MarketComparison stock={stock} fundamental={fundamental} marketData={marketData} autoPrice={autoPrice} />}
+            {marketData && (
+              <MarketComparison
+                stock={stock} fundamental={fundamental}
+                marketData={marketData} autoPrice={autoPrice}
+              />
+            )}
 
-            {/* ── Fundamentals ── */}
-            <FundamentalsPanel fundamental={fundamental} ticker={stock.t} onShowDesc={() => setShowDesc(true)} />
+            <FundamentalsPanel
+              fundamental={fundamental}
+              ticker={stock.t}
+              onShowDesc={() => setShowDesc(true)}
+            />
 
-            {/* ── Price Chart ── */}
+            {/* Price chart button — only when batchId is available */}
             {batchId && (
-              <div style={{ marginTop: 12 }}>
+              <div className="mt-3">
                 <PriceChart stock={stock} batchId={batchId} />
               </div>
             )}
 
-            {/* ── Add Note ── */}
-            <div style={{ display:'flex', justifyContent:'flex-start', marginTop:12 }}>
+            {/* Notes */}
+            <div className="flex justify-start mt-3">
               {showNote ? (
-                <div style={{ width:'100%' }}>
-                  <textarea
-                    value={noteVal}
-                    onChange={e => setNoteVal(e.target.value)}
-                    onBlur={() => { onNoteChange && onNoteChange(stock.t, noteVal); setShowNote(false) }}
-                    onClick={e => e.stopPropagation()}
-                    autoFocus
-                    placeholder={`Add notes for ${stock.t.split('.')[0]}…`}
-                    style={{ width:'100%', maxWidth:600, height:72, fontSize:13, fontFamily:'inherit', padding:'8px 12px', border:'1px solid var(--tw-border)', borderRadius:8, background:'var(--tw-card)', color:'var(--tw-fg)', resize:'vertical', outline:'none', lineHeight:1.5 }}
-                  />
-                </div>
+                <Textarea
+                  className="w-full max-w-[600px] h-[72px] text-[13px] font-inherit resize-y"
+                  value={noteVal}
+                  onChange={e => setNoteVal(e.target.value)}
+                  onBlur={() => { onNoteChange && onNoteChange(stock.t, noteVal); setShowNote(false) }}
+                  onClick={e => e.stopPropagation()}
+                  autoFocus
+                  placeholder={`Add notes for ${stock.t.split('.')[0]}…`}
+                />
               ) : (
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={e => { e.stopPropagation(); setShowNote(true) }}
-                  style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:8, border:'1px solid var(--tw-border)', background:'var(--tw-card)', color:'var(--tw-muted-fg)', fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}
                 >
                   📋 {noteVal ? 'Edit note' : 'Add Note'}
-                </button>
+                </Button>
               )}
             </div>
 
@@ -314,69 +397,83 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
 export default StockRow
 
-// ── Horizon Cards (v0 style) ──────────────────────────────────────────────────
+// ── HorizonCards ──────────────────────────────────────────────────────────────
+
+/**
+ * HorizonCards
+ *
+ * 4 cards showing the target price, date, and current verdict for each horizon.
+ * Uses evaluatePrediction() for consistent verdict colors with the rest of the app.
+ */
 function HorizonCards({ stock, tg, autoPrice, batchCurrency, hitMargin = 5 }) {
   if (!tg) return null
   const cu = batchCurrency ?? '$'
+
   const horizons = [
-    { key:'1M', target:stock.t1, date:tg.d1 },
-    { key:'3M', target:stock.t3, date:tg.d3 },
-    { key:'6M', target:stock.t6, date:tg.d6 },
-    { key:'12M', target:stock.t12, date:tg.d12 },
+    { key: '1M',  target: stock.t1,  date: tg.d1  },
+    { key: '3M',  target: stock.t3,  date: tg.d3  },
+    { key: '6M',  target: stock.t6,  date: tg.d6  },
+    { key: '12M', target: stock.t12, date: tg.d12 },
   ]
 
   return (
-    <div style={{ marginBottom:16 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10, fontSize:12, fontWeight:600, color:'var(--tw-muted-fg)' }}>
+    <div className="mb-4">
+      <div className="flex items-center gap-1.5 mb-2.5 text-xs font-semibold text-muted-foreground">
         <span>◎</span> Horizon Results
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
+      <div className="grid grid-cols-4 gap-2.5">
         {horizons.map(({ key, target, date }) => {
-          const dl = date ? daysLeft(date) : null
-          const ds = date ? dateStatus(date) : null
-          const expired = ds === 'past'
           const distPct = autoPrice && target ? ((autoPrice - target) / target) * 100 : null
 
-          // Use evaluatePrediction — consistent with boxes and bars
+          // Verdict via evaluatePrediction — consistent with boxes and bars
           const { verdict: ev } = autoPrice && target
             ? evaluatePrediction(autoPrice, target, stock.b, hitMargin)
             : { verdict: null }
 
-          const hcVerdict   = !autoPrice ? 'awaiting' : ev ?? 'awaiting'
-          const verdictColor = hcVerdict === 'hit'   ? '#15803d'
-            : hcVerdict === 'close' ? '#a16207'
-            : hcVerdict === 'miss'  ? '#b91c1c'
-            : '#6b7280'
-          const verdictBg    = hcVerdict === 'hit'   ? '#dcfce7'
-            : hcVerdict === 'close' ? '#fef9c3'
-            : hcVerdict === 'miss'  ? '#fee2e2'
-            : 'var(--tw-muted)'
-          const borderColor  = hcVerdict === 'hit'   ? '#86efac'
-            : hcVerdict === 'close' ? '#fcd34d'
-            : hcVerdict === 'miss'  ? '#fca5a5'
-            : 'var(--tw-border)'
-          const isActive     = hcVerdict === 'hit' || hcVerdict === 'close'
-          const verdictLabel = hcVerdict === 'hit' ? '⊙ HIT'
-            : hcVerdict === 'close' ? '◷ CLOSE'
-            : hcVerdict === 'miss'  ? '⊗ MISS'
+          const hcVerdict = !autoPrice ? 'awaiting' : ev ?? 'awaiting'
+
+          // Card border and badge colors per verdict
+          const cardClass = hcVerdict === 'hit'   ? 'border-green-200 shadow-[0_0_0_1px_#86efac20]'
+            : hcVerdict === 'close'               ? 'border-amber-200 shadow-[0_0_0_1px_#fcd34d20]'
+            : hcVerdict === 'miss'                ? 'border-red-200 shadow-[0_0_0_1px_#fca5a520]'
+            : 'border-border'
+
+          const badgeClass = hcVerdict === 'hit'   ? 'bg-green-50 text-green-700'
+            : hcVerdict === 'close'               ? 'bg-amber-50 text-amber-700'
+            : hcVerdict === 'miss'                ? 'bg-red-50 text-red-700'
+            : 'bg-muted text-muted-foreground'
+
+          const verdictLabel = hcVerdict === 'hit'   ? '⊙ HIT'
+            : hcVerdict === 'close'                  ? '◷ CLOSE'
+            : hcVerdict === 'miss'                   ? '⊗ MISS'
             : '◷ AWAITING'
 
+          const distColor = distPct == null ? 'text-muted-foreground'
+            : distPct >= 0                  ? 'text-success'
+            : 'text-destructive'
+
           return (
-            <div key={key} style={{ background:'var(--tw-card)', border:`1px solid ${isActive ? borderColor : 'var(--tw-border)'}`, borderRadius:10, padding:'14px 16px', boxShadow: isActive ? `0 0 0 1px ${borderColor}20` : 'none' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-                <span style={{ fontSize:11, color:'var(--tw-muted-fg)', fontWeight:500 }}>{key}</span>
-                <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20, background:verdictBg, color:verdictColor }}>
+            <div
+              key={key}
+              className={cn('bg-card rounded-lg px-4 py-3.5 border', cardClass)}
+            >
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[11px] text-muted-foreground font-medium">{key}</span>
+                <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full', badgeClass)}>
                   {verdictLabel}
                 </span>
               </div>
-              <div style={{ fontSize:18, fontWeight:700, color:'var(--tw-fg)', marginBottom:4 }}>
+              <div className="text-lg font-bold mb-1">
                 {target ? `${cu}${target.toFixed(2)}` : '--'}
               </div>
-              <div style={{ fontSize:11, color:'var(--tw-muted-fg)', marginBottom:6 }}>
+              <div className="text-[11px] text-muted-foreground mb-1.5">
                 {date ? formatDate(date) : '--'}
               </div>
-              <div style={{ fontSize:12, fontWeight:600, color: distPct == null ? 'var(--tw-muted-fg)' : distPct >= 0 ? '#15803d' : '#dc2626' }}>
-                {distPct == null ? (autoPrice ? '--' : 'Fetch price') : `${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}% from current`}
+              <div className={cn('text-xs font-semibold', distColor)}>
+                {distPct == null
+                  ? (autoPrice ? '--' : 'Fetch price')
+                  : `${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}% from current`
+                }
               </div>
             </div>
           )
@@ -386,21 +483,29 @@ function HorizonCards({ stock, tg, autoPrice, batchCurrency, hitMargin = 5 }) {
   )
 }
 
+// ── MarketComparison ──────────────────────────────────────────────────────────
+
+/**
+ * MarketComparison
+ *
+ * Horizontal bar chart comparing the stock's performance since the base date
+ * against SPY, sector ETF, industry ETF, RSP, and QQQ (where applicable).
+ * Bars are centered at 0% — positive bars extend right (green), negative left (red).
+ */
 function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
   if (!marketData?.spy) return null
 
-  const sector      = fundamental?.sector
-  const industry    = fundamental?.industry
-  const exchange    = fundamental?.exchange
-  const etfSymbol   = sector   ? SECTOR_ETF[sector]       : null
-  const indEtfSym   = industry ? INDUSTRY_ETF?.[industry] : null
-  const etfData     = etfSymbol ? marketData.etfs?.[etfSymbol]          : null
-  const indEtfData  = indEtfSym ? marketData.industryEtfs?.[indEtfSym]  : null
-  const rspData     = marketData.etfs?.['RSP'] ?? null
-  const qqqData     = marketData.etfs?.['QQQ'] ?? null
+  const sector     = fundamental?.sector
+  const industry   = fundamental?.industry
+  const exchange   = fundamental?.exchange
+  const etfSymbol  = sector   ? SECTOR_ETF[sector]       : null
+  const indEtfSym  = industry ? INDUSTRY_ETF?.[industry] : null
+  const etfData    = etfSymbol ? marketData.etfs?.[etfSymbol]         : null
+  const indEtfData = indEtfSym ? marketData.industryEtfs?.[indEtfSym] : null
+  const rspData    = marketData.etfs?.['RSP'] ?? null
+  const qqqData    = marketData.etfs?.['QQQ'] ?? null
 
-  const stockPct  = (stock.b && autoPrice && autoPrice > 0)
-    ? ((autoPrice - stock.b) / stock.b) * 100 : null
+  const stockPct  = (stock.b && autoPrice && autoPrice > 0) ? ((autoPrice - stock.b) / stock.b) * 100 : null
   const spyPct    = marketData.spy.changePct
   const rspPct    = rspData?.changePct    ?? null
   const qqqPct    = qqqData?.changePct    ?? null
@@ -416,136 +521,149 @@ function MarketComparison({ stock, fundamental, marketData, autoPrice }) {
   const shortLabel = (label, max = 22) =>
     label && label.length > max ? label.slice(0, max - 1) + '…' : label
 
+  // Build and sort rows by performance
   const rows = [
-    { key:'indEtf', label: indEtfSym ? shortLabel(`${industry} (${indEtfSym})`) : null, pct: indEtfPct, isStock:false },
-    { key:'etf',    label: etfSymbol  ? `${sector} (${etfSymbol})`               : null, pct: etfPct,    isStock:false },
-    { key:'stock',  label: ticker,                                                         pct: stockPct,  isStock:true  },
-    { key:'spy',    label: benchLabel,                                                     pct: spyPct,    isStock:false },
-    { key:'rsp',    label: rspPct != null ? 'S&P 500 EW (RSP)'                   : null, pct: rspPct,    isStock:false },
-    { key:'qqq',    label: isNASDAQ && qqqPct != null ? 'NASDAQ 100 (QQQ)'       : null, pct: qqqPct,    isStock:false },
-  ].filter(r => r.label && r.pct != null)
-   .sort((a, b) => b.pct - a.pct)
-
-  const maxPct  = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
-  const hasNeg  = rows.some(r => r.pct < 0)
-  const BAR_H   = 10
-  const NAME_W  = 140
-  const PCT_W   = 58
+    { key: 'indEtf', label: indEtfSym ? shortLabel(`${industry} (${indEtfSym})`) : null, pct: indEtfPct, isStock: false },
+    { key: 'etf',    label: etfSymbol  ? `${sector} (${etfSymbol})`              : null, pct: etfPct,    isStock: false },
+    { key: 'stock',  label: ticker,                                                        pct: stockPct,  isStock: true  },
+    { key: 'spy',    label: benchLabel,                                                    pct: spyPct,    isStock: false },
+    { key: 'rsp',    label: rspPct != null ? 'S&P 500 EW (RSP)' : null,                   pct: rspPct,    isStock: false },
+    { key: 'qqq',    label: isNASDAQ && qqqPct != null ? 'NASDAQ 100 (QQQ)' : null,       pct: qqqPct,    isStock: false },
+  ].filter(r => r.label && r.pct != null).sort((a, b) => b.pct - a.pct)
 
   const absMax = Math.max(...rows.map(r => Math.abs(r.pct ?? 0)), 1)
 
-  const spyDiff = stockPct != null && spyPct    != null ? stockPct - spyPct    : null
-  const rspDiff = stockPct != null && rspPct    != null ? stockPct - rspPct    : null
-  const qqqDiff = stockPct != null && qqqPct    != null ? stockPct - qqqPct    : null
-  const etfDiff = stockPct != null && etfPct    != null ? stockPct - etfPct    : null
-  const indDiff = stockPct != null && indEtfPct != null ? stockPct - indEtfPct : null
-
   const renderRow = (row) => {
-    const isPos    = row.pct >= 0
-    const pctColor = isPos ? '#16a34a' : '#dc2626'
-    // Both stock and benchmark use same solid colors like the screenshot
-    const barColor = isPos ? '#16a34a' : '#dc2626'
-    const barPct   = Math.abs(row.pct) / absMax * 50
-    const barLeft  = isPos ? '50%' : `${50 - barPct}%`
+    const isPos  = row.pct >= 0
+    const color  = isPos ? '#16a34a' : '#dc2626'
+    const barPct = Math.abs(row.pct) / absMax * 50
 
     return (
-      <div key={row.key} style={{ display:'flex', alignItems:'center', gap:14, marginBottom:8 }}>
+      <div key={row.key} className="flex items-center gap-3.5 mb-2">
         {/* Label */}
-        <div style={{
-          width: 130, flexShrink: 0, fontSize: 13,
-          fontWeight: row.isStock ? 700 : 400,
-          color: row.isStock ? 'var(--tw-fg)' : 'var(--tw-muted-fg)',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
+        <div
+          className={cn(
+            'w-[130px] shrink-0 text-[13px] truncate whitespace-nowrap overflow-hidden',
+            row.isStock ? 'font-bold text-foreground' : 'font-normal text-muted-foreground'
+          )}
+        >
           {row.label}
         </div>
-        {/* Track — centered axis */}
-        <div style={{ flex:1, height:10, borderRadius:5, background:'var(--tw-muted)', position:'relative', overflow:'hidden' }}>
-          <div style={{ position:'absolute', top:0, bottom:0, left:'50%', width:1.5, background:'var(--tw-border)', zIndex:1 }} />
-          <div style={{
-            position:'absolute', top:0, height:'100%',
-            background: barColor,
-            left: isPos ? '50%' : `${50 - barPct}%`,
-            width: `${barPct}%`,
-            borderRadius: isPos ? '0 4px 4px 0' : '4px 0 0 4px',
-            transition: 'all .4s ease',
-          }} />
+
+        {/* Centered bar track */}
+        <div className="flex-1 h-2.5 rounded-full bg-muted relative overflow-hidden">
+          {/* Center axis line */}
+          <div className="absolute top-0 bottom-0 left-1/2 w-px bg-border z-10" />
+          {/* Bar fill */}
+          <div
+            className="absolute top-0 h-full"
+            style={{
+              background:   color,
+              left:         isPos ? '50%' : `${50 - barPct}%`,
+              width:        `${barPct}%`,
+              borderRadius: isPos ? '0 4px 4px 0' : '4px 0 0 4px',
+              transition:   'all .4s ease',
+            }}
+          />
         </div>
+
         {/* % value */}
-        <div style={{ width:52, flexShrink:0, fontSize:13, fontWeight:600, color:pctColor, textAlign:'right', whiteSpace:'nowrap' }}>
+        <div
+          className="w-[52px] shrink-0 text-[13px] font-semibold text-right whitespace-nowrap"
+          style={{ color }}
+        >
           {fmt(row.pct)}
         </div>
       </div>
     )
   }
 
-  const badge = (diff, label) => diff == null ? null : (
-    <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background: diff >= 0 ? '#dcfce7' : '#fee2e2', color: diff >= 0 ? '#16a34a' : '#dc2626' }}>
-      {diff >= 0 ? '▲' : '▼'} {diff >= 0 ? 'Beat' : 'Lagged'} {label} by {diff >= 0 ? '+' : ''}{diff.toFixed(1)}%
-    </span>
-  )
-
   return (
-    <div style={{ marginBottom:16 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12, fontSize:11, fontWeight:600, color:'var(--tw-muted-fg)', textTransform:'uppercase', letterSpacing:'.05em' }}>
+    <div className="mb-4">
+      <div className="flex items-center gap-1.5 mb-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
         ↑↓ Market Performance
-        <span style={{ fontSize:11, fontWeight:400, textTransform:'none', letterSpacing:0, color:'var(--tw-muted-fg)', marginLeft:4 }}>since {baseDate}</span>
+        <span className="text-[11px] font-normal normal-case tracking-normal ml-1">
+          since {baseDate}
+        </span>
       </div>
-      <div style={{ display:'flex', flexDirection:'column' }}>
-        {rows.map(renderRow)}
-      </div>
-      {(!sector) && (
-        <div style={{ fontSize:11, color:'var(--tw-muted-fg)', fontStyle:'italic', marginTop:8 }}>Fetch fundamentals to see sector ETF comparison</div>
+      <div className="flex flex-col">{rows.map(renderRow)}</div>
+      {!sector && (
+        <p className="text-[11px] text-muted-foreground italic mt-2">
+          Fetch fundamentals to see sector ETF comparison
+        </p>
       )}
       {sector && !etfSymbol && (
-        <div style={{ fontSize:11, color:'var(--tw-muted-fg)', fontStyle:'italic', marginTop:8 }}>No sector ETF mapped for "{sector}"</div>
+        <p className="text-[11px] text-muted-foreground italic mt-2">
+          No sector ETF mapped for "{sector}"
+        </p>
       )}
     </div>
   )
 }
 
+// ── FundamentalsPanel ─────────────────────────────────────────────────────────
+
+/**
+ * FundamentalsPanel
+ *
+ * Displays fundamental data fetched from FMP: sector, industry, market cap,
+ * beta, last dividend, website link, and a "Read description" button.
+ *
+ * States:
+ *   undefined = loading (not yet fetched)
+ *   null      = error (fetch failed)
+ *   object    = data available
+ */
 function FundamentalsPanel({ fundamental, ticker, onShowDesc }) {
-  const lbl = { fontSize:10, fontWeight:600, color:'var(--tw-muted-fg)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:3 }
-  const val = { fontSize:13, fontWeight:600, color:'var(--tw-fg)' }
+  const lblClass = 'text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5'
+  const valClass = 'text-[13px] font-semibold'
 
   return (
-    <div style={{ marginBottom:16 }}>
-      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10, fontSize:12, fontWeight:600, color:'var(--tw-muted-fg)' }}>
+    <div className="mb-4">
+      <div className="flex items-center gap-1.5 mb-2.5 text-xs font-semibold text-muted-foreground">
         <span>▦</span> Fundamentals
       </div>
 
       {fundamental === undefined && (
-        <div style={{ fontSize:12, color:'var(--tw-muted-fg)', fontStyle:'italic' }}>
+        <p className="text-xs text-muted-foreground italic">
           Click "Fetch fundamentals" to load data for {ticker}
-        </div>
+        </p>
       )}
+
       {fundamental === null && (
-        <div style={{ fontSize:12, color:'#dc2626' }}>Fundamentals unavailable for {ticker}</div>
+        <p className="text-xs text-destructive">Fundamentals unavailable for {ticker}</p>
       )}
+
       {fundamental && (
-        <div style={{ display:'flex', gap:28, flexWrap:'wrap', alignItems:'flex-start' }}>
-          <div><div style={lbl}>Sector</div><div style={val}>{fundamental.sector || '--'}</div></div>
-          <div><div style={lbl}>Industry</div><div style={val}>{fundamental.industry || '--'}</div></div>
-          <div><div style={lbl}>Market Cap</div><div style={val}>{fmtMarketCap(fundamental.marketCap)}</div></div>
-          <div><div style={lbl}>Beta</div><div style={val}>{fundamental.beta ? fundamental.beta.toFixed(2) : '--'}</div></div>
-          <div><div style={lbl}>Last Dividend</div><div style={val}>{fundamental.lastDividend ? `$${fundamental.lastDividend}` : '--'}</div></div>
+        <div className="flex gap-7 flex-wrap items-start">
+          <div><div className={lblClass}>Sector</div><div className={valClass}>{fundamental.sector || '--'}</div></div>
+          <div><div className={lblClass}>Industry</div><div className={valClass}>{fundamental.industry || '--'}</div></div>
+          <div><div className={lblClass}>Market Cap</div><div className={valClass}>{fmtMarketCap(fundamental.marketCap)}</div></div>
+          <div><div className={lblClass}>Beta</div><div className={valClass}>{fundamental.beta ? fundamental.beta.toFixed(2) : '--'}</div></div>
+          <div><div className={lblClass}>Last Dividend</div><div className={valClass}>{fundamental.lastDividend ? `$${fundamental.lastDividend}` : '--'}</div></div>
+
           {fundamental.website && (
             <div>
-              <div style={lbl}>Website</div>
-              <a href={fundamental.website} target="_blank" rel="noopener noreferrer"
+              <div className={lblClass}>Website</div>
+              <a
+                href={fundamental.website}
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
-                style={{ fontSize:13, color:'#2563eb', fontWeight:500, textDecoration:'none' }}
+                className="text-[13px] text-blue-600 font-medium no-underline hover:underline"
               >
                 {fundamental.website.replace(/^https?:\/\/(www\.)?/, '')}
               </a>
             </div>
           )}
+
           {fundamental.description && (
             <div>
-              <div style={lbl}>About</div>
+              <div className={lblClass}>About</div>
               <button
                 onClick={e => { e.stopPropagation(); onShowDesc() }}
-                style={{ fontSize:12, color:'#2563eb', fontWeight:500, background:'none', border:'none', padding:0, cursor:'pointer', fontFamily:'inherit', textDecoration:'underline' }}
+                className="text-xs text-blue-600 font-medium bg-transparent border-none p-0 cursor-pointer underline"
+                style={{ fontFamily: 'inherit' }}
               >
                 Read description ›
               </button>
@@ -553,39 +671,6 @@ function FundamentalsPanel({ fundamental, ticker, onShowDesc }) {
           )}
         </div>
       )}
-    </div>
-  )
-}
-
-function ResultCell({ histLoading, p, verdict, direction, isHistorical }) {
-  if (histLoading) return <span style={{ color:'var(--tw-muted-fg)', fontSize:11 }}>loading…</span>
-  if (p==null)     return <span style={{ color:'var(--tw-muted-fg)', fontSize:11 }}>awaiting</span>
-  const sub = isHistorical ? 'on target date' : 'today'
-  if (verdict==='hit')   return <div><span style={{ color:'#16a34a', fontSize:11, fontWeight:600 }}>{direction==='bearish'?'✓ Dropped':'✓ Reached'}</span><span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>{sub}</span></div>
-  if (verdict==='close') return <div><span style={{ color:'var(--amber)', fontSize:11, fontWeight:600 }}>Near target</span><span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>{sub}</span></div>
-  return <div><span style={{ color:'#dc2626', fontSize:11, fontWeight:600 }}>{direction==='bearish'?"✗ Didn't drop":'✗ Not reached'}</span><span style={{ display:'block', fontSize:9, color:'var(--tw-muted-fg)', marginTop:1 }}>{sub}</span></div>
-}
-
-function DateTag({ status }) {
-  const cfg = { past:{ bg:'#fee2e2', color:'#dc2626', label:'expired' }, now:{ bg:'#dcfce7', color:'#16a34a', label:'now' }, soon:{ bg:'var(--amber-bg)', color:'var(--amber)', label:'soon' } }
-  const c = cfg[status]; if (!c) return null
-  return <span style={{ display:'inline-block', fontSize:9, padding:'1px 4px', borderRadius:6, marginLeft:4, verticalAlign:'middle', background:c.bg, color:c.color, fontWeight:600 }}>{c.label}</span>
-}
-
-function Badge({ type, children }) {
-  const cfg = { hit:{ bg:'#dcfce7', color:'#16a34a' }, close:{ bg:'var(--amber-bg)', color:'var(--amber)' }, miss:{ bg:'#fee2e2', color:'#dc2626' }, wait:{ bg:'var(--tw-muted)', color:'var(--tw-muted-fg)' } }
-  const c = cfg[type]
-  return <span style={{ display:'inline-flex', fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:20, background:c.bg, color:c.color }}>{children}</span>
-}
-
-function DistBar({ dist, verdict }) {
-  const bw    = Math.min(70, Math.abs(dist)*2.5)
-  const barBg = verdict==='hit'?'#dcfce7':verdict==='close'?'var(--amber-bg)':'#fee2e2'
-  const color = verdict==='hit'?'#16a34a':verdict==='close'?'var(--amber)':'#dc2626'
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-      <div style={{ width:bw, height:4, borderRadius:3, background:barBg }} />
-      <span style={{ fontSize:11, fontWeight:600, color, whiteSpace:'nowrap' }}>{dist>0?'+':''}{dist.toFixed(2)}%</span>
     </div>
   )
 }

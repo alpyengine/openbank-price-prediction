@@ -1,4 +1,19 @@
+/**
+ * SectorControls
+ *
+ * Filter and grouping controls displayed above the StockTable.
+ * Only visible when fundamentals have been fetched (sectors available).
+ *
+ * Controls:
+ *   - Sector filter dropdown
+ *   - Industry filter dropdown (only when multiple industries present)
+ *   - Group by sector toggle
+ *   - Sort by sector toggle
+ */
 import { Filter, ArrowUpDown, Layers } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
 
 export default function SectorControls({
   sectors, industries,
@@ -9,48 +24,55 @@ export default function SectorControls({
 }) {
   if (!sectors.length) return null
 
-  const selectStyle = {
-    fontSize:12, padding:'5px 10px', borderRadius:8,
-    border:'1px solid var(--tw-border)',
-    background:'var(--tw-card)',
-    color:'var(--tw-fg)', outline:'none',
-    fontFamily:'inherit', cursor:'pointer',
-  }
-
-  const toggleBtn = (active) => ({
-    display:'inline-flex', alignItems:'center', gap:5,
-    fontSize:12, padding:'5px 12px', borderRadius:8,
-    cursor:'pointer', fontFamily:'inherit', fontWeight:500,
-    border: active ? '1px solid var(--tw-primary)' : '1px solid var(--tw-border)',
-    background: active ? 'var(--tw-primary)' : 'var(--tw-card)',
-    color: active ? 'var(--tw-card)' : 'var(--tw-muted-fg)',
-    transition:'all .15s',
-  })
+  const selectClass = 'text-xs px-2.5 py-1.5 rounded-lg border border-border bg-card text-foreground outline-none cursor-pointer font-inherit'
 
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:'0.75rem', flexWrap:'wrap' }}>
-      <Filter size={13} color="var(--tw-muted-fg)" />
+    <div className="flex items-center gap-2 mb-3 flex-wrap">
+      <Filter size={13} className="text-muted-foreground" />
 
-      <select style={selectStyle} value={filterSector} onChange={e => onFilterSectorChange(e.target.value)}>
+      {/* Sector filter */}
+      <select
+        className={selectClass}
+        value={filterSector}
+        onChange={e => onFilterSectorChange(e.target.value)}
+      >
         <option value="all">All sectors</option>
         {sectors.map(sec => <option key={sec} value={sec}>{sec}</option>)}
       </select>
 
+      {/* Industry filter — only shown when multiple industries */}
       {industries.length > 0 && (
-        <select style={selectStyle} value={filterIndustry} onChange={e => onFilterIndustryChange(e.target.value)}>
+        <select
+          className={selectClass}
+          value={filterIndustry}
+          onChange={e => onFilterIndustryChange(e.target.value)}
+        >
           <option value="all">All industries</option>
           {industries.map(ind => <option key={ind} value={ind}>{ind}</option>)}
         </select>
       )}
 
-      <div style={{ width:1, height:16, background:'var(--tw-border)' }} />
+      <Separator orientation="vertical" className="h-4" />
 
-      <button style={toggleBtn(groupBySector)} onClick={onGroupToggle}>
+      {/* Group by sector toggle */}
+      <Button
+        size="sm"
+        variant={groupBySector ? 'default' : 'outline'}
+        onClick={onGroupToggle}
+        className="text-xs"
+      >
         <Layers size={13} /> Group
-      </button>
-      <button style={toggleBtn(sortBySector)} onClick={onSortToggle}>
+      </Button>
+
+      {/* Sort by sector toggle */}
+      <Button
+        size="sm"
+        variant={sortBySector ? 'default' : 'outline'}
+        onClick={onSortToggle}
+        className="text-xs"
+      >
         <ArrowUpDown size={13} /> Sort by sector
-      </button>
+      </Button>
     </div>
   )
 }

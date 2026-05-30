@@ -1,29 +1,40 @@
+/**
+ * ImportPage
+ *
+ * The Import CSV page wrapper.
+ * Shows format instructions and the ImportBox component.
+ *
+ * @param {Function} onImport — called with parsed stock array on import
+ */
 import ImportBox from './ImportBox.jsx'
 import { Upload } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 
 export default function ImportPage({ onImport }) {
   return (
     <div>
-      <div style={{ marginBottom:'1.5rem' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
-          <Upload size={18} color="var(--tw-muted-fg)" />
-          <h2 style={{ fontSize:16, fontWeight:600, color:'var(--tw-fg)', margin:0 }}>
-            Import instructions
-          </h2>
+      {/* ── Format instructions ─────────────────────────────────────── */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2.5 mb-2">
+          <Upload size={18} className="text-muted-foreground" />
+          <h2 className="text-base font-semibold m-0">Import instructions</h2>
         </div>
-        <div style={{ background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:10, padding:'16px 20px', fontSize:13, color:'var(--tw-muted-fg)', lineHeight:1.7 }}>
-          <p style={{ margin:'0 0 8px', fontWeight:600, color:'var(--tw-fg)' }}>CSV format:</p>
-          <code style={{ display:'block', background:'var(--tw-muted)', padding:'10px 12px', borderRadius:8, fontSize:12, fontFamily:'monospace', marginBottom:8 }}>
-            Ticker,Company,Currency,BasePrice,1M,3M,6M,12M,DD/MM/YYYY
-          </code>
-          <ul style={{ margin:0, paddingLeft:20 }}>
-            <li><strong>Ticker</strong> — stock symbol (e.g. AAPL, SLB.US)</li>
-            <li><strong>Currency</strong> — USD, EUR, GBP</li>
-            <li><strong>BasePrice</strong> — price on screenshot date</li>
-            <li><strong>1M–12M</strong> — target prices for each horizon</li>
-            <li><strong>Date</strong> — screenshot date in DD/MM/YYYY format</li>
-          </ul>
-        </div>
+
+        <Card>
+          <CardContent className="pt-4 pb-4 text-sm text-muted-foreground leading-relaxed">
+            <p className="font-semibold text-foreground mb-2">CSV format:</p>
+            <code className="block bg-muted px-3 py-2.5 rounded-md text-xs font-mono mb-3">
+              Ticker,Company,Currency,BasePrice,1M,3M,6M,12M,DD/MM/YYYY
+            </code>
+            <ul className="m-0 pl-5 space-y-0.5">
+              <li><strong>Ticker</strong> — stock symbol (e.g. AAPL, SLB.US)</li>
+              <li><strong>Currency</strong> — USD, EUR, GBP</li>
+              <li><strong>BasePrice</strong> — price on screenshot date</li>
+              <li><strong>1M–12M</strong> — target prices for each horizon</li>
+              <li><strong>Date</strong> — screenshot date in DD/MM/YYYY format</li>
+            </ul>
+          </CardContent>
+        </Card>
       </div>
 
       <ImportBox onImport={onImport} />

@@ -3371,3 +3371,50 @@ Tests: 107/107 passing"
 git tag -a v6.9.2 -m "v6.9.2: Phase 2 simple components"
 git push origin main
 git push origin v6.9.2
+
+
+# ===========================================================================
+# STEP 100 — v6.9.3  Phase 3: medium components migrated to shadcn/ui
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.9.3/. .
+
+git add .
+git commit -m "feat: Phase 3 — medium components migrated to shadcn/ui (v6.9.3)
+
+Migrated 4 components. Zero var(--tw-*) in any migrated file.
+
+Sidebar.jsx:
+- transition-[width] for collapse animation
+- Nav items use cn() for active/hover states
+- sidebar-* color tokens (bg-sidebar-accent etc.)
+- Fully documented with JSDoc
+
+BatchSimple.jsx:
+- Card + Table layout
+- HorizonCell uses shadcn Badge (bg-green-50/red-50 for hit/miss)
+- Pending badge uses Badge variant=secondary
+- Empty state as Card with centered text
+
+PriceChart.jsx:
+- Trigger replaced with shadcn Button variant=outline
+- Modal overlay: fixed inset-0 + Tailwind backdrop-blur-sm
+- Chart.js canvas rendering logic unchanged (must use inline style for height)
+- Comprehensive JSDoc on Chart.js plugin and data loading
+
+AccuracyChart.jsx:
+- ActionBar extracted as separate sub-component
+- KpiCard extracted as sub-component (reuses SummaryCards pattern)
+- AreaChart SVG references var(--border) and var(--muted-foreground)
+- Batch table uses shadcn Table
+- Delete double-click pattern preserved
+- Download feedback: border-success bg-green-50 on confirmation
+
+Tests: 107/107 passing"
+
+git tag -a v6.9.3 -m "v6.9.3: Phase 3 medium components"
+git push origin main
+git push origin v6.9.3
