@@ -3233,3 +3233,49 @@ README additions:
 git tag -a v6.8.1 -m "v6.8.1: README About + Testing sections"
 git push origin main
 git push origin v6.8.1
+
+
+# ===========================================================================
+# STEP 97 — v6.9.0  Phase 0: shadcn/ui migration preparation
+# ===========================================================================
+#
+# No npm install needed — all dependencies already present.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.9.0/. .
+
+git add .
+git commit -m "chore: Phase 0 — shadcn/ui migration preparation (v6.9.0)
+
+CSS variables renamed to shadcn/ui standard convention:
+  --tw-bg → --background, --tw-fg → --foreground
+  --tw-card → --card, --tw-muted-fg → --muted-foreground
+  (full table in docs/MIGRATION_SHADCN.md)
+
+Legacy --tw-* aliases added in global.css so existing inline
+styles continue to work during gradual migration (removed in v6.9.4)
+
+tailwind.config.js: updated color tokens to use new variable names
+  + added border radius calc() expressions (shadcn standard)
+  + added popover and destructive color tokens
+  + comprehensive JSDoc comments
+
+vite.config.js: added @/ path alias → src/
+  Enables: import { Button } from '@/components/ui/button'
+
+components.json: shadcn/ui CLI configuration file
+  style=default, tsx=false (JSX project), cssVariables=true
+
+docs/MIGRATION_SHADCN.md: complete migration guide (new)
+  - Why migrating, pre-migration audit, phase plan
+  - CSS variable rename table
+  - Code patterns before/after
+  - Import conventions, rollback strategy
+
+README.md: link to MIGRATION_SHADCN.md
+
+Tests: 107/107 passing — no logic changes"
+
+git tag -a v6.9.0 -m "v6.9.0: Phase 0 shadcn migration prep"
+git push origin main
+git push origin v6.9.0
