@@ -3201,3 +3201,35 @@ src/hooks/restoreHistPrices.test.js (12 tests):
 git tag -a v6.8.0 -m "v6.8.0: Supabase tests"
 git push origin main
 git push origin v6.8.0
+
+
+# ===========================================================================
+# STEP 96 — v6.8.1  README: About + Testing sections
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.8.1/. .
+
+git add .
+git commit -m "docs: About + Testing sections in README (v6.8.1)
+
+README additions:
+
+## What this app does (new — top of file)
+- Problem it solves: manual forecast tracking is tedious
+- How it solves it: 6-step flow (import → fetch → evaluate → save → automate → visualise)
+- Hit/Close/Miss/Awaiting table with conditions and colors
+- References evaluatePrediction() as single source of truth
+
+## Testing (new — before Changelog)
+- What Vitest is and why we use it
+- How to run tests: npm run test:run / npm run test
+- Table of all 6 test files with test count and coverage
+- Key functions tested with explanation
+- Pattern for adding new tests"
+
+git tag -a v6.8.1 -m "v6.8.1: README About + Testing sections"
+git push origin main
+git push origin v6.8.1

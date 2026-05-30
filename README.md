@@ -494,7 +494,15 @@ where jobname = 'fetch-expired-horizons-daily';
 
 ---
 
-### Testing & monitoring the automation
+### Migration to shadcn/ui + Tailwind
+
+The app is being progressively migrated from inline styles to [shadcn/ui](https://ui.shadcn.com) components and Tailwind CSS classes. Full documentation of the process, rationale, and phase-by-phase progress:
+
+📄 **[MIGRATION_SHADCN.md](./docs/MIGRATION_SHADCN.md)**
+
+---
+
+## Testing & monitoring the automation
 
 **Run manually** (test before waiting for the cron):
 ```sql

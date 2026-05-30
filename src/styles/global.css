@@ -2,135 +2,189 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Color tokens — light mode (default) ─────────────────────────────────── */
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Design tokens — shadcn/ui standard CSS variable naming convention
+ *
+ * All colors are defined as HSL values without the hsl() wrapper so they can
+ * be used by Tailwind with opacity modifiers: bg-primary/50, text-foreground/80
+ *
+ * Migration note (v6.9.0):
+ *   Variables renamed from --tw-* to shadcn standard (--background, etc.)
+ *   Legacy --tw-* aliases kept during migration — removed in v6.9.4
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/* ── Light mode (default) ─────────────────────────────────────────────────── */
 :root {
-  --tw-bg:              #f9f9fb;
-  --tw-fg:              #141518;
-  --tw-card:            #ffffff;
-  --tw-card-fg:         #141518;
-  --tw-border:          #e2e2e8;
-  --tw-input:           #f0f0f4;
-  --tw-ring:            #a0a0b0;
-  --tw-primary:         #1a1a2e;
-  --tw-primary-fg:      #ffffff;
-  --tw-secondary:       #f0f0f4;
-  --tw-secondary-fg:    #1a1a2e;
-  --tw-muted:           #f0f0f4;
-  --tw-muted-fg:        #6b6b80;
-  --tw-accent:          #f0f0f4;
-  --tw-accent-fg:       #1a1a2e;
-  /* sidebar */
-  --tw-sidebar:         #f4f4f7;
-  --tw-sidebar-fg:      #141518;
-  --tw-sidebar-border:  #e2e2e8;
-  --tw-sidebar-accent:  #ebebf0;
-  --tw-sidebar-accent-fg: #141518;
-  --tw-sidebar-primary: #1a1a2e;
-  --tw-sidebar-primary-fg: #ffffff;
-  /* status */
-  --tw-success:         #16a34a;
-  --tw-warning:         #ca8a04;
-  --tw-danger:          #dc2626;
-  /* radius */
+  /* Core */
+  --background:          #f9f9fb;
+  --foreground:          #141518;
+
+  /* Card */
+  --card:                #ffffff;
+  --card-foreground:     #141518;
+
+  /* Popover (same as card) */
+  --popover:             #ffffff;
+  --popover-foreground:  #141518;
+
+  /* Primary action */
+  --primary:             #1a1a2e;
+  --primary-foreground:  #ffffff;
+
+  /* Secondary */
+  --secondary:           #f0f0f4;
+  --secondary-foreground: #1a1a2e;
+
+  /* Muted — used for subtle backgrounds and placeholder text */
+  --muted:               #f0f0f4;
+  --muted-foreground:    #6b6b80;
+
+  /* Accent — hover states */
+  --accent:              #f0f0f4;
+  --accent-foreground:   #1a1a2e;
+
+  /* Destructive — errors and danger actions */
+  --destructive:         #dc2626;
+  --destructive-foreground: #ffffff;
+
+  /* Form elements */
+  --border:              #e2e2e8;
+  --input:               #f0f0f4;
+  --ring:                #a0a0b0;
+
+  /* Status colors */
+  --success:             #16a34a;
+  --warning:             #ca8a04;
+
+  /* Sidebar */
+  --sidebar:                    #f4f4f7;
+  --sidebar-foreground:         #141518;
+  --sidebar-border:             #e2e2e8;
+  --sidebar-accent:             #ebebf0;
+  --sidebar-accent-foreground:  #141518;
+  --sidebar-primary:            #1a1a2e;
+  --sidebar-primary-foreground: #ffffff;
+
+  /* Border radius scale */
   --radius: 0.5rem;
 }
 
 /* ── Dark mode ────────────────────────────────────────────────────────────── */
 .dark {
-  --tw-bg:              #1a1f2e;
-  --tw-fg:              #eef2fa;
-  --tw-card:            #222840;
-  --tw-card-fg:         #eef2fa;
-  --tw-border:          #2e3650;
-  --tw-input:           #2a3050;
-  --tw-ring:            #4a5580;
-  --tw-primary:         #eef2fa;
-  --tw-primary-fg:      #1a1f2e;
-  --tw-secondary:       #2a3050;
-  --tw-secondary-fg:    #eef2fa;
-  --tw-muted:           #2a3050;
-  --tw-muted-fg:        #8899c0;
-  --tw-accent:          #2a3050;
-  --tw-accent-fg:       #eef2fa;
-  /* sidebar */
-  --tw-sidebar:         #141824;
-  --tw-sidebar-fg:      #eef2fa;
-  --tw-sidebar-border:  #2a3050;
-  --tw-sidebar-accent:  #1e2438;
-  --tw-sidebar-accent-fg: #eef2fa;
-  --tw-sidebar-primary: #eef2fa;
-  --tw-sidebar-primary-fg: #1a1f2e;
-  /* status */
-  --tw-success:         #34d399;
-  --tw-warning:         #fbbf24;
-  --tw-danger:          #f87171;
+  /* Core */
+  --background:          #1a1f2e;
+  --foreground:          #eef2fa;
+
+  /* Card */
+  --card:                #222840;
+  --card-foreground:     #eef2fa;
+
+  /* Popover */
+  --popover:             #222840;
+  --popover-foreground:  #eef2fa;
+
+  /* Primary action */
+  --primary:             #eef2fa;
+  --primary-foreground:  #1a1f2e;
+
+  /* Secondary */
+  --secondary:           #2a3050;
+  --secondary-foreground: #eef2fa;
+
+  /* Muted */
+  --muted:               #2a3050;
+  --muted-foreground:    #8899c0;
+
+  /* Accent */
+  --accent:              #2a3050;
+  --accent-foreground:   #eef2fa;
+
+  /* Destructive */
+  --destructive:         #f87171;
+  --destructive-foreground: #1a1f2e;
+
+  /* Form elements */
+  --border:              #2e3650;
+  --input:               #2a3050;
+  --ring:                #4a5580;
+
+  /* Status colors */
+  --success:             #34d399;
+  --warning:             #fbbf24;
+
+  /* Sidebar */
+  --sidebar:                    #141824;
+  --sidebar-foreground:         #eef2fa;
+  --sidebar-border:             #2a3050;
+  --sidebar-accent:             #1e2438;
+  --sidebar-accent-foreground:  #eef2fa;
+  --sidebar-primary:            #eef2fa;
+  --sidebar-primary-foreground: #1a1f2e;
 }
 
-/* ── Base ─────────────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body, #root { height: 100%; }
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Legacy aliases (--tw-* prefix)
+ *
+ * These map the old variable names to the new shadcn names.
+ * They allow existing inline styles (style={{ color: 'var(--tw-fg)' }})
+ * to keep working during the gradual component migration.
+ *
+ * REMOVED IN: v6.9.4 (once all components use Tailwind classes)
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+:root, .dark {
+  --tw-bg:                  var(--background);
+  --tw-fg:                  var(--foreground);
+  --tw-card:                var(--card);
+  --tw-card-fg:             var(--card-foreground);
+  --tw-border:              var(--border);
+  --tw-input:               var(--input);
+  --tw-ring:                var(--ring);
+  --tw-primary:             var(--primary);
+  --tw-primary-fg:          var(--primary-foreground);
+  --tw-secondary:           var(--secondary);
+  --tw-secondary-fg:        var(--secondary-foreground);
+  --tw-muted:               var(--muted);
+  --tw-muted-fg:            var(--muted-foreground);
+  --tw-accent:              var(--accent);
+  --tw-accent-fg:           var(--accent-foreground);
+  --tw-sidebar:             var(--sidebar);
+  --tw-sidebar-fg:          var(--sidebar-foreground);
+  --tw-sidebar-border:      var(--sidebar-border);
+  --tw-sidebar-accent:      var(--sidebar-accent);
+  --tw-sidebar-accent-fg:   var(--sidebar-accent-foreground);
+  --tw-sidebar-primary:     var(--sidebar-primary);
+  --tw-sidebar-primary-fg:  var(--sidebar-primary-foreground);
+  --tw-success:             var(--success);
+  --tw-warning:             var(--warning);
+  --tw-danger:              var(--destructive);
+  --radius-lg:              var(--radius);
+}
+
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Base styles
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
 body {
-  background-color: var(--tw-bg);
-  color: var(--tw-fg);
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
-
-/* ── Keep existing Design v5 variables for components not yet migrated ─────── */
-:root, [data-theme="light"] {
-  --bg:             var(--tw-bg);
-  --surface:        var(--tw-card);
-  --surface2:       var(--tw-secondary);
-  --border-c:       var(--tw-border);
-  --text:           var(--tw-fg);
-  --text-2:         #4b5563;
-  --text-3:         var(--tw-muted-fg);
-  --accent:         #1d4ed8;
-  --green:          #16a34a;
-  --green-bg:       #dcfce7;
-  --red:            #dc2626;
-  --red-bg:         #fee2e2;
-  --blue:           #1d4ed8;
-  --blue-bg:        #dbeafe;
-  --amber:          #d97706;
-  --amber-bg:       #fef3c7;
-  --fs-xxs:         10px;
-  --fs-xs:          11px;
-  --fs-sm:          13px;
-  --radius:         0.5rem;
-  --radius-lg:      0.75rem;
-  --shadow:         0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --border:         var(--tw-border);
-  --border-blue:    rgba(29,78,216,0.45);
-  --border-green:   rgba(22,163,74,0.4);
-  --border-red:     rgba(220,38,38,0.35);
-  --th-bg:          #f4f5f8;
-  --th-text:        #374151;
-}
-
-.dark, [data-theme="dark"] {
-  --bg:             var(--tw-bg);
-  --surface:        var(--tw-card);
-  --surface2:       var(--tw-secondary);
-  --border-c:       var(--tw-border);
-  --text:           var(--tw-fg);
-  --text-2:         #cad6f0;
-  --text-3:         var(--tw-muted-fg);
-  --accent:         #7ab8fa;
-  --green:          #34d399;
-  --green-bg:       #083325;
-  --red:            #f87171;
-  --red-bg:         #7f1d1d;
-  --blue:           #7ab8fa;
-  --blue-bg:        #1e3175;
-  --amber:          #fbbf24;
-  --amber-bg:       #78350f33;
-  --border:         var(--tw-border);
-  --th-bg:          #293858;
-  --th-text:        #d8e4f8;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
