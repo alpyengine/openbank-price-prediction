@@ -3096,3 +3096,44 @@ AccuracyChart:
 git tag -a v6.5.9 -m "v6.5.9: fix batch.results + action buttons"
 git push origin main
 git push origin v6.5.9
+
+
+# ===========================================================================
+# STEP 93 — v6.7.0  Weekly price chart per ticker
+# ===========================================================================
+#
+# No npm install needed.
+#
+# ⚠️  BEFORE installing: complete Supabase setup (already done):
+#     - weekly_prices table created ✅
+#     - fetch_weekly_prices() function created ✅
+#     - Cron scheduled Saturdays 10:00 UTC ✅
+#     - Historical data populated for all active batches ✅
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.7.0/. .
+
+git add .
+git commit -m "feat: weekly price chart per ticker (v6.7.0)
+
+Supabase backend (already configured):
+- Table: weekly_prices (ticker, batch_id, week, week_date, close_price)
+- Function: fetch_weekly_prices() — fetches EOD prices from Twelve Data
+- Cron: every Saturday 10:00 UTC (job id 2)
+- Historical data populated for all active batches
+
+React frontend:
+- storage.js: loadWeeklyPrices(ticker, batchId) reads from weekly_prices
+- PriceChart.jsx: new component with Chart.js
+  - Button 'Price chart' in StockRow expanded panel
+  - Loads on demand (click) — no API call, reads from Supabase
+  - Week 0 = base price, weeks 1..N = weekly closes from Supabase
+  - 4 red target dots at weeks 4/13/26/52 with labels 1M/3M/6M/12M
+  - Blue line, smooth tension=0.4, dark mode compatible
+- index.html: Chart.js 4.4.1 loaded from CDN
+- App.jsx: loadedBatchId state tracked alongside loadedBatchDate
+- StockTable + StockRow: batchId prop passed down the chain"
+
+git tag -a v6.7.0 -m "v6.7.0: weekly price chart"
+git push origin main
+git push origin v6.7.0

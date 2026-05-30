@@ -93,6 +93,17 @@ export default function App() {
   const handleImport = useCallback((newStocks) => {
     setStocks(newStocks)
     setLoadedBatchDate(null)
+    // Compute batchId from base date of first stock — enables PriceChart
+    // when batch was previously saved and data exists in weekly_prices
+    const firstBase = newStocks[0]?.base
+    if (firstBase) {
+      const d  = String(firstBase.getDate()).padStart(2, '0')
+      const m  = String(firstBase.getMonth() + 1).padStart(2, '0')
+      const y  = firstBase.getFullYear()
+      setLoadedBatchId(`${y}-${m}-${d}`)
+    } else {
+      setLoadedBatchId(null)
+    }
     setOverrides({})
     setNotes({})
     setHorizon('best')

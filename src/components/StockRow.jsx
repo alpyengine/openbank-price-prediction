@@ -276,7 +276,9 @@ const StockRow = memo(function StockRow({ stock, horizon, autoPrice, histPrices,
 
             {/* ── Price Chart ── */}
             {batchId && (
-              <PriceChart stock={stock} batchId={batchId} />
+              <div style={{ marginTop: 12 }}>
+                <PriceChart stock={stock} batchId={batchId} />
+              </div>
             )}
 
             {/* ── Add Note ── */}
