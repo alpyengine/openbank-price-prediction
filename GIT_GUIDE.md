@@ -3465,3 +3465,58 @@ Tests: 107/107 passing"
 git tag -a v6.9.4 -m "v6.9.4: Phase 4 complete — zero legacy vars"
 git push origin main
 git push origin v6.9.4
+
+
+# ===========================================================================
+# STEP 102 — v6.9.5  Phase 5: documentation + JSDoc comments
+# ===========================================================================
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v6.9.5/. .
+
+git add .
+git commit -m "docs: Phase 5 — JSDoc comments across all hooks and utils (v6.9.5)
+
+Comprehensive JSDoc added to all non-component files.
+
+src/utils/dates.js:
+  Module header explaining date arithmetic conventions
+  JSDoc for: today, formatDate, addDays, parseDate, targetDates, daysLeft, dateStatus
+
+src/utils/stocks.js:
+  Module header explaining unified verdict system
+  JSDoc for: getTarget, getTargetDate, histKey, getEffectivePrice,
+             effectivePrice, distancePct, evaluatePrediction, priceStatus
+  evaluatePrediction marked as 'single source of truth' with full algorithm docs
+
+src/hooks/useFundamentals.js:
+  Module header: FMP API, rate limits, data shape
+  JSDoc for: fmtMarketCap, fetchWithTimeout, fmpSymbol, fetchFMPProfile, useFundamentals
+
+src/hooks/usePriceFetch.js:
+  Module header: Twelve Data + Alpha Vantage, chunk strategy, histPrices shape
+  JSDoc for: detectProvider, fetchCurrentPrices_TD, fetchCurrentPrices_AV,
+             fetchHistoricalPrice_TD, fetchHistoricalPrice_AV, usePriceFetch
+
+src/hooks/useMarketData.js:
+  Module header: US/EU strategy, ETF lists, marketData shape
+  JSDoc for: SECTOR_ETF, INDUSTRY_ETF, EU_MARKET_INDEX,
+             detectBatchMarket, fetchSymbolData, useMarketData
+
+src/hooks/useHistory.js:
+  Module header: batch shape, computed() output, hook return values
+  JSDoc for: computed, saveBatch
+
+src/App.jsx:
+  Module header: architecture, full state inventory, hooks used, page routing
+  JSDoc for: App, handleImport, handleLoadBatch
+
+docs/MIGRATION_SHADCN.md: Phase 5 marked complete ✅
+
+Tests: 107/107 passing"
+
+git tag -a v6.9.5 -m "v6.9.5: Phase 5 documentation complete"
+git push origin main
+git push origin v6.9.5

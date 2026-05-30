@@ -32,6 +32,7 @@ import { EU_MARKET_INDEX } from '@/hooks/useMarketData.js'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useRole } from '@/hooks/useRole.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,8 @@ export default function FetchBar({
   batches, loadedBatchDate, onLoadBatch,
   onSave, saving,
 }) {
-  const suffix     = detectSuffix(stocks ?? [])
+  const role        = useRole()
+  const suffix      = detectSuffix(stocks ?? [])
   const isUS       = suffix === 'US' || !(stocks?.[0]?.t?.includes('.'))
   const isEU       = ['DE', 'AS', 'PA', 'L', 'MC'].includes(suffix)
   const showMarket = (stocks?.length > 0) && (isUS || isEU)
@@ -181,8 +183,8 @@ export default function FetchBar({
         {combinedLog}
       </span>
 
-      {/* ── Fetch prices ───────────────────────────────────────────────── */}
-      <Button
+      {/* ── Fetch prices — admin only ──────────────────────────────────── */}
+      {role === 'admin' && <Button
         size="sm"
         className="shrink-0 whitespace-nowrap bg-success hover:bg-success/90 text-white border-success"
         disabled={anyLoading}
@@ -190,10 +192,10 @@ export default function FetchBar({
       >
         {fetching ? <Spinner light /> : '↓'}
         {fetching ? 'Fetching…' : 'Fetch prices'}
-      </Button>
+      </Button>}
 
-      {/* ── Fetch fundamentals ─────────────────────────────────────────── */}
-      <Button
+      {/* ── Fetch fundamentals — admin only ──────────────────────────────── */}
+      {role === 'admin' && <Button
         size="sm"
         variant="outline"
         className="shrink-0 whitespace-nowrap"
@@ -202,7 +204,7 @@ export default function FetchBar({
       >
         {fundLoading ? <Spinner /> : '↓'}
         {fundLoading ? 'Loading…' : 'Fundamentals'}
-      </Button>
+      </Button>}
 
       {/* ── Fetch market data — only for US/EU batches ─────────────────── */}
       {showMarket && (
@@ -227,8 +229,8 @@ export default function FetchBar({
         />
       )}
 
-      {/* ── Save batch ─────────────────────────────────────────────────── */}
-      {onSave && (
+      {/* ── Save batch — admin only ───────────────────────────────────── */}
+      {onSave && role === 'admin' && (
         <Button
           size="sm"
           className="shrink-0 whitespace-nowrap bg-success hover:bg-success/90 text-white border-success"

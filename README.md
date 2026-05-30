@@ -494,7 +494,22 @@ where jobname = 'fetch-expired-horizons-daily';
 
 ---
 
-### Migration to shadcn/ui + Tailwind
+### Authentication (v7.0.0+)
+
+The app uses Supabase Auth with email/password and Google OAuth. Access is invitation-only with two roles: admin (full access) and read-only (view only). Passwords are stored with bcrypt — nobody can ever see a user's password.
+
+📄 **[AUTH.md](./docs/AUTH.md)** — complete guide covering:
+- How passwords are stored securely (bcrypt)
+- Admin capabilities and what they cannot do
+- Google OAuth setup (step by step)
+- Supabase configuration
+- Role-based permissions matrix
+- Database schema and Row Level Security
+- React implementation architecture
+
+---
+
+## Migration to shadcn/ui + Tailwind
 
 The app is being progressively migrated from inline styles to [shadcn/ui](https://ui.shadcn.com) components and Tailwind CSS classes. Full documentation of the process, rationale, and phase-by-phase progress:
 

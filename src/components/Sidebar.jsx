@@ -2,21 +2,24 @@
  * Sidebar
  *
  * Left navigation panel with collapsible width.
- * Contains the app logo and 5 navigation items.
+ * Contains the app logo, 5 navigation items, and the UserPanel
+ * at the bottom for profile, settings, and sign out.
  *
  * Collapsed state: 64px wide — shows icons only with title tooltips.
  * Expanded state: 220px wide — shows icons + labels.
  *
- * @param {string}   active — currently active page id
- * @param {Function} onNav  — called with page id when user clicks a nav item
+ * @param {string}   active        — currently active page id
+ * @param {Function} onNav         — called with page id when user clicks a nav item
+ * @param {boolean}  darkMode      — current dark mode state
+ * @param {Function} onToggleDark  — toggle dark/light mode
+ * @param {Function} onManageUsers — navigate to Manage Users page
  */
 import { useState } from 'react'
 import {
   LayoutDashboard, BarChart2, Settings, TrendingUp,
   Upload, PanelLeftClose, PanelLeft, TableProperties,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import UserPanel from './UserPanel.jsx'
 import { cn } from '@/lib/utils'
 
 // ── Navigation items ──────────────────────────────────────────────────────────
@@ -31,7 +34,7 @@ const NAV = [
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function Sidebar({ active, onNav }) {
+export default function Sidebar({ active, onNav, darkMode, onToggleDark, onManageUsers }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -44,11 +47,9 @@ export default function Sidebar({ active, onNav }) {
     >
       {/* ── Logo ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2.5 px-3 py-4 border-b border-sidebar-border shrink-0">
-        {/* Icon mark */}
         <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
           <TrendingUp size={16} className="text-sidebar-primary-foreground" />
         </div>
-        {/* App name — hidden when collapsed */}
         {!collapsed && (
           <span className="text-[13px] font-semibold text-sidebar-foreground whitespace-nowrap">
             Openbank Forecast
@@ -66,12 +67,9 @@ export default function Sidebar({ active, onNav }) {
               title={collapsed ? label : undefined}
               onClick={() => onNav(id)}
               className={cn(
-                // Base layout
                 'w-full flex items-center gap-2.5 mb-0.5 rounded-lg border-none',
                 'text-[13px] font-medium cursor-pointer transition-colors duration-150',
-                // Collapsed: center icon only
                 collapsed ? 'justify-center px-0 py-2.5' : 'justify-start px-3 py-2',
-                // Active vs inactive styles
                 isActive
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
                   : 'bg-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground'
@@ -85,8 +83,10 @@ export default function Sidebar({ active, onNav }) {
         })}
       </nav>
 
-      {/* ── Collapse toggle ───────────────────────────────────────────────── */}
-      <div className="p-2 border-t border-sidebar-border shrink-0">
+      {/* ── Bottom section: collapse toggle + user panel ──────────────────── */}
+      <div className="p-2 border-t border-sidebar-border shrink-0 flex flex-col gap-1">
+
+        {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(v => !v)}
           className={cn(
@@ -94,7 +94,7 @@ export default function Sidebar({ active, onNav }) {
             'text-[13px] font-medium text-muted-foreground cursor-pointer',
             'bg-transparent hover:bg-sidebar-accent hover:text-sidebar-foreground',
             'transition-colors duration-150',
-            collapsed ? 'justify-center px-0 py-2.5' : 'justify-start px-3 py-2'
+            collapsed ? 'justify-center px-0 py-2' : 'justify-start px-3 py-2'
           )}
           style={{ fontFamily: 'inherit' }}
         >
@@ -103,6 +103,14 @@ export default function Sidebar({ active, onNav }) {
             : <><PanelLeftClose size={16} /><span>Collapse</span></>
           }
         </button>
+
+        {/* User panel — profile, dark mode, sign out */}
+        <UserPanel
+          collapsed={collapsed}
+          darkMode={darkMode}
+          onToggleDark={onToggleDark}
+          onManageUsers={onManageUsers}
+        />
       </div>
     </aside>
   )

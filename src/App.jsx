@@ -57,6 +57,8 @@ import ImportPage       from './components/ImportPage.jsx'
 import EmailPreview     from './components/EmailPreview.jsx'
 import AccuracyChart    from './components/AccuracyChart.jsx'
 import { useMarketData } from './hooks/useMarketData.js'
+import { useRole }        from '@/hooks/useRole.js'
+import ManageUsers       from './components/ManageUsers.jsx'
 
 /**
  * App — the root component. See module header for full documentation.
@@ -69,6 +71,7 @@ export default function App() {
   const [showEmail,    setShowEmail]    = useState(false)
   const [darkMode,     setDarkMode]     = useState(false)
   const [activePage,   setActivePage]   = useState('batch')
+  const role = useRole()
   const [hitMargin,    setHitMargin]    = useState(5)
 
   useEffect(() => {
@@ -224,7 +227,13 @@ export default function App() {
 
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'var(--tw-bg)' }}>
-      <Sidebar active={activePage} onNav={setActivePage} />
+      <Sidebar
+        active={activePage}
+        onNav={setActivePage}
+        darkMode={darkMode}
+        onToggleDark={() => setDarkMode(v => !v)}
+        onManageUsers={() => setActivePage('manage-users')}
+      />
 
       <main style={{ flex:1, overflowY:'auto', minWidth:0 }}>
         <div style={{ maxWidth:1200, margin:'0 auto', padding:'24px 28px' }}>
@@ -373,11 +382,15 @@ export default function App() {
           )}
 
           {/* ── IMPORT CSV ── */}
-          {activePage === 'import' && (
+          {activePage === 'import' && role === 'admin' && (
             <ImportPage onImport={handleImport} />
           )}
 
           {/* ── SETTINGS ── */}
+          {activePage === 'manage-users' && role === 'admin' && (
+            <ManageUsers />
+          )}
+
           {activePage === 'settings' && (
             <div style={{ background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:10, padding:'24px', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
               <div style={{ fontSize:15, fontWeight:600, color:'var(--tw-fg)', marginBottom:8 }}>Application Settings</div>
