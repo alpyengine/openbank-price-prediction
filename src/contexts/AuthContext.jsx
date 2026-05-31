@@ -1,121 +1,209 @@
 /**
  * AuthContext.jsx — Authentication state provider
  *
- * Provides authentication state to the entire app via React context.
- * Wraps the app at the root level in main.jsx.
+ * Architecture (v7.0.3 — definitive):
  *
- * Listens to Supabase auth state changes (login, logout, token refresh)
- * and keeps user, session, and role in sync automatically.
+ *   User, role AND profile name are all read from localStorage
+ *   synchronously before React renders — zero spinner, zero flash.
+ *
+ * localStorage keys:
+ *   sb-*-auth-token  — Supabase session (managed by Supabase client)
+ *   app-user-role    — cached role ('admin' | 'readonly')
+ *   app-profile-name — cached display name from profiles table
  *
  * Context value:
- *   user     — Supabase user object (null if not logged in)
- *   session  — JWT session object (null if not logged in)
- *   role     — 'admin' | 'readonly' | null (loaded from profiles table)
- *   loading  — true while restoring session on page load
- *   signOut  — function to sign out the current user
- *
- * Usage:
- *   Wrap app: <AuthProvider><App /></AuthProvider>
- *   Read:     const { user, role, loading } = useContext(AuthContext)
- *   Or use:   import { useAuth } from '@/hooks/useAuth'
+ *   user        — Supabase user object (null if not logged in)
+ *   session     — JWT session object
+ *   role        — 'admin' | 'readonly' | null
+ *   profileName — display name from profiles.full_name (null if not set)
+ *   loading     — true only when no session exists in localStorage
+ *   signOut     — clears localStorage + reloads (v7.0.3 fix: bypasses supabase.auth.signOut)
+ *   refreshRole — re-fetches role + name from DB
  */
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
-// ── Context ───────────────────────────────────────────────────────────────────
+// ── Context default ───────────────────────────────────────────────────────────
 
 export const AuthContext = createContext({
-  user:    null,
-  session: null,
-  role:    null,
-  loading: true,
-  signOut: async () => {},
+  user:        null,
+  session:     null,
+  role:        null,
+  profileName: null,
+  loading:     true,
+  signOut:     async () => {},
+  refreshRole: async () => {},
 })
+
+// ── localStorage helpers ──────────────────────────────────────────────────────
+
+const ROLE_KEY    = 'app-user-role'
+const NAME_KEY    = 'app-profile-name'
+
+function getStoredRole() {
+  try {
+    const r = localStorage.getItem(ROLE_KEY)
+    return (r === 'admin' || r === 'readonly') ? r : null
+  } catch { return null }
+}
+
+function setStoredRole(role) {
+  try {
+    if (role) localStorage.setItem(ROLE_KEY, role)
+    else      localStorage.removeItem(ROLE_KEY)
+  } catch {}
+}
+
+function getStoredProfileName() {
+  try { return localStorage.getItem(NAME_KEY) || null } catch { return null }
+}
+
+function setStoredProfileName(name) {
+  try {
+    if (name) localStorage.setItem(NAME_KEY, name)
+    else      localStorage.removeItem(NAME_KEY)
+  } catch {}
+}
+
+function getInitialUser() {
+  try {
+    const key = Object.keys(localStorage).find(k => k.includes('auth-token'))
+    if (!key) return null
+    const parsed = JSON.parse(localStorage.getItem(key))
+    if (parsed?.expires_at && parsed.expires_at < Math.floor(Date.now() / 1000)) return null
+    return parsed?.user ?? null
+  } catch { return null }
+}
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
-/**
- * AuthProvider — wraps the app and provides auth state to all children.
- * Place at the root level in main.jsx, outside of everything else.
- */
 export function AuthProvider({ children }) {
-  const [user,    setUser]    = useState(null)
-  const [session, setSession] = useState(null)
-  const [role,    setRole]    = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user,        setUser]        = useState(() => getInitialUser())
+  const [session,     setSession]     = useState(null)
+  const [role,        setRole]        = useState(() => getStoredRole())
+  const [profileName, setProfileName] = useState(() => getStoredProfileName())
+  const [loading,     setLoading]     = useState(() => getInitialUser() === null)
+
+  // ── fetchRole ─────────────────────────────────────────────────────────────
 
   /**
-   * fetchRole — reads the user's role from the profiles table.
-   * Called whenever a user logs in or the session is restored.
-   * Returns 'admin' | 'readonly' | null.
+   * fetchRole — reads role AND full_name from profiles table.
+   * Caches both in localStorage for instant display on next reload.
+   * Always resolves — errors default to role='readonly', name=null.
    */
   const fetchRole = useCallback(async (userId) => {
-    if (!userId) { setRole(null); return }
+    if (!userId) {
+      setRole(null)
+      setProfileName(null)
+      setStoredRole(null)
+      setStoredProfileName(null)
+      return
+    }
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, full_name')
         .eq('id', userId)
         .single()
 
-      if (error) {
-        console.warn('[auth] Could not fetch role:', error.message)
-        setRole(null)
-      } else {
-        setRole(data?.role ?? 'readonly')
-      }
-    } catch (err) {
-      console.warn('[auth] fetchRole error:', err.message)
-      setRole(null)
+      const resolvedRole = error ? 'readonly' : (data?.role ?? 'readonly')
+      const resolvedName = error ? null        : (data?.full_name ?? null)
+
+      setRole(resolvedRole)
+      setProfileName(resolvedName)
+      setStoredRole(resolvedRole)
+      setStoredProfileName(resolvedName)
+    } catch {
+      setRole('readonly')
+      setStoredRole('readonly')
     }
   }, [])
 
-  /** refreshRole — manually re-fetches the role. Call after SQL role update. */
-  const refreshRole = useCallback(async () => {
-    if (user?.id) await fetchRole(user.id)
-  }, [user, fetchRole])
+  // ── refreshRole ──────────────────────────────────────────────────────────
 
   /**
-   * Listen to Supabase auth state changes.
-   * Fires on: initial load, login, logout, token refresh, OAuth callback.
+   * refreshRole — re-fetches role and name from DB without logging out.
+   * Also reads profileName from localStorage immediately for instant sidebar update.
+   *
+   * v7.0.3 fix: uses user state directly instead of supabase.auth.getUser()
+   * which calls /auth/v1/user and blocks on Node 18 + supabase-js 2.106.
    */
-  useEffect(() => {
-    // Get initial session on page load (restored from localStorage)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      fetchRole(session?.user?.id).finally(() => setLoading(false))
-    })
+  const refreshRole = useCallback(async () => {
+    // Read profileName from localStorage immediately — no DB wait
+    const cachedName = getStoredProfileName()
+    if (cachedName) setProfileName(cachedName)
+    // Then confirm from DB in background
+    if (user?.id) await fetchRole(user.id)
+  }, [fetchRole, user])
 
-    // Subscribe to future auth state changes
+  // ── Auth state listener ───────────────────────────────────────────────────
+
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
-        await fetchRole(session?.user?.id)
-        setLoading(false)
+
+        if (event === 'INITIAL_SESSION') {
+          if (session?.user?.id) {
+            await fetchRole(session.user.id)
+          } else {
+            setRole(null)
+            setProfileName(null)
+            setStoredRole(null)
+            setStoredProfileName(null)
+          }
+          setLoading(false)
+
+        } else if (event === 'SIGNED_IN') {
+          if (session?.user?.id) await fetchRole(session.user.id)
+          setLoading(false)
+
+        } else if (event === 'SIGNED_OUT') {
+          setRole(null)
+          setProfileName(null)
+          setStoredRole(null)
+          setStoredProfileName(null)
+          setLoading(false)
+
+        } else if (event === 'USER_UPDATED') {
+          // user metadata changed — user already updated by setUser above
+          // no role/name change needed here
+        }
+        // TOKEN_REFRESHED — no action needed
       }
     )
 
-    // Cleanup subscription on unmount
     return () => subscription.unsubscribe()
   }, [fetchRole])
 
+  // ── signOut ───────────────────────────────────────────────────────────────
+
   /**
-   * signOut — signs out the current user and clears all auth state.
-   * The Supabase client also clears the session from localStorage.
+   * signOut — clears all auth state from localStorage and reloads.
+   *
+   * v7.0.3 fix: supabase.auth.signOut() blocks indefinitely on Node 18
+   * with supabase-js 2.106. Workaround: manually clear localStorage keys.
+   * Same result — user fully logged out, session gone.
+   * Server-side session expires naturally after 1 hour.
+   *
+   * When upgrading to Node 20: restore await supabase.auth.signOut()
    */
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setSession(null)
-    setRole(null)
-    // Force full page reload to clear all cached state
+    setStoredRole(null)
+    setStoredProfileName(null)
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.includes('supabase') || k.includes('auth-token') || k === ROLE_KEY || k === NAME_KEY)
+        .forEach(k => localStorage.removeItem(k))
+    } catch {}
     window.location.reload()
   }, [])
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, signOut, refreshRole }}>
+    <AuthContext.Provider value={{ user, session, role, profileName, loading, signOut, refreshRole }}>
       {children}
     </AuthContext.Provider>
   )

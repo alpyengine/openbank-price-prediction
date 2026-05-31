@@ -57,7 +57,7 @@ import ImportPage       from './components/ImportPage.jsx'
 import EmailPreview     from './components/EmailPreview.jsx'
 import AccuracyChart    from './components/AccuracyChart.jsx'
 import { useMarketData } from './hooks/useMarketData.js'
-import { useRole }        from '@/hooks/useRole.js'
+import { useRole }        from './hooks/useRole.js'
 import ManageUsers       from './components/ManageUsers.jsx'
 
 /**

@@ -1,9 +1,9 @@
 # Authentication & Authorization — Complete Guide
 
-**Project:** Openbank Price Prediction  
-**Version:** v7.0.0+  
-**Auth provider:** Supabase Auth  
-**Strategy:** Email/password + Google OAuth, invitation-only, role-based access  
+**Project:** Openbank Price Prediction
+**Version:** v7.0.3+
+**Auth provider:** Supabase Auth
+**Strategy:** Email/password + Google OAuth, invitation-only, role-based access
 
 ---
 
@@ -20,56 +20,18 @@
 9. [React implementation](#9-react-implementation)
 10. [Row Level Security (RLS)](#10-row-level-security-rls)
 11. [Environment variables](#11-environment-variables)
+12. [Known issues & troubleshooting log](#12-known-issues--troubleshooting-log)
+13. [Node 18 compatibility notes](#13-node-18-compatibility-notes)
 
 ---
 
 ## 1. How passwords are stored (security)
 
-### bcrypt hashing
+Supabase Auth uses **bcrypt** with automatic random salt. Nobody — not the admin,
+not Supabase employees, not anyone with DB access — can ever see a user's password.
 
-Supabase Auth uses **bcrypt** with an automatic random salt to store passwords. This is the industry standard recommended by OWASP.
-
-What happens when a user sets the password `mySecret123`:
-
-```
-Input:   mySecret123
-Salt:    $2a$10$N9qo8uLOickgx2ZMRZoMye   ← random, generated automatically
-Hash:    $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lh9i
-Stored:  only the hash above ← the original password is NEVER stored
-```
-
-**Key properties of bcrypt:**
-
-| Property | What it means |
-|---|---|
-| One-way | The hash cannot be reversed to get the original password |
-| Salted | Every hash is unique even for the same password |
-| Slow by design | Takes ~100ms to compute, making brute force attacks impractical |
-| Adaptive cost | The work factor can be increased as hardware gets faster |
-
-### What nobody can see
-
-| Person | Can they see your password? |
-|---|---|
-| Admin of this app | ❌ Never |
-| Supabase employees | ❌ Never |
-| Anyone with database access | ❌ Never (only the hash) |
-| You (the user) | ❌ Never — only you knew it when you set it |
-
-### Password reset flow
-
-If a user forgets their password:
-
-```
-User clicks "Forgot password"
-  → Supabase sends a reset link to their email
-  → User clicks the link (valid for 1 hour)
-  → User sets a NEW password
-  → Old password is permanently replaced
-  → Nobody ever saw the old password
-```
-
-The admin can trigger a password reset for any user, but this only sends them a reset email — the admin never sees or sets the password directly.
+If a user forgets their password, they use "Forgot password" to receive a reset link.
+The admin can trigger a password reset email but cannot set or see the password directly.
 
 ---
 
@@ -78,73 +40,51 @@ The admin can trigger a password reset for any user, but this only sends them a 
 ```
 Browser
   │
-  ├── /login  ← LoginPage (public — no auth required)
+  ├── /login  ← LoginPage (public)
   │     └── Supabase Auth SDK
   │           ├── Email + password
-  │           └── Google OAuth (via Google Cloud Console)
+  │           └── Google OAuth
   │
-  └── /app    ← App (protected — requires auth)
+  └── /app    ← App (protected)
         │
         ├── AuthProvider (React context)
-        │     └── supabase.auth.onAuthStateChange()
-        │           → user object + session token
+        │     ├── Reads user + role + profileName from localStorage SYNCHRONOUSLY
+        │     │   → zero spinner, zero read-only flash on reload
+        │     └── onAuthStateChange → confirms session → fetchRole() from DB
         │
-        ├── useRole() hook
-        │     └── reads profiles table → 'admin' | 'readonly'
-        │
-        └── Components
-              ├── Admin only:   Import, Save, Delete, Fetch, Manage users
-              └── Both roles:   View batches, Charts, Accuracy stats
+        ├── useRole() → 'admin' | 'readonly' | null
+        └── Components render based on role
 ```
 
-### Session management
+### localStorage keys
 
-Supabase uses **JWT tokens** stored in `localStorage`:
-- Token valid for 1 hour by default
-- Automatically refreshed in the background (no re-login needed)
-- On page reload, session is restored from localStorage
-- On sign out, token is invalidated server-side
+| Key | Value | Managed by |
+|---|---|---|
+| `sb-*-auth-token` | Supabase session (user, JWT, expiry) | Supabase client |
+| `app-user-role` | `'admin'` or `'readonly'` | This app |
+| `app-profile-name` | Display name from `profiles.full_name` | This app |
 
 ---
 
 ## 3. Roles and permissions
 
-The app has two roles:
-
-### Admin
-Full access to everything. There should be only **one admin** (you).
-
-### Read-only
-Can view all data but cannot modify anything. Suitable for colleagues or clients who need to monitor forecast performance without making changes.
-
-### Permission matrix
-
 | Feature | Admin | Read-only |
 |---|---|---|
-| View batches (all pages) | ✅ | ✅ |
+| View batches | ✅ | ✅ |
 | View accuracy stats | ✅ | ✅ |
 | View price charts | ✅ | ✅ |
-| View fundamentals | ✅ | ✅ |
-| Fetch prices | ✅ | ❌ hidden |
-| Fetch fundamentals | ✅ | ❌ hidden |
-| Fetch market data | ✅ | ❌ hidden |
+| Fetch prices / fundamentals | ✅ | ❌ hidden |
 | Import CSV | ✅ | ❌ hidden |
-| Save batch | ✅ | ❌ hidden |
-| Delete batch | ✅ | ❌ hidden |
-| Override prices | ✅ | ❌ hidden |
-| Add notes | ✅ | ❌ hidden |
+| Save / delete batch | ✅ | ❌ hidden |
 | Manage users | ✅ | ❌ hidden |
-| Settings (hit margin etc.) | ✅ | ✅ view only |
 
-Read-only users do not see disabled buttons — the buttons are simply **not rendered**. This prevents confusion and is more secure (no client-side bypassing).
+Read-only users do not see disabled buttons — they are completely absent from the DOM.
 
 ---
 
 ## 4. Database schema
 
 ### profiles table
-
-Created in Supabase alongside `auth.users`. The `id` column references the Supabase Auth user id.
 
 ```sql
 create table public.profiles (
@@ -155,15 +95,12 @@ create table public.profiles (
   updated_at  timestamptz not null default now()
 );
 
--- Auto-create profile when a new user is created in auth.users
+-- Auto-create profile when a new user signs up
 create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-as $$
+returns trigger language plpgsql security definer as $$
 begin
   insert into public.profiles (id, full_name)
-  values (new.id, new.raw_user_meta_data->>'full_name');
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', new.email));
   return new;
 end;
 $$;
@@ -173,359 +110,287 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 ```
 
-### Row Level Security on profiles
+### get_my_role() function (required — fixes RLS recursion)
 
 ```sql
--- Enable RLS
+create or replace function public.get_my_role()
+returns text language sql security definer stable as $$
+  select role from public.profiles where id = auth.uid()
+$$;
+```
+
+### RLS policies
+
+```sql
+-- profiles
 alter table public.profiles enable row level security;
-
--- Users can read their own profile
-create policy "users can read own profile"
-  on public.profiles for select
+create policy "read own profile" on public.profiles for select
   using (auth.uid() = id);
+create policy "admin reads all profiles" on public.profiles for select
+  using (auth.uid() = id or public.get_my_role() = 'admin');
+create policy "users can update own profile" on public.profiles for update
+  using (auth.uid() = id);
+create policy "admin can update any profile" on public.profiles for update
+  using (public.get_my_role() = 'admin');
 
--- Only admin can read all profiles (for user management)
-create policy "admin can read all profiles"
-  on public.profiles for select
-  using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+-- batches
+alter table public.batches enable row level security;
+create policy "authenticated users can read batches"
+  on public.batches for select using (auth.role() = 'authenticated');
+create policy "admin can insert batches" on public.batches for insert
+  with check (public.get_my_role() = 'admin');
+create policy "admin can update batches" on public.batches for update
+  using (public.get_my_role() = 'admin');
+create policy "admin can delete batches" on public.batches for delete
+  using (public.get_my_role() = 'admin');
 
--- Only admin can update roles
-create policy "admin can update profiles"
-  on public.profiles for update
-  using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+-- weekly_prices
+alter table public.weekly_prices enable row level security;
+create policy "authenticated users can read weekly prices"
+  on public.weekly_prices for select using (auth.role() = 'authenticated');
 ```
 
 ---
 
 ## 5. Setting up Google OAuth
 
-Google OAuth allows users to sign in with their Google account instead of a password. This requires creating a project in Google Cloud Console — it is free and takes about 10 minutes.
-
 ### Step 1 — Create a Google Cloud project
-
 1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Sign in with your Google account
-3. Click **"Select a project"** → **"New project"**
-4. Name it `openbank-forecast` → click **"Create"**
-5. Make sure the new project is selected in the top dropdown
+2. Click the project selector → **New project** → Name: `openbank-forecast` → Create
 
-### Step 2 — Enable the Google Identity API
+### Step 2 — Create OAuth credentials
+1. Left menu → **APIs & Services** → **Credentials**
+2. **+ Create credentials** → **OAuth client ID**
+3. Configure OAuth consent screen if prompted (External, add your email as test user)
+4. Application type: **Web application**
+5. Name: `openbank-forecast-web`
+6. Authorized JavaScript origins: `http://localhost:5173`
+7. Authorized redirect URIs: `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`
+8. Click **Create** — copy the **Client ID** and **Client Secret**
 
-1. In the left menu → **"APIs & Services"** → **"Library"**
-2. Search for `Google Identity`
-3. Click **"Google Identity Toolkit API"** → **"Enable"**
-
-### Step 3 — Create OAuth credentials
-
-1. Left menu → **"APIs & Services"** → **"Credentials"**
-2. Click **"+ Create credentials"** → **"OAuth client ID"**
-3. If prompted, configure the **OAuth consent screen** first:
-   - User type: **External** (allows any Google account)
-   - App name: `Openbank Forecast`
-   - User support email: your email
-   - Developer contact: your email
-   - Scopes: leave default (email, profile, openid)
-   - Test users: add your own Gmail address
-   - Click **"Save and continue"** through all steps
-4. Back to Create OAuth client ID:
-   - Application type: **Web application**
-   - Name: `openbank-forecast-web`
-   - Authorized JavaScript origins:
-     ```
-     http://localhost:5173
-     https://your-supabase-project.supabase.co
-     ```
-   - Authorized redirect URIs:
-     ```
-     https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback
-     ```
-     *(Replace YOUR_PROJECT_REF with your Supabase project ref — found in Supabase Dashboard → Settings → General)*
-5. Click **"Create"**
-6. Copy the **Client ID** and **Client Secret** — you will need them in the next step
-
-### Step 4 — Configure Supabase to use Google OAuth
-
-1. Go to your Supabase Dashboard
-2. Left menu → **"Authentication"** → **"Providers"**
-3. Find **Google** → toggle it **ON**
-4. Paste the **Client ID** and **Client Secret** from the previous step
-5. Click **"Save"**
-
-That is it. Google OAuth is now configured.
+### Step 3 — Configure Supabase
+1. Supabase Dashboard → **Authentication** → **Providers** → **Google**
+2. Toggle ON → paste Client ID and Client Secret → Save
 
 ---
 
 ## 6. Supabase configuration
 
-### Disable public signups (invitation-only)
-
-Since this app is private, users cannot self-register.
-
-1. Supabase Dashboard → **"Authentication"** → **"Providers"** → **"Email"**
-2. Toggle **"Enable email confirmations"** → ON
-3. Supabase Dashboard → **"Authentication"** → **"Settings"**
-4. Set **"Enable sign ups"** → **OFF**
-
-Now only users invited via the Supabase Admin API (or from the app's Manage Users panel) can create accounts.
-
-### Email templates
-
-Supabase sends emails for:
-- **Invitation** — when admin invites a new user
-- **Password reset** — when user requests a reset
-- **Email confirmation** — on first signup
-
-These can be customized in: Dashboard → **"Authentication"** → **"Email Templates"**
-
-The default sender is `noreply@mail.app.supabase.io`. For a production app with a custom domain, you can configure a custom SMTP server in Dashboard → **"Authentication"** → **"SMTP Settings"**.
+1. Dashboard → **Authentication** → **Providers** → **Email** → Enable ON
+2. Dashboard → **Authentication** → **Settings** → **Enable sign ups** → OFF
+3. Create your user: Dashboard → **Authentication** → **Users** → **Add user**
+4. Make yourself admin:
+```sql
+update public.profiles set role = 'admin'
+where id = (select id from auth.users where email = 'YOUR_EMAIL' limit 1);
+```
 
 ---
 
 ## 7. How invitation-only access works
 
+Sign ups are disabled — users cannot self-register. Only the admin can invite users:
+
 ```
-Admin clicks "Invite user" in the app
-  → App calls supabase.auth.admin.inviteUserByEmail(email)
-  → Supabase sends an invitation email to the user
-  → User clicks the link in the email
-  → User is redirected to the app's /accept-invite page
-  → User sets their password
-  → Profile is auto-created with role = 'readonly' (default)
-  → Admin can then change role to 'admin' if needed
+Admin → Manage users → Invite user (enters email)
+  → Supabase sends invitation email
+  → User clicks link → sets password
+  → Profile auto-created with role = 'readonly'
+  → Admin can change role if needed
 ```
-
-The invitation link is valid for **24 hours** by default (configurable in Supabase settings).
-
-### Why not allow self-registration?
-
-This app contains private financial data. Allowing anyone to register would expose batch data to unauthorized users. With invitation-only:
-- Only people you explicitly invite can access the app
-- No spam accounts
-- You always know who has access
 
 ---
 
 ## 8. Admin user management
 
-From the **User panel → Manage users** screen in the app, the admin can:
+From **User panel → Manage users** the admin can:
+- View all users with email, role, creation date
+- Invite new users by email (role defaults to read-only)
+- Change a user's role (admin ↔ read-only)
+- Delete a user (double-click to confirm)
 
-### View all users
-
-Shows a table of all users with their email, role, and creation date.
-
-### Invite a new user
-
-```
-Admin enters email → clicks "Send invitation"
-  → supabase.auth.admin.inviteUserByEmail(email, { data: { role: 'readonly' } })
-  → User receives email with setup link
-  → User sets password
-  → User can now log in
-```
-
-### Change a user's role
-
-```
-Admin selects user → changes role dropdown → clicks "Save"
-  → UPDATE profiles SET role = 'admin' WHERE id = user_id
-  → Change takes effect on next page load for that user
-```
-
-### Disable / delete a user
-
-```
-Admin clicks "Delete user"
-  → supabase.auth.admin.deleteUser(user_id)
-  → User's auth.users row is deleted
-  → Profile is deleted automatically (CASCADE)
-  → User cannot log in anymore
-  → Their batch data in the 'batches' table is NOT deleted
-```
-
-### Password reset
-
-```
-Admin clicks "Reset password" for a user
-  → supabase.auth.admin.updateUserById(user_id, { password: ... })
-  OR
-  → supabase.auth.resetPasswordForEmail(email)
-     (sends email to the user — they set their own new password)
-```
-
-The admin **cannot see** any user's current password — this is technically impossible with bcrypt hashing.
+The admin **cannot** see any user's password — technically impossible with bcrypt.
 
 ---
 
 ## 9. React implementation
 
-### Key files added in v7.0.0
+### Key files
 
 ```
-src/
-  contexts/
-    AuthContext.jsx       ← React context: user, session, role, loading
-  hooks/
-    useAuth.js            ← useAuth() — access user and session
-    useRole.js            ← useRole() — returns 'admin' | 'readonly' | null
-  components/
-    LoginPage.jsx         ← Full-page login (email + Google OAuth)
-    AcceptInvitePage.jsx  ← Password setup for invited users
-    ProtectedRoute.jsx    ← Wrapper: redirects to /login if not authenticated
-    UserPanel.jsx         ← Dropdown panel at bottom of Sidebar
-    ManageUsers.jsx       ← Admin-only user management page
-  lib/
-    supabase.js           ← Supabase client initialisation
+src/lib/supabase.js               — shared Supabase client
+src/contexts/AuthContext.jsx      — user, session, role, profileName, loading
+src/hooks/useAuth.js              — convenience hook
+src/hooks/useRole.js              — role-only hook
+src/components/LoginPage.jsx      — email + Google OAuth + forgot password
+src/components/ProtectedRoute.jsx — auth gate
+src/components/UserPanel.jsx      — sidebar dropdown + Avatar + ProfileModal
+src/components/ManageUsers.jsx    — admin user management
 ```
 
-### AuthContext
+### AuthContext architecture
 
-```jsx
-/**
- * AuthContext — provides authentication state to the entire app.
- *
- * Wraps the app at the root level (main.jsx).
- * Listens to Supabase auth state changes and updates context automatically.
- *
- * Provides:
- *   user    — Supabase user object (null if not logged in)
- *   session — JWT session object
- *   role    — 'admin' | 'readonly' | null (loaded from profiles table)
- *   loading — true while session is being restored on page load
- */
+```
+Mount:
+  1. Read user from localStorage (sb-*-auth-token) — synchronous
+  2. Read role from localStorage (app-user-role) — synchronous
+  3. Read profileName from localStorage (app-profile-name) — synchronous
+  → loading = false immediately if session exists
+  → zero spinner, zero read-only flash
+
+onAuthStateChange fires:
+  INITIAL_SESSION → fetchRole(userId) → confirms role from DB → updates cache
+  SIGNED_IN       → fetchRole(userId)
+  SIGNED_OUT      → clear role + profileName from state and localStorage
 ```
 
-### useRole hook
+### ProfileModal save flow (v7.0.3)
 
-```jsx
-/**
- * useRole — returns the current user's role from the profiles table.
- *
- * Returns:
- *   'admin'    — full access
- *   'readonly' — view only
- *   null       — not logged in or role not loaded yet
- *
- * Usage:
- *   const role = useRole()
- *   if (role === 'admin') { ... }
- */
 ```
-
-### ProtectedRoute
-
-```jsx
-/**
- * ProtectedRoute — wraps pages that require authentication.
- *
- * If the user is not logged in → redirects to /login
- * If loading → shows a spinner
- * If authenticated → renders children
- *
- * Usage:
- *   <ProtectedRoute>
- *     <App />
- *   </ProtectedRoute>
- */
-```
-
-### Conditional rendering by role
-
-```jsx
-// In FetchBar.jsx — admin-only buttons
-const role = useRole()
-
-{role === 'admin' && (
-  <Button onClick={onFetch}>Fetch prices</Button>
-)}
-
-{role === 'admin' && (
-  <Button onClick={onSave}>Save batch</Button>
-)}
+User clicks Save
+  → sanitizeName() strips invalid chars
+  → if chars removed: show preview, ask to confirm
+  → if name empty: show error
+  → fetch() PATCH to /rest/v1/profiles (bypasses Supabase JS client)
+  → token read from localStorage directly (bypasses supabase.auth.getSession)
+  → onSaved(savedName) → write to localStorage immediately → sidebar updates
+  → refreshRole() confirms from DB in background
 ```
 
 ---
 
 ## 10. Row Level Security (RLS)
 
-Supabase RLS policies ensure that even if someone bypasses the React app and calls the API directly, they can only access data they are allowed to see.
-
-### batches table
-
-```sql
--- Everyone authenticated can read batches
-create policy "authenticated users can read batches"
-  on public.batches for select
-  using (auth.role() = 'authenticated');
-
--- Only admin can insert/update/delete batches
-create policy "admin can write batches"
-  on public.batches for all
-  using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
-```
-
-### weekly_prices table
-
-```sql
--- Everyone authenticated can read weekly prices (for charts)
-create policy "authenticated users can read weekly prices"
-  on public.weekly_prices for select
-  using (auth.role() = 'authenticated');
-
--- Only service role (cron) can write weekly prices
--- (backfill and fetch_weekly_prices functions use security definer)
-```
+See Section 4 for all SQL. Key points:
+- `get_my_role()` uses `security definer` to avoid recursive RLS queries
+- `users can update own profile` allows ProfileModal to work without admin check
+- All write operations on `batches` require `get_my_role() = 'admin'`
 
 ---
 
 ## 11. Environment variables
 
-Add to `.env`:
-
 ```env
-# Supabase (already configured in v5.0.0+)
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGci...
-
-# No additional env vars needed for auth —
-# Google OAuth credentials are stored in Supabase Dashboard, not in .env
-# The anon key is enough for the client to use Supabase Auth
 ```
 
-The Google OAuth Client ID and Secret are stored **only in Supabase Dashboard** (Authentication → Providers → Google). They are never exposed to the browser or committed to the repo.
+Google OAuth credentials are stored **only** in Supabase Dashboard — never in `.env`.
 
 ---
 
-## Progress tracker
+## 12. Known issues & troubleshooting log
 
-| Step | What | Status |
-|---|---|---|
-| SQL — profiles table + RLS | Supabase | ✅ |
-| SQL — RLS on batches + weekly_prices | Supabase | ✅ |
-| Supabase — disable signups | Dashboard | ✅ |
-| Google OAuth — Cloud Console setup | Google | ✅ |
-| Google OAuth — Supabase provider | Dashboard | ✅ |
-| React — supabase.js client | Code | ✅ |
-| React — AuthContext + useAuth + useRole | Code | ✅ |
-| React — LoginPage | Code | ✅ |
-| React — ProtectedRoute | Code | ✅ |
-| React — UserPanel in Sidebar | Code | ✅ |
-| React — ManageUsers page | Code | ✅ |
-| React — role-based conditional rendering | Code | ✅ |
+### Issue 1 — Role always showing as read-only
+**Symptom:** User logs in correctly but app shows read-only UI.
+**Versions:** v7.0.0, v7.0.1
+**Cause:** RLS policy on `profiles` queried `profiles` recursively → returned 0 rows → role defaulted to `readonly`.
+**Fix:** Created `get_my_role()` as `security definer` function. Applied in v7.0.2.
+
+---
+
+### Issue 2 — Infinite spinner on page reload
+**Symptom:** Spinner shows indefinitely after F5 or server restart. Clears only when localStorage is deleted.
+**Versions:** v7.0.0 → v7.0.2
+**Causes:**
+- React StrictMode mounts components twice. Supabase auth has an internal lock — second mount waited 5 seconds.
+- `getSession()` + `onAuthStateChange()` in parallel caused race condition.
+- Stale `clearTimeout(emergencyTimeout)` reference caused ReferenceError interrupting subscription.
+**Fix:** Removed StrictMode. Use `onAuthStateChange` only. Clean cleanup. Applied in v7.0.2.
+
+---
+
+### Issue 3 — Role flash (read-only for 1-2 seconds)
+**Symptom:** App briefly shows read-only UI on every reload before switching to admin.
+**Versions:** v7.0.1, early v7.0.2
+**Cause:** User read from localStorage synchronously but role waited for Supabase DB query.
+**Fix:** Role cached in `app-user-role` localStorage key. Read synchronously on mount. Applied in v7.0.2.
+
+---
+
+### Issue 4 — JWT corruption → infinite spinner after profile save
+**Symptom:** After saving a name with emoji or π, app shows infinite spinner on next reload.
+**Versions:** v7.0.2
+**Cause:** Supabase embeds `user_metadata` in JWT. Non-standard Unicode corrupts the JWT encoding → client hangs validating on reload.
+**Fix:** `sanitizeName()` strips all non-Latin characters before saving. Applied in v7.0.3.
+
+**Emergency SQL fix (if already corrupted):**
+```sql
+update auth.users
+set raw_user_meta_data = jsonb_build_object(
+  'full_name', 'YourName',
+  'email', 'your@email.com',
+  'email_verified', true
+)
+where id = 'YOUR_USER_ID';
+
+update public.profiles set full_name = 'YourName'
+where id = 'YOUR_USER_ID';
+```
+Then clear localStorage once (F12 → Application → Local Storage → Clear All).
+
+---
+
+### Issue 5 — Sign out freezes
+**Symptom:** Sign out button does nothing.
+**Versions:** v7.0.0 → v7.0.2
+**Cause:** `supabase.auth.signOut()` calls `/auth/v1/logout` which blocks on Node 18 + supabase-js 2.106.
+**Fix:** Manually delete all Supabase localStorage keys + reload. Applied in v7.0.3.
+
+---
+
+### Issue 6 — Profile save freezes at "saving..."
+**Symptom:** Clicking Save in Profile modal freezes indefinitely.
+**Versions:** v7.0.0 → v7.0.2
+**Causes:**
+1. `supabase.auth.updateUser()` calls `/auth/v1/user` PUT — blocks on Node 18.
+2. RLS `admin updates any profile` blocked users updating their own profile.
+3. `sanitizeName()` regex `\p{L}` with `u` flag silently fails in some browsers.
+4. `supabase.from('profiles').update()` — Supabase JS client internal lock blocks REST calls in certain auth states.
+5. `supabase.auth.getSession()` inside handleSave — calls `/auth/v1/` — blocks on Node 18.
+**Fixes:**
+- Replaced `supabase.auth.updateUser()` with `fetch()` PATCH directly to REST API.
+- Token read from localStorage directly (bypasses all Supabase Auth API calls).
+- Added `users can update own profile` RLS policy.
+- Replaced `\p{L}` regex with `\u00C0-\u024F` range.
+- Added 5-second AbortController timeout as safety net.
+Applied in v7.0.3.
+
+---
+
+### Issue 7 — Display name not updating in sidebar after save
+**Symptom:** Name saved in `profiles` but sidebar still shows Google name.
+**Versions:** v7.0.2, early v7.0.3
+**Cause:** `getDisplayName()` read from `user_metadata` (Google JWT) not from `profiles.full_name`.
+**Fix:**
+- `fetchRole()` reads `full_name` from `profiles` alongside `role`.
+- Cached in `app-profile-name` localStorage key.
+- `onSaved(savedName)` writes directly to localStorage → sidebar updates immediately.
+- `refreshRole()` reads localStorage first, then confirms from DB.
+Applied in v7.0.3.
+
+---
+
+### Issue 8 — refreshRole() blocks with Google OAuth
+**Symptom:** `refreshRole()` hangs when user is logged in via Google.
+**Versions:** early v7.0.3
+**Cause:** `refreshRole()` called `supabase.auth.getUser()` which calls `/auth/v1/user` — blocks on Node 18.
+**Fix:** `refreshRole()` uses `user` state directly instead of calling `supabase.auth.getUser()`. Applied in v7.0.3.
+
+---
+
+## 13. Node 18 compatibility notes
+
+`supabase-js 2.106` requires Node >= 20. On Node 18, these Auth API endpoints block indefinitely:
+
+| Blocked call | Endpoint | Symptom | Workaround (v7.0.3) |
+|---|---|---|---|
+| `supabase.auth.signOut()` | `/auth/v1/logout` | Sign out freezes | Clear localStorage manually |
+| `supabase.auth.updateUser()` | `/auth/v1/user` PUT | Profile save freezes | Use `fetch()` PATCH to `/rest/v1/profiles` |
+| `supabase.auth.getSession()` | `/auth/v1/token` | Blocks inside handleSave | Read token from localStorage directly |
+| `supabase.auth.getUser()` | `/auth/v1/user` GET | refreshRole() blocks | Use `user` state directly |
+
+**When upgrading to Node 20:** search for `v7.0.3 fix` comments in the code to find all workarounds to revert.
 
 ---
 
@@ -534,5 +399,5 @@ The Google OAuth Client ID and Secret are stored **only in Supabase Dashboard** 
 - [Supabase Auth documentation](https://supabase.com/docs/guides/auth)
 - [Supabase Row Level Security](https://supabase.com/docs/guides/auth/row-level-security)
 - [Google Cloud Console](https://console.cloud.google.com)
-- [bcrypt algorithm explained](https://auth0.com/blog/hashing-in-action-understanding-bcrypt/)
-- [OWASP password storage cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
+- [bcrypt algorithm](https://auth0.com/blog/hashing-in-action-understanding-bcrypt/)
+- [OWASP password storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
