@@ -26,6 +26,27 @@ function headers() {
   }
 }
 
+/**
+ * authHeaders — headers with the user's JWT session token.
+ * Required for RLS policies that check auth.role() = 'authenticated'.
+ * Falls back to anon key if no session exists.
+ */
+function authHeaders() {
+  let token = SUPABASE_ANON_KEY
+  try {
+    const key = Object.keys(localStorage).find(k => k.includes('auth-token'))
+    if (key) {
+      const parsed = JSON.parse(localStorage.getItem(key))
+      if (parsed?.access_token) token = parsed.access_token
+    }
+  } catch { /* fall back to anon key */ }
+  return {
+    'Content-Type':  'application/json',
+    'apikey':        SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${token}`,
+  }
+}
+
 function endpoint(query = '') {
   return `${SUPABASE_URL}/rest/v1/${TABLE}${query}`
 }
@@ -161,7 +182,7 @@ export async function loadCachedPrice(ticker, targetDate) {
 
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/price_cache?ticker=eq.${cleanTicker}&target_date=eq.${dateStr}&select=close_price,fetched_at`,
-      { headers: headers(), cache: 'no-store' }
+      { headers: authHeaders(), cache: 'no-store' }
     )
     if (!res.ok) return null
     const rows = await res.json()

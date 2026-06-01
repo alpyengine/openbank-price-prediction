@@ -456,3 +456,283 @@ the timeout, then stops. Remaining tickers are picked up next Saturday.
 For batches with many tickers, it may take 2-3 Saturdays to complete.
 
 **Mitigation:** `backfill_weekly_prices` fills gaps between Saturdays.
+
+---
+
+## 7. Backup system — GitHub automated backup
+
+### Overview
+
+A weekly automated backup exports the complete database state to a private
+GitHub repository (`alpyengine/openbank-price-data`) every Sunday at 23:00 UTC.
+This ensures data recovery is possible without depending on Supabase's own
+backup system.
+
+**What is backed up:**
+- `batches` — all prediction batches with verdicts
+- `weekly_prices` — all weekly closing prices
+- `price_cache` — all historical prices for expired horizons
+
+**What is NOT backed up:**
+- `profiles` — user accounts (managed by Supabase Auth, restored manually)
+- `fundamentals_cache` — ephemeral cache, re-fetched from APIs on demand
+
+---
+
+### GitHub repository
+
+**URL:** `https://github.com/alpyengine/openbank-price-data` (private)
+**File:** `data/history.json`
+**Format:** JSON with metadata + all three tables
+
+```json
+{
+  "metadata": {
+    "backup_date": "2026-06-01T13:27:00Z",
+    "supabase_project": "yyenwzljojxbqtzcbchk",
+    "version": "1.0",
+    "tables": ["batches", "weekly_prices", "price_cache"]
+  },
+  "batches": [...],
+  "weekly_prices": [...],
+  "price_cache": [...]
+}
+```
+
+Each backup overwrites the previous file with a new commit. Full history
+is preserved in git — every backup is recoverable via `git checkout`.
+
+---
+
+### Vault secret
+
+The GitHub Personal Access Token (PAT) is stored in Supabase Vault:
+
+```sql
+-- Create (first time only)
+select vault.create_secret('ghp_YOUR_TOKEN_HERE', 'github_pat');
+
+-- Update if token is regenerated
+select vault.update_secret(id, 'ghp_NEW_TOKEN_HERE')
+from vault.secrets
+where name = 'github_pat';
+
+-- Verify
+select name, length(decrypted_secret) as token_length
+from vault.decrypted_secrets
+where name = 'github_pat';
+-- Should return: github_pat | 40
+```
+
+**Token permissions required:** `repo` (full control of private repositories)
+
+**Token location:** https://github.com/settings/tokens
+**Note:** GitHub tokens are only shown once at creation. If lost, regenerate
+at the URL above and update the vault secret.
+
+---
+
+### `backup_to_github()` function
+
+**Trigger:** cron job 6 — every Sunday at 23:00 UTC
+**Also callable manually:** `select backup_to_github();`
+
+**How it works:**
+
+1. Reads GitHub PAT from vault
+2. Builds a JSON object combining all three tables using `row_to_json()`
+3. Encodes the JSON to base64 (required by GitHub Contents API)
+4. Calls GitHub API GET to get the current file's SHA (required for update)
+5. Calls GitHub API PUT to update the file with new content + commit message
+6. Commit message format: `backup: DD Mon YYYY HH:MM UTC · N batches · N weekly_prices · N price_cache`
+
+```sql
+create or replace function backup_to_github()
+returns void
+language plpgsql
+security definer
+as $$
+declare
+  github_token  text;
+  file_sha      text;
+  content_b64   text;
+  payload       jsonb;
+  response      varchar;
+  backup_data   jsonb;
+  commit_msg    text;
+begin
+  select decrypted_secret into github_token
+  from vault.decrypted_secrets
+  where name = 'github_pat';
+
+  if github_token is null then
+    raise exception 'github_pat not found in vault';
+  end if;
+
+  -- Build backup JSON from all three tables
+  select jsonb_build_object(
+    'metadata', jsonb_build_object(
+      'backup_date', now()::text,
+      'supabase_project', 'yyenwzljojxbqtzcbchk',
+      'version', '1.0',
+      'tables', array['batches', 'weekly_prices', 'price_cache']
+    ),
+    'batches', coalesce(
+      (select jsonb_agg(row_to_json(b)::jsonb) from batches b),
+      '[]'::jsonb
+    ),
+    'weekly_prices', coalesce(
+      (select jsonb_agg(row_to_json(w)::jsonb) from weekly_prices w),
+      '[]'::jsonb
+    ),
+    'price_cache', coalesce(
+      (select jsonb_agg(row_to_json(p)::jsonb) from price_cache p),
+      '[]'::jsonb
+    )
+  ) into backup_data;
+
+  -- Encode to base64 (required by GitHub Contents API)
+  select encode(convert_to(backup_data::text, 'UTF8'), 'base64')
+  into content_b64;
+
+  -- Get current file SHA (required by GitHub API to update existing file)
+  select content::jsonb->>'sha' into file_sha
+  from http((
+    'GET',
+    'https://api.github.com/repos/alpyengine/openbank-price-data/contents/data/history.json',
+    ARRAY[
+      http_header('Authorization', 'token ' || github_token),
+      http_header('User-Agent', 'Supabase-Backup')
+    ],
+    NULL, NULL
+  )::http_request);
+
+  -- Build commit message with stats
+  commit_msg := format(
+    'backup: %s · %s batches · %s weekly_prices · %s price_cache',
+    to_char(now() at time zone 'UTC', 'DD Mon YYYY HH24:MI UTC'),
+    (select count(*) from batches),
+    (select count(*) from weekly_prices),
+    (select count(*) from price_cache)
+  );
+
+  -- Push updated file to GitHub
+  payload := jsonb_build_object(
+    'message', commit_msg,
+    'content', content_b64,
+    'sha',     file_sha,
+    'branch',  'main'
+  );
+
+  select content into response
+  from http((
+    'PUT',
+    'https://api.github.com/repos/alpyengine/openbank-price-data/contents/data/history.json',
+    ARRAY[
+      http_header('Authorization', 'token ' || github_token),
+      http_header('User-Agent', 'Supabase-Backup'),
+      http_header('Content-Type', 'application/json')
+    ],
+    'application/json',
+    payload::text
+  )::http_request);
+
+  raise notice 'Backup completed: %', commit_msg;
+end;
+$$;
+```
+
+---
+
+### Cron job
+
+```sql
+-- Create
+select cron.schedule(
+  'weekly-github-backup',
+  '0 23 * * 0',       -- every Sunday at 23:00 UTC
+  'select backup_to_github()'
+);
+-- Returns job ID 6
+
+-- Verify
+select jobid, jobname, schedule, active from cron.job where jobid = 6;
+
+-- Run manually at any time
+select backup_to_github();
+
+-- Unschedule if needed
+select cron.unschedule('weekly-github-backup');
+```
+
+---
+
+### How to restore from backup
+
+If Supabase data is lost, restore from GitHub:
+
+**Step 1 — Get the backup file:**
+```bash
+git clone https://github.com/alpyengine/openbank-price-data.git
+cd openbank-price-data
+# For latest backup:
+cat data/history.json
+# For a specific date:
+git log --oneline    # find the commit
+git show COMMIT_SHA:data/history.json > restore.json
+```
+
+**Step 2 — Restore batches:**
+```sql
+-- Parse and insert each batch from the JSON
+-- The backup preserves the exact Supabase row format
+insert into batches (id, date, saved_at, updated_at, results, stocks)
+select
+  b->>'id',
+  b->>'date',
+  (b->>'saved_at')::timestamptz,
+  (b->>'updated_at')::timestamptz,
+  (b->'results')::jsonb,
+  (b->>'stocks')::integer
+from jsonb_array_elements(
+  (SELECT backup_json->'batches' FROM (SELECT '{...}'::jsonb AS backup_json) t)
+) as b
+on conflict (id) do nothing;
+```
+
+**Step 3 — Restore weekly_prices:**
+```sql
+insert into weekly_prices (ticker, batch_id, week, week_date, close_price)
+select
+  w->>'ticker',
+  w->>'batch_id',
+  (w->>'week')::integer,
+  (w->>'week_date')::date,
+  (w->>'close_price')::numeric
+from jsonb_array_elements(backup_json->'weekly_prices') as w
+on conflict (ticker, batch_id, week) do nothing;
+```
+
+**Step 4 — Restore price_cache:**
+```sql
+insert into price_cache (ticker, target_date, close_price)
+select
+  p->>'ticker',
+  (p->>'target_date')::date,
+  (p->>'close_price')::numeric
+from jsonb_array_elements(backup_json->'price_cache') as p
+on conflict (ticker, target_date) do nothing;
+```
+
+---
+
+### Weekly schedule summary
+
+| Day | Time (UTC) | Job | What happens |
+|---|---|---|---|
+| Mon–Fri | 23:00 | fetch-expired-horizons-daily | Evaluates expired predictions |
+| Saturday | 10:00 | fetch-weekly-prices-saturday | Saves weekly closing prices |
+| Sunday | 23:00 | weekly-github-backup | Full backup to GitHub |
+
+This order ensures the Sunday backup always contains the most recent
+weekly prices (Saturday) and verdict evaluations (Friday).

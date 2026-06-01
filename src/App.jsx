@@ -97,6 +97,17 @@ export default function App() {
   const { marketData, loading: marketLoading, log: marketLog, fetchMarketData, reset: resetMarketData, restoreMarketData } = useMarketData()
   const { fundamentals, loading: fundLoading, log: fundLog, fetchFundamentals, reset: resetFundamentals, restoreFundamentals } = useFundamentals()
 
+  // Auto-load the most recent batch on first mount
+  // instead of showing DEFAULT_STOCKS example data
+  useEffect(() => {
+    if (!history?.batches?.length) return
+    // Only auto-load if still showing default stocks (no batch loaded yet)
+    if (loadedBatchId) return
+    // Load the first batch (sorted by savedAt desc — most recent first)
+    const first = history.batches[0]
+    if (first) handleLoadBatch(first)
+  }, [history])
+
   // Auto-fetch historical prices for expired horizons
   useEffect(() => {
     if (horizon === 'best' || horizon === 'all' || !stocks.length) return

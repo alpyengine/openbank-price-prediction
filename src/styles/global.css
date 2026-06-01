@@ -69,6 +69,13 @@
 
   /* Border radius scale */
   --radius: 0.5rem;
+
+  /* Chart colors */
+  --chart-1: #6EA8D8;
+  --chart-2: #E24B4A;
+  --chart-3: #22c55e;
+  --chart-4: #f59e0b;
+  --chart-5: #8b5cf6;
 }
 
 /* ── Dark mode ────────────────────────────────────────────────────────────── */

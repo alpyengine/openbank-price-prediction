@@ -78,6 +78,28 @@ block indefinitely. See [AUTH.md → Node 18](./docs/AUTH.md#13-node-18-compatib
 
 ---
 
+## Backup system (v7.0.5+)
+
+Automated weekly backup of all Supabase data to a private GitHub repository.
+
+📄 **[SUPABASE.md → Backup system](./docs/SUPABASE.md#7-backup-system--github-automated-backup)** — complete reference including SQL, restore instructions and cron schedule.
+
+**What is backed up:** `batches`, `weekly_prices`, `price_cache`
+**When:** Every Sunday at 23:00 UTC — after Saturday weekly prices and weekday verdict evaluations
+**Where:** `https://github.com/alpyengine/openbank-price-data` (private)
+**Format:** Single `data/history.json` — full git history, every backup recoverable
+
+| Cron job | Schedule | Purpose |
+|---|---|---|
+| fetch-expired-horizons-daily | Mon–Fri 23:00 UTC | Evaluate expired predictions |
+| fetch-weekly-prices-saturday | Sat 10:00 UTC | Save weekly closing prices |
+| weekly-github-backup | Sun 23:00 UTC | Full backup to GitHub |
+
+**Manual backup at any time:**
+```sql
+select backup_to_github();
+```
+
 ## Environment variables
 
 ```env
@@ -122,6 +144,7 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
+| v7.0.5 | PriceChart rebuilt with Chart.js — real dates, target dots, zoom slider · auto-load first batch · GitHub weekly backup · RLS fix for weekly_prices |
 | v7.0.4 | `formatDate()` fix — `Sept` → `Sep` to prevent Supabase ERROR 22007 |
 | v7.0.3 | Node 18 compatibility — bypass blocking Auth API calls |
 | v7.0.2 | Authentication + role-based access |
