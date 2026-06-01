@@ -18,6 +18,30 @@ Copy `.env.example` to `.env` and fill in your API keys.
 
 ---
 
+## Supabase architecture (v5.0.0+)
+
+All persistence, automation and price fetching runs on Supabase.
+
+📄 **[SUPABASE.md](./docs/SUPABASE.md)** — complete reference including:
+- All tables (`batches`, `price_cache`, `weekly_prices`, `profiles`)
+- All functions (`fetch_expired_horizons`, `fetch_weekly_prices`, `backfill_weekly_prices`)
+- All cron jobs (weekday horizon evaluation, Saturday weekly prices, backfill)
+- Vault secrets management
+- Row Level Security policies
+- Known issues and SQL fixes
+
+### Critical — date formatting
+
+**Never use `toLocaleDateString()` for dates stored in Supabase.**
+On macOS, it generates `Sept` instead of `Sep` for September.
+PostgreSQL's `to_date()` only accepts 3-letter month names and throws
+`ERROR 22007` for `Sept` — silently breaking `fetch_expired_horizons()`.
+
+`formatDate()` in `src/utils/dates.js` uses a fixed `MONTHS` array
+to guarantee correct 3-letter abbreviations. Fixed in v7.0.4.
+
+---
+
 ## Authentication (v7.0.2+)
 
 Supabase Auth with email/password and Google OAuth.
@@ -35,27 +59,20 @@ Two roles: **admin** (full access) and **read-only** (view only).
 ### Key architecture decisions
 
 **Zero spinner on reload:** user, role and display name are all read from
-`localStorage` synchronously before React renders — no waiting for network calls.
+`localStorage` synchronously before React renders.
 
 **JWT safety:** `sanitizeName()` in ProfileModal strips emoji and non-Latin
-Unicode before saving. Non-standard characters in `user_metadata` corrupt
-the JWT token → infinite spinner on next reload.
+Unicode before saving. Non-standard characters corrupt the JWT token.
 
 **onAuthStateChange only:** no `getSession()` — avoids race condition with
-Supabase's internal auth lock that caused 5-second delays.
+Supabase's internal auth lock.
 
 **StrictMode removed:** incompatible with Supabase auth locks.
 
 ### Node 18 compatibility (v7.0.3)
 
 `supabase-js 2.106` requires Node >= 20. On Node 18, several Auth API calls
-block indefinitely. See [AUTH.md → Node 18 compatibility](./docs/AUTH.md#13-node-18-compatibility-notes).
-
-| Issue | Fix |
-|---|---|
-| Sign out freezes | Clear localStorage manually instead of `supabase.auth.signOut()` |
-| Profile save freezes | `fetch()` PATCH directly to REST API, token from localStorage |
-| refreshRole() blocks with Google | Use `user` state instead of `supabase.auth.getUser()` |
+block indefinitely. See [AUTH.md → Node 18](./docs/AUTH.md#13-node-18-compatibility-notes).
 
 **When upgrading to Node 20:** search for `v7.0.3 fix` in the code to revert workarounds.
 
@@ -76,8 +93,6 @@ VITE_EMAILJS_PUBLIC_KEY=your_key
 ---
 
 ## Migration to shadcn/ui + Tailwind
-
-Complete migration from inline `style={{}}` to Tailwind + shadcn/ui.
 
 📄 **[MIGRATION_SHADCN.md](./docs/MIGRATION_SHADCN.md)**
 
@@ -107,6 +122,7 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
+| v7.0.4 | `formatDate()` fix — `Sept` → `Sep` to prevent Supabase ERROR 22007 |
 | v7.0.3 | Node 18 compatibility — bypass blocking Auth API calls |
 | v7.0.2 | Authentication + role-based access |
 | v6.9.5 | Documentation — JSDoc across all hooks and utils |

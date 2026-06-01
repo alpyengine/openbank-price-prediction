@@ -21,8 +21,18 @@ export function today() {
 }
 
 /**
- * Formats a Date object to a human-readable string.
- * Uses British locale for day-month-year ordering.
+ * MONTHS — fixed 3-letter month names used by formatDate.
+ *
+ * IMPORTANT: Do NOT use toLocaleDateString() for month names.
+ * On some macOS/browser combinations it returns 'Sept' instead of 'Sep'.
+ * PostgreSQL's to_date() function in Supabase only accepts 'Sep' (3 letters).
+ * A 'Sept' value causes ERROR 22007 and breaks fetch_expired_horizons().
+ */
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+/**
+ * formatDate — formats a Date object to "DD Mon YYYY" string.
+ * Uses fixed MONTHS array to guarantee standard 3-letter month abbreviations.
  * Returns '--' for null/undefined input.
  *
  * @param {Date} d — date to format
@@ -30,7 +40,10 @@ export function today() {
  */
 export function formatDate(d) {
   if (!d) return '--'
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const day  = String(d.getDate()).padStart(2, '0')
+  const mon  = MONTHS[d.getMonth()]
+  const year = d.getFullYear()
+  return `${day} ${mon} ${year}`
 }
 
 /**
