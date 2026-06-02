@@ -618,10 +618,24 @@ function FundamentalsPanel({ fundamental, ticker, onShowDesc }) {
   const lblClass = 'text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5'
   const valClass = 'text-[13px] font-semibold'
 
+  // Format fetchedAt timestamp as "2 Jun 2026 14:32"
+  const fetchedLabel = fundamental?.fetchedAt
+    ? (() => {
+        const d = new Date(fundamental.fetchedAt)
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+        return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+      })()
+    : null
+
   return (
     <div className="mb-4">
-      <div className="flex items-center gap-1.5 mb-2.5 text-xs font-semibold text-muted-foreground">
-        <span>▦</span> Fundamentals
+      <div className="flex items-center justify-between gap-1.5 mb-2.5">
+        <span className="text-xs font-semibold text-muted-foreground">▦ Fundamentals</span>
+        {fetchedLabel && (
+          <span className="text-[10px] text-muted-foreground italic">
+            fetched {fetchedLabel}
+          </span>
+        )}
       </div>
 
       {fundamental === undefined && (
@@ -640,7 +654,21 @@ function FundamentalsPanel({ fundamental, ticker, onShowDesc }) {
           <div><div className={lblClass}>Industry</div><div className={valClass}>{fundamental.industry || '--'}</div></div>
           <div><div className={lblClass}>Market Cap</div><div className={valClass}>{fmtMarketCap(fundamental.marketCap)}</div></div>
           <div><div className={lblClass}>Beta</div><div className={valClass}>{fundamental.beta ? fundamental.beta.toFixed(2) : '--'}</div></div>
-          <div><div className={lblClass}>Last Dividend</div><div className={valClass}>{fundamental.lastDividend ? `$${fundamental.lastDividend}` : '--'}</div></div>
+          {fundamental.peTTM != null && (
+            <div><div className={lblClass}>P/E TTM</div><div className={valClass}>{fundamental.peTTM.toFixed(1)}</div></div>
+          )}
+          {fundamental.pegTTM != null && (
+            <div><div className={lblClass}>PEG TTM</div><div className={valClass}>{fundamental.pegTTM.toFixed(2)}</div></div>
+          )}
+          {fundamental.netMarginTTM != null && (
+            <div><div className={lblClass}>Net Margin</div><div className={valClass}>{fundamental.netMarginTTM.toFixed(1)}%</div></div>
+          )}
+          {fundamental.roeTTM != null && (
+            <div><div className={lblClass}>ROE</div><div className={valClass}>{(fundamental.roeTTM * 100).toFixed(1)}%</div></div>
+          )}
+          {fundamental.epsGrowthTTM != null && (
+            <div><div className={lblClass}>EPS Growth</div><div className={valClass}>{fundamental.epsGrowthTTM.toFixed(1)}%</div></div>
+          )}
 
           {fundamental.website && (
             <div>

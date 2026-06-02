@@ -269,6 +269,7 @@ export default function App() {
               fundLog={fundLog}
               fundLoading={fundLoading}
               onFetchFundamentals={() => fetchFundamentals(stocks)}
+              onRefreshFundamentals={() => fetchFundamentals(stocks, true)}
               marketLog={marketLog}
               marketLoading={marketLoading}
               stocks={stocks}

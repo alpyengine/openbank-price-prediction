@@ -23,6 +23,15 @@ Copy `.env.example` to `.env` and fill in your API keys.
 All persistence, automation and price fetching runs on Supabase.
 
 📄 **[SUPABASE.md](./docs/SUPABASE.md)** — complete reference including:
+- Tables, functions, cron jobs, vault secrets
+- RLS policies, known issues
+- GitHub backup system (section 7)
+
+📄 **[SPEC_FUNDAMENTALS.md](./docs/SPEC_FUNDAMENTALS.md)** — Investment Score & fundamentals specification:
+- Metrics catalogue (valuation, growth, quality, sentiment)
+- PEG ratio — Peter Lynch interpretation and scoring
+- Investment Score formula and weights (v7.1.x roadmap)
+- Implementation plan v7.1.0 → v7.1.3
 - All tables (`batches`, `price_cache`, `weekly_prices`, `profiles`)
 - All functions (`fetch_expired_horizons`, `fetch_weekly_prices`, `backfill_weekly_prices`)
 - All cron jobs (weekday horizon evaluation, Saturday weekly prices, backfill)
@@ -100,13 +109,38 @@ Automated weekly backup of all Supabase data to a private GitHub repository.
 select backup_to_github();
 ```
 
+## Financial APIs (v7.0.6+)
+
+### Finnhub — primary fundamentals source
+
+`VITE_FINNHUB_KEY` — used by `useFundamentals.js` for all fundamental metrics:
+P/E, forward P/E, PEG ratio, net margin, ROE, EPS growth, revenue growth, beta, dividend yield.
+
+- Free plan: 30 req/sec, no credit card required
+- Register at https://finnhub.io
+- Works for all US tickers + major European tickers (SAP, ASML, etc.)
+- European tickers with missing data show `⚠ Partial data` badge
+
+### FMP — company profile (secondary)
+
+`VITE_FMP_KEY` — used only for sector, industry, description via `/stable/profile`.
+Free plan works for most tickers. If missing, these fields show `--`.
+
+### Twelve Data — price data
+
+`VITE_TWELVE_DATA_KEY` — used for weekly price fetching in Supabase cron jobs.
+Not used directly by the React app.
+
+---
+
 ## Environment variables
 
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGci...
-VITE_TWELVE_DATA_KEY=your_key
-VITE_FMP_KEY=your_key
+VITE_FINNHUB_KEY=your_finnhub_key
+VITE_FMP_KEY=your_financialmodelingprep_key
+VITE_TWELVE_DATA_KEY=your_twelvedata_key
 VITE_EMAILJS_SERVICE_ID=your_id
 VITE_EMAILJS_TEMPLATE_ID=your_id
 VITE_EMAILJS_PUBLIC_KEY=your_key
@@ -144,6 +178,7 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
+| v7.0.6 | Finnhub replaces Twelve Data for fundamentals — `useFundamentals.js` extended with PEG, margins, growth metrics |
 | v7.0.5 | PriceChart rebuilt with Chart.js — real dates, target dots, zoom slider · auto-load first batch · GitHub weekly backup · RLS fix for weekly_prices |
 | v7.0.4 | `formatDate()` fix — `Sept` → `Sep` to prevent Supabase ERROR 22007 |
 | v7.0.3 | Node 18 compatibility — bypass blocking Auth API calls |

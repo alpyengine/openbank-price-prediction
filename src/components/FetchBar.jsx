@@ -17,6 +17,7 @@
  * @param {string}   fundLog          — fundamentals fetch status message
  * @param {boolean}  fundLoading      — true while fetching fundamentals
  * @param {Function} onFetchFundamentals — trigger fundamentals fetch
+ * @param {Function} onRefreshFundamentals — force re-fetch all fundamentals (ignores cache)
  * @param {string}   marketLog        — market data fetch status message
  * @param {boolean}  marketLoading    — true while fetching market data
  * @param {Object[]} stocks           — current stock array (used to detect market)
@@ -154,7 +155,7 @@ function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
 
 export default function FetchBar({
   log, fetching, onFetch,
-  fundLog, fundLoading, onFetchFundamentals,
+  fundLog, fundLoading, onFetchFundamentals, onRefreshFundamentals,
   marketLog, marketLoading, stocks, onFetchMarket,
   batches, loadedBatchDate, onLoadBatch,
   onSave, saving,
@@ -204,6 +205,18 @@ export default function FetchBar({
       >
         {fundLoading ? <Spinner /> : '↓'}
         {fundLoading ? 'Loading…' : 'Fundamentals'}
+      </Button>}
+
+      {/* ── Refresh fundamentals — force re-fetch ignoring cached data ───── */}
+      {role === 'admin' && <Button
+        size="sm"
+        variant="outline"
+        className="shrink-0 whitespace-nowrap"
+        disabled={anyLoading}
+        onClick={onRefreshFundamentals}
+        title="Force re-fetch all fundamentals (replaces existing data)"
+      >
+        ↺ Refresh
       </Button>}
 
       {/* ── Fetch market data — only for US/EU batches ─────────────────── */}

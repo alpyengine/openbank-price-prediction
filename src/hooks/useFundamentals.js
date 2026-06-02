@@ -1,45 +1,50 @@
 /**
  * useFundamentals.js — Fundamentals data fetching hook
  *
- * Fetches company fundamentals from Financial Modeling Prep (FMP) API:
- * sector, industry, market cap, beta, website, last dividend, description.
+ * Fetches company fundamentals from two sources:
+ *
+ * 1. Finnhub /stock/metric (free plan — 30 req/sec)
+ *    Fields: peTTM, forwardPE, pegTTM, forwardPEG, netProfitMarginTTM,
+ *            roeTTM, epsGrowthTTMYoy, epsGrowth3Y, epsGrowth5Y,
+ *            revenueGrowthTTMYoy, beta, totalDebt/totalEquityAnnual,
+ *            currentDividendYieldTTM
+ *
+ * 2. FMP /stable/profile (free plan — profile only, still works for all US tickers)
+ *    Fields: sector, industry, marketCap, website, description
  *
  * Data is fetched once per ticker per session and cached in component state.
  * When a saved batch is loaded, fundamentals are restored from the batch
  * instead of fetching again (restoreFundamentals).
  *
- * API used: FMP /stable/profile (free tier — 250 req/day)
- * Rate limit: 800ms pause between requests (safe for FMP free plan)
- *
  * Hook returns:
- *   fundamentals     — { [ticker]: { sector, industry, marketCap, ... } | null }
- *                      undefined = not yet fetched
- *                      null      = fetch failed
- *   loading          — true while fetching
- *   log              — status message for FetchBar
+ *   fundamentals          — { [ticker]: { sector, peTTM, pegTTM, ... } | null }
+ *                           undefined = not yet fetched
+ *                           null      = fetch failed
+ *   loading               — true while fetching
+ *   log                   — status message for FetchBar
  *   fetchFundamentals(stocks) — fetch for all stocks in batch
- *   reset()          — clear all fundamentals state
+ *   reset()               — clear all fundamentals state
  *   restoreFundamentals(saved) — restore from saved batch (avoids API calls)
  */
 import { useState, useCallback } from 'react'
 
-const TD_KEY  = import.meta.env.VITE_TWELVE_DATA_KEY
-const FMP_KEY = import.meta.env.VITE_FMP_KEY
-const TD_URL  = 'https://api.twelvedata.com'
-const FMP_URL = 'https://financialmodelingprep.com/stable'
-const TIMEOUT = 15000
+const FMP_KEY     = import.meta.env.VITE_FMP_KEY
+const FINNHUB_KEY = import.meta.env.VITE_FINNHUB_KEY
+const FMP_URL     = 'https://financialmodelingprep.com/stable'
+const FINNHUB_URL = 'https://finnhub.io/api/v1'
+const TIMEOUT     = 15000
 
 /**
  * fmtMarketCap — formats a raw market cap number into a human-readable string.
- * @param {number|null} val — market cap in USD
+ * @param {number|null} val — market cap in USD (millions from Finnhub)
  * @returns {string} e.g. "45.2B", "1.3T", "850M", or "--"
  */
 export function fmtMarketCap(val) {
   if (!val) return '--'
-  if (val >= 1e12) return (val / 1e12).toFixed(1) + 'T'
-  if (val >= 1e9)  return (val / 1e9).toFixed(1) + 'B'
-  if (val >= 1e6)  return (val / 1e6).toFixed(1) + 'M'
-  return val.toLocaleString()
+  if (val >= 1e6)  return (val / 1e6).toFixed(1) + 'T'
+  if (val >= 1e3)  return (val / 1e3).toFixed(1) + 'B'
+  if (val >= 1)    return val.toFixed(0) + 'M'
+  return '--'
 }
 
 /**
@@ -60,33 +65,83 @@ async function fetchWithTimeout(url) {
   }
 }
 
-// Strip .US suffix for US markets — FMP uses bare ticker for NYSE/NASDAQ
-// European suffixes (.DE, .AS, .PA, .L) are kept as FMP supports them
 /**
- * fmpSymbol — strips the .US suffix from a ticker for FMP API calls.
- * FMP uses bare tickers for NYSE/NASDAQ (e.g. "TER" not "TER.US").
- * European suffixes (.DE, .AS, .PA, .L) are preserved as FMP supports them.
+ * finnhubSymbol — strips the .US suffix for Finnhub API calls.
+ * Finnhub uses bare tickers for NYSE/NASDAQ (e.g. "TER" not "TER.US").
+ * European suffixes (.DE, .AS, .PA, .L, .MC) are preserved.
+ */
+function finnhubSymbol(ticker) {
+  return ticker.replace(/\.US$/i, '')
+}
+
+/**
+ * fmpSymbol — strips the .US suffix for FMP API calls.
+ * Same logic as finnhubSymbol — FMP also uses bare tickers for US stocks.
  */
 function fmpSymbol(ticker) {
   return ticker.replace(/\.US$/i, '')
 }
 
-// FMP: GET /stable/profile?symbol=TER&apikey=KEY (or IFX.DE for EU)
+/**
+ * isEuropeanTicker — returns true for tickers with European exchange suffixes.
+ * Used to show the "Partial data" badge when Finnhub coverage is limited.
+ */
+function isEuropeanTicker(ticker) {
+  return /\.(DE|AS|PA|L|MC)$/i.test(ticker)
+}
+
+/**
+ * fetchFinnhubMetrics — fetches fundamentals from Finnhub /stock/metric.
+ * Returns an object with all available metric fields, or throws on error.
+ */
+async function fetchFinnhubMetrics(ticker) {
+  const symbol = finnhubSymbol(ticker)
+  const url    = `${FINNHUB_URL}/stock/metric?symbol=${encodeURIComponent(symbol)}&metric=all&token=${FINNHUB_KEY}`
+  const data   = await fetchWithTimeout(url)
+  if (!data.metric) throw new Error('Finnhub: no metric data')
+  const m = data.metric
+  return {
+    // Valuation
+    peTTM:        m.peTTM             ?? null,
+    forwardPE:    m.forwardPE         ?? null,
+    pegTTM:       m.pegTTM            ?? null,
+    forwardPEG:   m.forwardPEG        ?? null,
+    pfcfTTM:      m.pfcfShareTTM      ?? null,
+    // Quality
+    netMarginTTM: m.netProfitMarginTTM ?? null,
+    roeTTM:       m.roeTTM            ?? null,
+    roaTTM:       m.roaTTM            ?? null,
+    debtEquity:   m['totalDebt/totalEquityAnnual'] ?? null,
+    // Growth
+    epsGrowthTTM: m.epsGrowthTTMYoy   ?? null,
+    epsGrowth3Y:  m.epsGrowth3Y       ?? null,
+    epsGrowth5Y:  m.epsGrowth5Y       ?? null,
+    revGrowthTTM: m.revenueGrowthTTMYoy ?? null,
+    // Risk & income
+    beta:         m.beta              ?? null,
+    divYield:     m.currentDividendYieldTTM ?? null,
+    // Market
+    marketCapFH:  m.marketCapitalization ?? null, // in millions
+  }
+}
+
+/**
+ * fetchFMPProfile — fetches company profile from FMP /stable/profile.
+ * Returns sector, industry, description. Falls back silently on error.
+ */
 async function fetchFMPProfile(ticker) {
+  if (!FMP_KEY) return {}
   const symbol = fmpSymbol(ticker)
   const url    = `${FMP_URL}/profile?symbol=${encodeURIComponent(symbol)}&apikey=${FMP_KEY}`
   const data   = await fetchWithTimeout(url)
   if (!Array.isArray(data) || !data.length) throw new Error('FMP: no data')
   const p = data[0]
   return {
-    sector:       p.sector       || '--',
-    industry:     p.industry     || '--',
-    marketCap:    p.marketCap    || null,
-    beta:         p.beta         || null,
-    website:      p.website      || null,
-    lastDividend: p.lastDividend || null,
-    cik:          p.cik          || null,
-    description:  p.description  || null,
+    sector:      p.sector      || '--',
+    industry:    p.industry    || '--',
+    marketCap:   p.marketCap   || null, // in USD (absolute)
+    website:     p.website     || null,
+    description: p.description || null,
   }
 }
 
@@ -99,32 +154,68 @@ export function useFundamentals() {
   const [loading,      setLoading]      = useState(false)
   const [log,          setLog]          = useState('')
 
-  const fetchFundamentals = useCallback(async (stocks) => {
-    if (!stocks.length) return
+  const fetchFundamentals = useCallback(async (stocks, forceRefresh = false) => {
+    if (!stocks?.length) return
+    if (!FINNHUB_KEY) {
+      setLog('⚠ VITE_FINNHUB_KEY not set in .env — add your Finnhub API key')
+      return
+    }
     setLoading(true)
-    setLog('Fetching fundamentals...')
+    setLog(forceRefresh ? 'Refreshing fundamentals...' : 'Fetching fundamentals...')
 
-    const newData = { ...fundamentals }
+    // forceRefresh: start from empty so all tickers get re-fetched
+    const newData = forceRefresh ? {} : { ...fundamentals }
     let ok = 0, failed = []
 
     for (const s of stocks) {
-      if (newData[s.t] !== undefined) { ok++; continue }
+      // Skip only if we already have real data AND not forcing refresh
+      if (!forceRefresh && newData[s.t] !== undefined && newData[s.t] !== null && Object.keys(newData[s.t]).length > 0) {
+        ok++; continue
+      }
 
       try {
         setLog(`Fetching ${s.t}...`)
 
-        // FMP profile — single call, free plan
-        const fmpData = await fetchFMPProfile(s.t).catch(() => ({}))
+        // Finnhub — primary source for all metrics
+        const fh = await fetchFinnhubMetrics(s.t).catch(() => ({}))
+
+        // FMP profile — secondary source for sector/industry/description
+        const fmp = await fetchFMPProfile(s.t).catch(() => ({}))
+
+        // Determine partial data flag for European tickers or missing key fields
+        const keyFields = [fh.peTTM, fh.pegTTM, fh.netMarginTTM, fh.epsGrowthTTM]
+        const missingCount = keyFields.filter(v => v == null).length
+        const partialData = isEuropeanTicker(s.t) || missingCount >= 3
 
         newData[s.t] = {
-          sector:       fmpData.sector       || '--',
-          industry:     fmpData.industry     || '--',
-          marketCap:    fmpData.marketCap    || null,
-          beta:         fmpData.beta         || null,
-          website:      fmpData.website      || null,
-          lastDividend: fmpData.lastDividend || null,
-          cik:          fmpData.cik          || null,
-          description:  fmpData.description  || null,
+          // Identity
+          sector:       fmp.sector      || '--',
+          industry:     fmp.industry    || '--',
+          marketCap:    fmp.marketCap   || (fh.marketCapFH ? fh.marketCapFH * 1e6 : null),
+          website:      fmp.website     || null,
+          description:  fmp.description || null,
+          // Valuation (Finnhub)
+          peTTM:        fh.peTTM,
+          forwardPE:    fh.forwardPE,
+          pegTTM:       fh.pegTTM,
+          forwardPEG:   fh.forwardPEG,
+          pfcfTTM:      fh.pfcfTTM,
+          // Quality (Finnhub)
+          netMarginTTM: fh.netMarginTTM,
+          roeTTM:       fh.roeTTM,
+          roaTTM:       fh.roaTTM,
+          debtEquity:   fh.debtEquity,
+          // Growth (Finnhub)
+          epsGrowthTTM: fh.epsGrowthTTM,
+          epsGrowth3Y:  fh.epsGrowth3Y,
+          epsGrowth5Y:  fh.epsGrowth5Y,
+          revGrowthTTM: fh.revGrowthTTM,
+          // Risk & income (Finnhub)
+          beta:         fh.beta,
+          divYield:     fh.divYield,
+          // Meta
+          partialData,
+          fetchedAt:    new Date().toISOString(), // timestamp for freshness indicator
         }
 
         ok++
@@ -138,8 +229,8 @@ export function useFundamentals() {
         setFundamentals({ ...newData })
       }
 
-      // Rate limit: FMP 250/day, TD 8/min — 800ms gap is safe
-      await new Promise(r => setTimeout(r, 800))
+      // Rate limit: Finnhub 30 req/sec — 400ms gap is safe
+      await new Promise(r => setTimeout(r, 400))
     }
 
     setLoading(false)
