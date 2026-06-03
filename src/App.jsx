@@ -59,6 +59,7 @@ import AccuracyChart    from './components/AccuracyChart.jsx'
 import { useMarketData } from './hooks/useMarketData.js'
 import { useRole }        from './hooks/useRole.js'
 import ManageUsers       from './components/ManageUsers.jsx'
+import AllStocksPage     from './components/AllStocksPage.jsx'
 
 /**
  * App — the root component. See module header for full documentation.
@@ -390,6 +391,14 @@ export default function App() {
               onLoad={loadHistory}
               onLoadBatch={handleLoadBatch}
               onDeleteBatch={deleteBatch}
+            />
+          )}
+
+          {/* ── ALL STOCKS ── */}
+          {activePage === 'all-stocks' && (
+            <AllStocksPage
+              batches={history?.batches ?? []}
+              fundamentals={fundamentals}
             />
           )}
 

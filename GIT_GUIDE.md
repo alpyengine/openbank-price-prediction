@@ -718,3 +718,68 @@ Tests: 107/107 passing"
 
 git tag -a v7.0.6 -m "v7.0.6: Finnhub fundamentals"
 git push origin main && git push origin v7.0.6
+
+
+# ===========================================================================
+# STEP 117 — v7.1.0  All Stocks page
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   AllStocksPage (src/components/AllStocksPage.jsx) — new page:
+#     - Consolidated view of all unique tickers across all batches
+#     - Deduplication: most recent batch wins — one row per ticker
+#       If ticker appears in multiple batches: "· Nx" in Batch column
+#     - Investment Score (0–100): Upside×40% + PEG×45% + Margin×15%
+#       −20 penalty if EPS growth negative (Lynch value trap)
+#     - Horizon dropdown (1M/3M/6M/12M) in column header
+#       Changes entire Upside column + KPI + sort recalculates
+#     - Sort by Upside or Score (asc/desc) via column header click
+#     - Filters: sector dropdown, PEG range, Score minimum slider
+#     - Collapsible legend: Score colour codes + PEG Lynch interpretation
+#     - CSV export — all visible rows with current horizon
+#     - Score badges: 🟣 80+ / 🔵 60+ / 🟡 40+ / ⚫ <40
+#     - PEG colours: green <1 / amber 1-2 / red >2 / ⚠ Neg
+#     - KPIs: Total stocks, Avg Upside (selected horizon), Stocks w/ Score, Top Score
+#
+#   Sidebar.jsx — "All Stocks" added as 4th nav item (Globe icon)
+#
+#   App.jsx — 'all-stocks' route added, passes batches + fundamentals
+#
+# No npm install needed.
+# No Supabase changes needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.1.0/. .
+
+git add .
+git commit -m "feat: All Stocks page (v7.1.0)
+
+AllStocksPage — consolidated view of all unique tickers across batches.
+
+Deduplication: most recent batch wins. One row per ticker.
+Multiple batches for same ticker shows '· Nx' in Batch column.
+
+Investment Score (0-100):
+  Upside×40% + PEG×45% + NetMargin×15% - 20 if EPS negative
+  Score badges: purple 80+ / blue 60+ / amber 40+ / grey <40
+
+Horizon selector: 1M/3M/6M/12M dropdown in Upside column header.
+Changing horizon updates entire column, KPI and sort order.
+
+Sorting: Upside and Score columns — click header to toggle asc/desc.
+
+Filters: sector, PEG range (undervalued/fair/expensive), score minimum.
+Legend: collapsible panel explaining all colour codes (Score + PEG Lynch).
+CSV export: all visible rows with selected horizon.
+
+PEG: green <1 / amber 1-2 / red >2 / warning badge if EPS negative.
+Sparkline: placeholder (weekly_prices integration in v7.1.2).
+
+Sidebar: 'All Stocks' nav item added (Globe icon, position 4).
+App.jsx: all-stocks route wired, passes batches + fundamentals.
+
+Tests: 107/107 passing"
+
+git tag -a v7.1.0 -m "v7.1.0: All Stocks page"
+git push origin main && git push origin v7.1.0

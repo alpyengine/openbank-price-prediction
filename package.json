@@ -1,6 +1,6 @@
 {
   "name": "openbank-price-prediction",
-  "version": "7.0.6",
+  "version": "7.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
