@@ -22,6 +22,7 @@
  * @param {boolean}  marketLoading    — true while fetching market data
  * @param {Object[]} stocks           — current stock array (used to detect market)
  * @param {Function} onFetchMarket    — trigger market data fetch
+ * @param {Function} onRefreshMarket  — force re-fetch market data (clears existing)
  * @param {Object[]} batches          — saved batches for the selector
  * @param {string}   loadedBatchDate  — date of currently loaded batch
  * @param {Function} onLoadBatch      — called when user selects a batch
@@ -156,7 +157,7 @@ function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
 export default function FetchBar({
   log, fetching, onFetch,
   fundLog, fundLoading, onFetchFundamentals, onRefreshFundamentals,
-  marketLog, marketLoading, stocks, onFetchMarket,
+  marketLog, marketLoading, stocks, onFetchMarket, onRefreshMarket,
   batches, loadedBatchDate, onLoadBatch,
   onSave, saving,
 }) {
@@ -221,16 +222,30 @@ export default function FetchBar({
 
       {/* ── Fetch market data — only for US/EU batches ─────────────────── */}
       {showMarket && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="shrink-0 whitespace-nowrap"
-          disabled={anyLoading}
-          onClick={onFetchMarket}
-        >
-          {marketLoading ? <Spinner /> : '↓'}
-          {marketLoading ? 'Loading…' : 'Market data'}
-        </Button>
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 whitespace-nowrap"
+            disabled={anyLoading}
+            onClick={onFetchMarket}
+          >
+            {marketLoading ? <Spinner /> : '↓'}
+            {marketLoading ? 'Loading…' : 'Market data'}
+          </Button>
+
+          {/* ── Refresh market — force re-fetch clearing existing data ──── */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 whitespace-nowrap"
+            disabled={anyLoading}
+            onClick={onRefreshMarket}
+            title="Force re-fetch all market data (replaces existing)"
+          >
+            ↺ Refresh
+          </Button>
+        </>
       )}
 
       {/* ── Batch selector ─────────────────────────────────────────────── */}

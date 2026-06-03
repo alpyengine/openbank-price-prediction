@@ -32,6 +32,21 @@ import { cn } from '@/lib/utils'
  * Detects and skips header rows automatically.
  * Sets preview state and calls onImport on success.
  */
+/**
+ * normalizeTicker — strips .US suffix from American tickers.
+ * European suffixes (.DE, .AS, .PA, .L, .MC) are preserved
+ * because they identify the exchange (e.g. NEM.DE ≠ NEM).
+ * American .US suffix is redundant — TER.US and TER are the same stock.
+ * This is the SINGLE point of normalization for the entire app.
+ */
+const EU_SUFFIXES = ['.DE', '.AS', '.PA', '.L', '.MC']
+
+function normalizeTicker(raw) {
+  const upper = raw.toUpperCase().trim()
+  if (EU_SUFFIXES.some(s => upper.endsWith(s))) return upper
+  return upper.replace(/\.US$/i, '')
+}
+
 function parseCSV(text, onImport, setError, setCsv, setMsg, setPreview) {
   setError(''); setMsg('')
 
@@ -55,7 +70,7 @@ function parseCSV(text, onImport, setError, setCsv, setMsg, setPreview) {
     if (p.length < 8) { bad.push(`Row ${i + 1}: needs at least 8 fields`); return }
     const base = p[8] ? parseDate(p[8]) : TODAY
     stocks.push({
-      t:   p[0].toUpperCase(),
+      t:   normalizeTicker(p[0]),  // .US stripped, .DE/.AS etc. preserved
       co:  p[1],
       cu:  p[2],
       b:   +p[3] || 0,

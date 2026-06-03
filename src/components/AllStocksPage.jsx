@@ -14,8 +14,8 @@
  *   - Investment Score badge (purple / blue / amber / grey)
  *   - PEG color (green < 1 / amber 1–2 / red > 2 / ⚠ Neg)
  *
- * @param {Array}  batches      — all saved batches from useHistory
- * @param {Object} fundamentals — { [ticker]: { sector, peTTM, pegTTM, ... } }
+ * @param {Array}  batches      — all saved batches from useHistory (each has .fundamentals field)
+ * @param {Object} fundamentals — active-batch fundamentals from useFundamentals (merged as override)
  * @param {Object} weeklyPrices — { [ticker_batchId]: [{ week, close_price }] }
  */
 import { useState, useMemo, useRef, useEffect } from 'react'
@@ -70,47 +70,93 @@ function calcScore(upside12, fundamental) {
 
 // ── Deduplication — most recent batch wins ────────────────────────────────────
 
+/**
+ * deduplicateStocks — builds a single list of unique tickers across all batches.
+ *
+ * Why deduplication is needed:
+ *   The same ticker (e.g. MU) can appear in multiple batches.
+ *   All Stocks shows one row per ticker — the most recent batch wins.
+ *
+ * Why we group by ticker first:
+ *   Supabase stores each horizon (1M/3M/6M/12M) as a separate row in results[].
+ *   So MU in one batch = 4 rows: { ticker:"MU", horizon:"1M", targetPrice:674 },
+ *   { ticker:"MU", horizon:"3M", targetPrice:844 }, etc.
+ *   We must group these 4 rows to get t1/t3/t6/t12 for a single stock object.
+ *
+ * @param {Array} batches — all batches from useHistory (already loaded from Supabase)
+ * @returns {Array} — one stock object per unique ticker, with u1/u3/u6/u12 upside %
+ */
 function deduplicateStocks(batches) {
   if (!batches?.length) return []
 
-  // Sort batches by date desc (most recent first)
+  // Step 1 — sort batches oldest→newest so newest overwrites on duplicate tickers
   const sorted = [...batches].sort((a, b) => {
     const [da, ma, ya] = (a.date || '').split('/').map(Number)
     const [db, mb, yb] = (b.date || '').split('/').map(Number)
-    return new Date(yb, mb - 1, db) - new Date(ya, ma - 1, da)
+    return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db)
   })
 
-  const map = new Map()   // ticker → stock data
-  const counts = new Map() // ticker → batch count
+  // map: normTicker → stock data (newest batch wins)
+  // counts: normTicker → how many batches contain this ticker
+  const map    = new Map()
+  const counts = new Map()
 
   for (const batch of sorted) {
     if (!batch.results) continue
-    const seen = new Set()
+
+    // Step 2 — group the 4 horizon rows per ticker within this batch
+    // e.g. { "MU": { raw:"MU", rows:[{horizon:"1M",...},{horizon:"3M",...},...] } }
+    const byTicker = new Map()
     for (const r of batch.results) {
-      const ticker = r.ticker || r.t
-      if (!ticker || seen.has(ticker)) continue
-      seen.add(ticker)
-      counts.set(ticker, (counts.get(ticker) || 0) + 1)
-      if (!map.has(ticker)) {
-        map.set(ticker, {
-          t:       ticker,
-          co:      r.company || r.co || ticker,
-          b:       r.basePrice || r.b || 0,
-          t1:      r.target1M  || r.t1  || 0,
-          t3:      r.target3M  || r.t3  || 0,
-          t6:      r.target6M  || r.t6  || 0,
-          t12:     r.target12M || r.t12 || 0,
-          base:    r.base || null,
-          batchId: batch.id,
-          batchDate: batch.date,
-        })
+      const rawTicker  = r.ticker || r.t || ''
+      // Normalise: strip .US suffix (TER.US → TER), keep European suffixes (NEM.DE)
+      const normTicker = rawTicker.replace(/\.US$/i, '')
+      if (!normTicker) continue
+      if (!byTicker.has(normTicker)) {
+        byTicker.set(normTicker, { raw: rawTicker, rows: [] })
       }
+      byTicker.get(normTicker).rows.push(r)
+    }
+
+    // Step 3 — build one stock object per ticker from the grouped rows
+    for (const [normTicker, { raw, rows }] of byTicker) {
+      // Track how many batches contain this ticker
+      counts.set(normTicker, (counts.get(normTicker) || 0) + 1)
+
+      // Most recent batch wins — overwrite any previous entry
+      // (sorted oldest first so last write = newest)
+
+      // Helper: find targetPrice for a given horizon label (1M / 3M / 6M / 12M)
+      const getTarget = h => {
+        const row = rows.find(r => (r.horizon || '').toUpperCase() === h)
+        return row?.targetPrice || 0
+      }
+
+      const r0   = rows[0]
+      const base = r0?.basePrice || r0?.b || 0
+
+      map.set(normTicker, {
+        t:         raw,         // original ticker as stored (e.g. "MU")
+        tNorm:     normTicker,  // normalised ticker for lookups (e.g. "MU")
+        co:        r0?.company || r0?.co || normTicker,
+        b:         base,
+        t1:        getTarget('1M'),
+        t3:        getTarget('3M'),
+        t6:        getTarget('6M'),
+        t12:       getTarget('12M'),
+        base:      r0?.base || null,
+        batchId:   batch.id,
+        batchDate: batch.date,
+      })
     }
   }
 
+  // Step 4 — compute upside % for each horizon and attach batchCount
   return Array.from(map.values()).map(s => ({
     ...s,
-    batchCount: counts.get(s.t) || 1,
+    batchCount: counts.get(s.tNorm) || 1,
+    // Upside % = (target - base) / base × 100
+    // null if either value is missing or zero
     u1:  s.b > 0 && s.t1  > 0 ? ((s.t1  - s.b) / s.b * 100) : null,
     u3:  s.b > 0 && s.t3  > 0 ? ((s.t3  - s.b) / s.b * 100) : null,
     u6:  s.b > 0 && s.t6  > 0 ? ((s.t6  - s.b) / s.b * 100) : null,
@@ -265,7 +311,8 @@ function Legend() {
 // ── CSV export ────────────────────────────────────────────────────────────────
 
 function exportCSV(rows, horizon) {
-  const hKey = 'u' + horizon.toLowerCase()
+  // Map horizon label to stock field: '1M'→'u1', '3M'→'u3', '6M'→'u6', '12M'→'u12'
+  const hKey = { '1M': 'u1', '3M': 'u3', '6M': 'u6', '12M': 'u12' }[horizon] ?? 'u12'
   const header = 'Ticker,Company,Sector,Upside,Score,PEG,NetMargin,EpsGrowth,Batch,Batches'
   const lines  = rows.map(r => [
     r.t, r.co, r.sector || '',
@@ -297,19 +344,43 @@ export default function AllStocksPage({ batches, fundamentals }) {
   // Deduplicate stocks from all batches
   const baseStocks = useMemo(() => deduplicateStocks(batches), [batches])
 
+  // Merge fundamentals from ALL batches — oldest first so newest batch wins
+  // Each batch has its own fundamentals field saved in Supabase.
+  // This means All Stocks always shows fresh fundamentals for every ticker
+  // regardless of which batch is currently active in memory.
+  const allFundamentals = useMemo(() => {
+    const merged = {}
+    // Sort batches oldest first so newest overwrites (newest wins)
+    const sorted = [...(batches ?? [])].sort((a, b) => {
+      const [da, ma, ya] = (a.date || '').split('/').map(Number)
+      const [db, mb, yb] = (b.date || '').split('/').map(Number)
+      return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db)
+    })
+    for (const batch of sorted) {
+      if (batch.fundamentals && typeof batch.fundamentals === 'object') {
+        Object.assign(merged, batch.fundamentals)
+      }
+    }
+    // Also merge active-batch fundamentals from memory (may be more recent)
+    if (fundamentals && typeof fundamentals === 'object') {
+      Object.assign(merged, fundamentals)
+    }
+    return merged
+  }, [batches, fundamentals])
+
   // Merge fundamentals + score
   const stocks = useMemo(() => baseStocks.map(s => {
-    const f = fundamentals?.[s.t]
-    const score  = calcScore(s.u12, f)
+    const f = allFundamentals[s.t] || allFundamentals[s.tNorm]
+    const score = calcScore(s.u12, f)
     return {
       ...s,
-      sector:     f?.sector     || '—',
-      peg:        f?.pegTTM     ?? null,
-      margin:     f?.netMarginTTM ?? null,
-      epsGrowth:  f?.epsGrowthTTM ?? null,
+      sector:    f?.sector        || '—',
+      peg:       f?.pegTTM        ?? null,
+      margin:    f?.netMarginTTM  ?? null,
+      epsGrowth: f?.epsGrowthTTM  ?? null,
       score,
     }
-  }), [baseStocks, fundamentals])
+  }), [baseStocks, allFundamentals])
 
   // Unique sectors for filter
   const sectors = useMemo(() => {
@@ -317,7 +388,8 @@ export default function AllStocksPage({ batches, fundamentals }) {
     return Array.from(s).sort()
   }, [stocks])
 
-  const hKey = 'u' + horizon.toLowerCase()
+  // Map horizon label to stock field: '1M'→'u1', '3M'→'u3', '6M'→'u6', '12M'→'u12'
+  const hKey = { '1M': 'u1', '3M': 'u3', '6M': 'u6', '12M': 'u12' }[horizon] ?? 'u12'
 
   // Filter
   const filtered = useMemo(() => stocks.filter(s => {
@@ -483,10 +555,10 @@ export default function AllStocksPage({ batches, fundamentals }) {
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-[9px] font-black shrink-0">
-                        {s.t.slice(0, 3)}
+                        {s.tNorm.slice(0, 3)}
                       </div>
                       <div>
-                        <div className="font-bold text-foreground">{s.t}</div>
+                        <div className="font-bold text-foreground">{s.tNorm}</div>
                         <div className="text-[10px] text-muted-foreground">{s.co}</div>
                       </div>
                     </div>

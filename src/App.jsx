@@ -279,6 +279,14 @@ export default function App() {
                 baseDate: stocks.find(s => s.base)?.base,
                 existingMarketData: marketData,
               })}
+              onRefreshMarket={() => {
+                resetMarketData()
+                fetchMarketData({
+                  stocks, fundamentals,
+                  baseDate: stocks.find(s => s.base)?.base,
+                  existingMarketData: null,
+                })
+              }}
               batches={history?.batches ?? []}
               loadedBatchDate={loadedBatchDate}
               onLoadBatch={handleLoadBatch}

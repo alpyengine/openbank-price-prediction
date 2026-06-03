@@ -783,3 +783,118 @@ Tests: 107/107 passing"
 
 git tag -a v7.1.0 -m "v7.1.0: All Stocks page"
 git push origin main && git push origin v7.1.0
+
+
+# ===========================================================================
+# STEP 118 — v7.1.1  Ticker normalisation — .US stripped at import
+# ===========================================================================
+#
+# PROBLEM SOLVED:
+#   Batches imported before May 2026 used bare tickers (TER, MU, GEN).
+#   Batches imported from May 2026 used .US suffix (TER.US, MU.US).
+#   This caused duplicate rows in All Stocks and missing fundamentals/
+#   weekly_prices because "TER" ≠ "TER.US" in Supabase lookups.
+#
+# SOLUTION — single normalisation point in ImportBox.jsx:
+#   normalizeTicker() called at CSV parse time (line 73)
+#   - American tickers: TER.US → TER (strip .US — redundant)
+#   - European tickers: NEM.DE → NEM.DE (keep suffix — identifies exchange)
+#   - Already bare:     TER    → TER (no change)
+#
+# LOGIC:
+#   US suffix is redundant — APIs (Twelve Data, Finnhub, FMP) all accept
+#   bare tickers for US stocks. European suffixes are NOT redundant —
+#   NEM.DE (Nemetschek/Xetra) ≠ NEM (Newmont/NYSE).
+#
+# DOWNSTREAM — no other files changed:
+#   usePriceFetch.js  — getSuffix() returns 'US' for bare tickers → correct
+#   useFundamentals.js — already strips all suffixes for API calls → correct
+#   storage.js        — already strips for price_cache lookups → correct
+#   AllStocksPage.jsx — dedup normalization becomes a no-op → correct
+#   StockRow.jsx      — visual strip of .DE/.AS etc. still needed → unchanged
+#
+# SUPABASE MIGRATION REQUIRED — execute in order:
+#
+#   -- 1. Delete weekly_prices for May batches (have .US tickers)
+#   delete from weekly_prices
+#   where batch_id in ('2026-05-06','2026-05-08','2026-05-14','2026-05-21');
+#
+#   -- 2. Delete price_cache for .US tickers
+#   delete from price_cache
+#   where ticker like '%.US';
+#
+#   -- 3. Delete May batches
+#   delete from batches
+#   where id in ('2026-05-06','2026-05-08','2026-05-14','2026-05-21');
+#
+#   -- 4. Re-import the 4 May batches from the app (CSV → Import page)
+#      The new ImportBox strips .US automatically.
+#
+#   -- 5. Check missing weekly_prices
+#   select count(*) as missing from (
+#     select distinct r.value->>'ticker', b.id, w.week_num
+#     from batches b,
+#          jsonb_array_elements(b.results) as r(value),
+#          generate_series(1, 9) as w(week_num)
+#     where r.value->>'horizon' = '1M'
+#       and (date_trunc('week',
+#             (make_date(split_part(b.date,'/',3)::int,
+#                        split_part(b.date,'/',2)::int,
+#                        split_part(b.date,'/',1)::int)
+#              + (w.week_num * 7))::timestamp)::date + 4) < current_date
+#       and not exists (
+#         select 1 from weekly_prices wp
+#         where wp.ticker = r.value->>'ticker'
+#           and wp.batch_id = b.id
+#           and wp.week = w.week_num
+#       )
+#   ) x;
+#
+#   -- 6. If missing > 0 → start backfill cron
+#   select cron.schedule('backfill-weekly-prices','*/2 * * * *',
+#     'select backfill_weekly_prices()');
+#
+#   -- 7. When missing = 0 → stop backfill
+#   select cron.unschedule('backfill-weekly-prices');
+#
+#   -- 8. Manual backup
+#   select backup_to_github();
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.1.1/. .
+
+git add .
+git commit -m "fix: ticker normalisation + All Stocks data fixes (v7.1.1)
+
+Ticker normalisation (ImportBox.jsx):
+  normalizeTicker() strips .US at CSV parse time — single point of truth.
+  American .US stripped (TER.US → TER) — redundant for US APIs.
+  European suffixes preserved (NEM.DE → NEM.DE) — identifies exchange.
+
+All Stocks — fundamentals from all batches (AllStocksPage.jsx):
+  Was: only active-batch fundamentals → all other batches showed --.
+  Now: merges fundamentals from ALL batches in history.batches.
+  Newest batch wins on duplicate tickers. Active-batch memory merged last.
+
+All Stocks — upside % now populated (AllStocksPage.jsx):
+  Was: deduplicateStocks looked for r.target1M / r.t1 which don't exist
+       in Supabase — each ticker has 4 separate rows, one per horizon.
+  Now: groups the 4 horizon rows per ticker first, then extracts
+       targetPrice from each horizon row (horizon:'1M', '3M', '6M', '12M').
+  Code is fully commented explaining the Supabase data structure.
+
+FetchBar.jsx — Refresh Market button added:
+  Same pattern as Refresh Fundamentals. Clears existing market data
+  and re-fetches from scratch. Wrapped in Fragment to fix JSX syntax.
+
+Supabase migration (done separately):
+  Deleted May 2026 batches + weekly_prices + price_cache .US tickers.
+  Re-imported 5 batches with normalised tickers. Backfill completed.
+
+Tests: 107/107 passing"
+
+git tag -a v7.1.1 -m "v7.1.1: ticker normalisation"
+git push origin main && git push origin v7.1.1
+
