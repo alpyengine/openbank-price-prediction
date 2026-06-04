@@ -1,15 +1,53 @@
 /**
  * stocks.js — Stock prediction utility functions
  *
- * Core logic for evaluating Openbank price predictions.
+ * Core logic for evaluating Openbank AI price predictions.
  * All verdict-related decisions in the app flow through these functions —
  * bars, boxes, badges, and batch save all use the same evaluation logic.
  *
- * Key concept — Unified verdict system (v6.5.6+):
+ * Key concept — Unified verdict system:
  *   evaluatePrediction() is the single source of truth for all verdicts.
  *   No component should implement its own hit/miss logic.
+ *
+ * Verdict system (v7.3.0+):
+ *   'exceeded'  — price surpassed target in the correct direction (bullish: above, bearish: below)
+ *   'hit'       — price within ±H% of target (the sweet spot)
+ *   'close'     — price between −H% and −(H×R)% of target (nearly there)
+ *   'miss'      — price more than −(H×R)% away from target (didn't reach)
+ *   'wrong_way' — price moved in the opposite direction to the forecast
+ *   null        — no price available yet
+ *
+ * Two evaluation modes:
+ *   snapshot — fixed parameters per horizon (stored in Supabase, used for Accuracy Stats)
+ *   live     — dynamic parameters from slider (used in Batch Details, not stored)
  */
 import { targetDates } from './dates.js'
+
+// ── Snapshot parameters — fixed per horizon for Supabase storage ──────────────
+//
+// These values are used when saving a batch verdict to Supabase.
+// They ensure ALL batches are evaluated with the same consistent criteria,
+// making Accuracy Stats and Batch Overview comparable across all batches.
+//
+// H = hit margin % (symmetric band around target)
+// R = close ratio (close threshold = H × R below target)
+//
+// Statistical rationale:
+//   1M  H=3%:  daily vol ~1-2%, ±3% = 1-2 trading days of noise
+//   3M  H=5%:  industry standard for 3M analyst targets
+//   6M  H=7%:  allows for macro events; ratio 1.8× to avoid too-wide miss band
+//   12M H=10%: typical AI model annual tracking error; ratio 1.6× for balance
+//
+export const SNAPSHOT_PARAMS = {
+  '1M':  { H: 3,  R: 2.0 },   // close: −3% to −6%,    miss: < −6%
+  '3M':  { H: 5,  R: 2.0 },   // close: −5% to −10%,   miss: < −10%
+  '6M':  { H: 7,  R: 1.8 },   // close: −7% to −12.6%, miss: < −12.6%
+  '12M': { H: 10, R: 1.6 },   // close: −10% to −16%,  miss: < −16%
+}
+
+// Default close ratio for live (slider) mode in Batch Details
+// Exported so UI components can use it as the default value
+export const CLOSE_RATIO_DEFAULT = 2.4
 
 // ── Target price accessors ────────────────────────────────────────────────────
 
@@ -56,7 +94,7 @@ export function getTargetDate(stock, horizon) {
 
 /**
  * Builds the key used to look up historical prices in the histPrices map.
- * Format: "TICKER_HORIZON" e.g. "TER_1M", "SLB.US_12M"
+ * Format: "TICKER_HORIZON" e.g. "TER_1M", "MU_12M"
  *
  * @param {string} ticker  — stock ticker
  * @param {string} horizon — horizon key
@@ -67,28 +105,32 @@ export function histKey(ticker, horizon) {
 }
 
 /**
- * getEffectivePrice — resolves which price to display for a stock/horizon.
+ * getEffectivePrice — resolves which price to use for a stock/horizon pair.
  *
- * Price resolution priority:
+ * Price resolution priority (highest to lowest):
  *   1. Manual override (user-entered price) — always takes precedence
- *   2. Historical close price (for expired horizons) — from histPrices
+ *   2. Historical close price (for expired horizons) — from histPrices cache
  *   3. Current auto-fetched price (from Twelve Data API)
  *   4. null — no price available
  *
+ * IMPORTANT: each horizon column must call this with its OWN horizon key,
+ * not the globally selected horizon. This ensures closed columns (e.g. 1M)
+ * always show their historical price even when the user selects 3M in the dropdown.
+ *
  * @param {string}  ticker          — stock ticker
- * @param {string}  horizon         — horizon key
+ * @param {string}  horizon         — the SPECIFIC horizon for this column (not global)
  * @param {Object}  autoPrices      — { [ticker]: number } current prices
  * @param {Object}  histPrices      — { [ticker_horizon]: { price, date } }
  * @param {Object}  overrides       — { [ticker]: number } manual overrides
- * @param {boolean} horizonExpired  — true if target date has passed
+ * @param {boolean} horizonExpired  — true if this specific horizon's target date has passed
  * @returns {{ price: number|null, isHistorical: boolean, historicalDate: string|null }}
  */
 export function getEffectivePrice(ticker, horizon, autoPrices, histPrices, overrides, horizonExpired) {
-  // 1. Manual override takes priority
+  // 1. Manual override always wins
   const ov = overrides[ticker]
   if (ov && ov > 0) return { price: ov, isHistorical: false, historicalDate: null }
 
-  // 2. Historical close price (only for expired non-best horizons)
+  // 2. Historical close price — only for expired non-best horizons
   if (horizonExpired && horizon !== 'best') {
     const key  = histKey(ticker, horizon)
     const hist = histPrices[key]
@@ -105,10 +147,10 @@ export function getEffectivePrice(ticker, horizon, autoPrices, histPrices, overr
 }
 
 /**
- * effectivePrice — simplified version for use outside React components.
+ * effectivePrice — simplified price resolver for use outside React components.
  * Returns just the price number (override > auto > null).
  *
- * @param {string} ticker    — stock ticker
+ * @param {string} ticker     — stock ticker
  * @param {Object} autoPrices — { [ticker]: number }
  * @param {Object} overrides  — { [ticker]: number }
  * @returns {number|null}
@@ -125,7 +167,7 @@ export function effectivePrice(ticker, autoPrices, overrides) {
 
 /**
  * distancePct — percentage distance from price to target.
- * Always computed as (price - target) / target × 100.
+ * Computed as (price - target) / target × 100.
  * Positive = price above target. Negative = price below target.
  *
  * @param {number|null} price  — current or historical price
@@ -140,53 +182,138 @@ export function distancePct(price, target) {
 /**
  * evaluatePrediction — direction-aware prediction evaluation.
  *
- * THE single source of truth for all verdict decisions in the app (v6.5.6+).
+ * THE single source of truth for all verdict decisions in the app.
  * Used by SummaryCards, StockRow bars, HorizonCards, BatchSimple, and saveBatch.
  *
- * A prediction has a DIRECTION based on target vs base price:
- *   bullish  → target > base  (Openbank expects price to rise)
- *   bearish  → target < base  (Openbank expects price to fall)
- *   neutral  → target = base
+ * --- DIRECTION ---
+ * A prediction's direction is determined by target vs base price:
+ *   bullish → target > base  (Openbank expects price to rise)
+ *   bearish → target < base  (Openbank expects price to fall)
+ *   neutral → target = base
  *
- * HIT criteria:
- *   bullish: price >= target   (price reached or exceeded the forecast)
- *   bearish: price <= target   (price dropped to the target or below)
- *   neutral: price within ±margin% of target
+ * --- VERDICTS ---
+ * exceeded  — price surpassed the target in the correct direction
+ *             bullish: price > target + H%
+ *             bearish: price < target - H%
+ *             Colour: blue. Counts as success in extended hit rate.
  *
- * CLOSE: price within ±margin% of target but hasn't technically hit it.
- * MISS:  price is more than ±margin% away from target.
+ * hit       — price landed within ±H% of target (the sweet spot)
+ *             Colour: green. Counts as success in both hit rates.
  *
- * @param {number|null} price     — current or historical price
- * @param {number|null} target    — forecast target price
- * @param {number}      basePrice — price on the day the forecast was published
- * @param {number}      margin    — hit tolerance in % (default 5)
- * @returns {{ verdict: 'hit'|'close'|'miss'|null, direction: 'bullish'|'bearish'|'neutral', distAbs: number }}
+ * close     — price is between −H% and −(H×closeRatio)% of target
+ *             Got close but didn't reach. Not a success.
+ *             Colour: amber.
+ *
+ * miss      — price is more than −(H×closeRatio)% below target
+ *             Clearly didn't reach the forecast.
+ *             Colour: red.
+ *
+ * wrong_way — price moved in the opposite direction to the forecast
+ *             bullish prediction but price dropped well below base,
+ *             or bearish prediction but price rose well above base.
+ *             Colour: purple.
+ *
+ * --- TWO MODES ---
+ * snapshot mode: pass horizon string — uses SNAPSHOT_PARAMS fixed values
+ *                Used when saving to Supabase (consistent across all batches)
+ *
+ * live mode:     pass hitMargin + closeRatio from slider
+ *                Used in Batch Details for interactive analysis (not saved)
+ *
+ * --- BACKWARDS COMPATIBILITY ---
+ * Existing callers passing only (price, target, base, margin) still work.
+ * They use live mode with closeRatio = CLOSE_RATIO_DEFAULT.
+ *
+ * @param {number|null} price       — current or historical price
+ * @param {number|null} target      — forecast target price
+ * @param {number}      basePrice   — price on the day forecast was published
+ * @param {number}      hitMargin   — hit tolerance % for live mode (default 5)
+ * @param {object}      [opts]      — optional settings
+ * @param {string}      [opts.horizon]    — horizon key for snapshot mode ('1M'|'3M'|'6M'|'12M')
+ * @param {number}      [opts.closeRatio] — close zone multiplier for live mode (default 2.4)
+ * @returns {{
+ *   verdict:   'exceeded'|'hit'|'close'|'miss'|'wrong_way'|null,
+ *   direction: 'bullish'|'bearish'|'neutral',
+ *   distAbs:   number,
+ *   H:         number,
+ *   closeThreshold: number
+ * }}
  */
-export function evaluatePrediction(price, target, basePrice, margin = 5) {
-  if (price == null || target == null) return { verdict: null, direction: 'neutral' }
+export function evaluatePrediction(price, target, basePrice, hitMargin = 5, opts = {}) {
+  if (price == null || target == null) return { verdict: null, direction: 'neutral', distAbs: 0, H: hitMargin, closeThreshold: hitMargin * CLOSE_RATIO_DEFAULT }
 
+  // Determine direction from target vs base
   const direction = target > basePrice ? 'bullish'
                   : target < basePrice ? 'bearish'
                   : 'neutral'
 
-  // Unsigned distance for proximity check (hit margin)
-  const distAbs = Math.abs((price - target) / target * 100)
-  const isClose = distAbs <= margin
-
-  let verdict
-  if (direction === 'bullish') {
-    if (price >= target) verdict = 'hit'
-    else if (isClose)    verdict = 'close'
-    else                 verdict = 'miss'
-  } else if (direction === 'bearish') {
-    if (price <= target) verdict = 'hit'
-    else if (isClose)    verdict = 'close'
-    else                 verdict = 'miss'
+  // Resolve H and R based on mode:
+  //   snapshot mode → use SNAPSHOT_PARAMS for the given horizon
+  //   live mode     → use hitMargin + closeRatio from caller
+  let H, R
+  if (opts.horizon && SNAPSHOT_PARAMS[opts.horizon]) {
+    // Snapshot mode — fixed params for this horizon
+    H = SNAPSHOT_PARAMS[opts.horizon].H
+    R = SNAPSHOT_PARAMS[opts.horizon].R
   } else {
-    verdict = isClose ? 'hit' : 'miss'
+    // Live mode — dynamic params from slider
+    H = hitMargin
+    R = opts.closeRatio ?? CLOSE_RATIO_DEFAULT
   }
 
-  return { verdict, direction, distAbs }
+  // closeThreshold = H × R  (e.g. H=5, R=2.0 → 10% below target = miss)
+  const closeThreshold = H * R
+
+  // Signed distance: positive = above target, negative = below target
+  const signedDist = (price - target) / target * 100
+  // Unsigned distance for proximity checks
+  const distAbs = Math.abs(signedDist)
+
+  let verdict
+
+  if (direction === 'bullish') {
+    // Bullish: target > base, we want price to rise to/above target
+    if (price > target * (1 + H / 100)) {
+      // Price surpassed target by more than H% → exceeded
+      verdict = 'exceeded'
+    } else if (distAbs <= H) {
+      // Price within ±H% of target → hit
+      verdict = 'hit'
+    } else if (signedDist < 0 && distAbs <= closeThreshold) {
+      // Price below target but within close threshold → close
+      verdict = 'close'
+    } else if (signedDist < 0 && distAbs > closeThreshold) {
+      // Price significantly below target → miss or wrong_way
+      // wrong_way: price fell below base (went the opposite direction)
+      verdict = price < basePrice ? 'wrong_way' : 'miss'
+    } else {
+      // Price below target but outside close threshold
+      verdict = 'miss'
+    }
+  } else if (direction === 'bearish') {
+    // Bearish: target < base, we want price to fall to/below target
+    if (price < target * (1 - H / 100)) {
+      // Price dropped more than H% below target → exceeded
+      verdict = 'exceeded'
+    } else if (distAbs <= H) {
+      // Price within ±H% of target → hit
+      verdict = 'hit'
+    } else if (signedDist > 0 && distAbs <= closeThreshold) {
+      // Price above target but within close threshold → close
+      verdict = 'close'
+    } else if (signedDist > 0 && distAbs > closeThreshold) {
+      // Price significantly above target → miss or wrong_way
+      // wrong_way: price rose above base (went the opposite direction)
+      verdict = price > basePrice ? 'wrong_way' : 'miss'
+    } else {
+      verdict = 'miss'
+    }
+  } else {
+    // Neutral direction: just check proximity
+    verdict = distAbs <= H ? 'hit' : 'miss'
+  }
+
+  return { verdict, direction, distAbs, H, closeThreshold }
 }
 
 /**

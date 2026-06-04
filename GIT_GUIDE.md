@@ -1263,3 +1263,71 @@ Tests: 150/150 passing"
 git tag -a v7.2.1 -m "v7.2.1: invite-user Edge Function"
 git push origin main && git push origin v7.2.1
 
+
+# ===========================================================================
+# STEP 124 — v7.3.0  New verdict system — exceeded + wrong_way
+# ===========================================================================
+#
+# WHAT'S NEW — stocks.js only (no React components changed yet):
+#
+#   Two new verdict values:
+#     'exceeded'  — price surpassed target in correct direction
+#                   bullish: price > target + H%
+#                   bearish: price < target − H%
+#                   Colour: blue (implemented in v7.3.1)
+#     'wrong_way' — price moved opposite to forecast direction
+#                   bullish: price fell below base price
+#                   bearish: price rose above base price
+#                   Colour: purple (implemented in v7.3.1)
+#
+#   Two evaluation modes:
+#     snapshot mode: pass opts.horizon → uses SNAPSHOT_PARAMS fixed values
+#                    Used when saving to Supabase (consistent across batches)
+#     live mode:     pass hitMargin + opts.closeRatio → dynamic from slider
+#                    Used in Batch Details (not saved to Supabase)
+#
+#   New exports:
+#     SNAPSHOT_PARAMS      — fixed H and R per horizon (1M/3M/6M/12M)
+#     CLOSE_RATIO_DEFAULT  — default 2.4 for live mode
+#
+#   Backwards compatible:
+#     Existing callers passing only (price, target, base, margin) still work.
+#     They use live mode with closeRatio=2.4 (CLOSE_RATIO_DEFAULT).
+#
+#   Tests: 14 new tests added → total 164 (was 150)
+#     SNAPSHOT_PARAMS constants
+#     exceeded and wrong_way verdicts for bullish and bearish
+#     snapshot mode ignoring hitMargin parameter
+#     custom closeRatio in opts
+#
+# No npm install needed.
+# No Supabase changes needed in this version.
+# React components updated in v7.3.1.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.0/. .
+
+git add .
+git commit -m "feat: new verdict system — exceeded + wrong_way (v7.3.0)
+
+stocks.js — extended evaluatePrediction() with two new verdicts:
+  exceeded:  price surpassed target in correct direction (blue)
+  wrong_way: price moved opposite to forecast (purple)
+
+Two evaluation modes:
+  snapshot: fixed params per horizon from SNAPSHOT_PARAMS constant
+            used when saving to Supabase — ensures all batches comparable
+  live:     dynamic params from slider (hitMargin + closeRatio)
+            used in Batch Details for interactive analysis
+
+New exports:
+  SNAPSHOT_PARAMS: { 1M:{H:3,R:2.0}, 3M:{H:5,R:2.0}, 6M:{H:7,R:1.8}, 12M:{H:10,R:1.6} }
+  CLOSE_RATIO_DEFAULT: 2.4
+
+Backwards compatible — existing callers unaffected.
+
+Tests: 164/164 passing (14 new tests)"
+
+git tag -a v7.3.0 -m "v7.3.0: new verdict system"
+git push origin main && git push origin v7.3.0
+
