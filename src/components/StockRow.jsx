@@ -32,27 +32,30 @@
  * @param {string}   batchCurrency   — currency symbol ('$', '€', etc.)
  * @param {number}   hitMargin       — hit tolerance in % (default 5)
  * @param {string}   batchId         — Supabase batch id for PriceChart
+ * @param {number}   totalCols       — total column count for colSpan (default 17)
  */
 import { memo, useState, useCallback, useEffect } from 'react'
 import { formatDate, targetDates, daysLeft, dateStatus } from '@/utils/dates.js'
 import { getTarget, getEffectivePrice, distancePct, evaluatePrediction, histKey } from '@/utils/stocks.js'
+import { cn } from '@/lib/utils'
 import { fmtMarketCap } from '@/hooks/useFundamentals.js'
 import { SECTOR_ETF, INDUSTRY_ETF } from '@/hooks/useMarketData.js'
 import PriceChart from './PriceChart.jsx'
+import TradingViewModal from './TradingViewModal.jsx'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 
 // ── Main StockRow ─────────────────────────────────────────────────────────────
 
 const StockRow = memo(function StockRow({
   stock, horizon, autoPrice, histPrices, override, horizonExpired,
   fundamental, onOverrideChange, note, onNoteChange,
-  marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5, batchId,
+  marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5, batchId, totalCols = 17,
 }) {
   const [expanded,  setExpanded]  = useState(false)
   const [showDesc,  setShowDesc]  = useState(false)
+  const [showTV,    setShowTV]    = useState(false) // TradingView modal
   const [showNote,  setShowNote]  = useState(false)
   const [noteVal,   setNoteVal]   = useState(note || '')
   const [val,       setVal]       = useState(override ? String(override) : '')
@@ -332,12 +335,36 @@ const StockRow = memo(function StockRow({
             )
           })()}
         </td>
+        {/* TradingView chart icon button — opens modal */}
+        <td className={tdClass} onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => setShowTV(true)}
+            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
+            title={`Open ${stock.t} chart in TradingView`}
+            aria-label="Open TradingView chart"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </button>
+        </td>
       </tr>
 
-      {/* ── Expanded detail panel ─────────────────────────────────────── */}
+      {/* ── TradingView modal ──────────────────────────────────────────── */}
+      {showTV && (
+        <tr style={{ display: 'contents' }}>
+          <td style={{ padding: 0 }}>
+            <TradingViewModal
+              ticker={stock.t}
+              company={stock.co}
+              onClose={() => setShowTV(false)}
+            />
+          </td>
+        </tr>
+      )}
       {expanded && (
         <tr className="border-b border-border">
-          <td colSpan={16} className="py-4 px-5 bg-muted">
+          <td colSpan={totalCols} className="py-4 px-5 bg-muted">
 
             <HorizonCards
               stock={stock} tg={tg}

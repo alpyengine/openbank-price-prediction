@@ -257,10 +257,14 @@ export default function StockTable({
       allExpanded={allExpanded}
       hitMargin={hitMargin}
       batchId={batchId}
+      totalCols={colSpan}
     />
   )
 
-  const colSpan = 16
+  // TOTAL_COLS — total number of columns in the stock table.
+  // Update this single value whenever a column is added or removed.
+  // Used for colSpan in empty states and expanded row panels.
+  const colSpan = 17  // ticker, company, base, current, 1M, 3M, 6M, 12M, override, hit%, note, score, vs SPY, vs Sector, TV
 
   return (
     <>
@@ -315,6 +319,7 @@ export default function StockTable({
               <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d12}>12M</Th>
               <Th w={80}  colKey="hit"     onOpen={setHelpCol}>vs SPY</Th>
               <Th w={80}  colKey="hit"     onOpen={setHelpCol}>vs Sector</Th>
+              <Th w={40}  colKey="tv"      onOpen={setHelpCol}></Th>
             </tr>
           </thead>
           <tbody>

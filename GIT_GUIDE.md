@@ -1041,3 +1041,63 @@ Tests: 107/107 passing"
 git tag -a v7.1.3 -m "v7.1.3: fundamentals_cache"
 git push origin main && git push origin v7.1.3
 
+
+# ===========================================================================
+# STEP 121 — v7.1.4  TradingView chart modal
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   TradingViewModal.jsx — new reusable component:
+#     Full-screen modal with embedded TradingView standard widget (free tier).
+#     Dark theme, daily interval, toolbar visible, allow symbol change.
+#     Exchange mapping: bare US tickers auto-resolved by TradingView.
+#     European suffixes mapped: .DE→XETR, .AS→AMS, .PA→EPA, .L→LSE, .MC→BME.
+#     Close: click outside, ✕ button, or Escape key.
+#
+#   StockRow.jsx — TV icon button in last column:
+#     Small chart icon (polyline svg) — opens TradingViewModal on click.
+#     Click on icon does NOT expand/collapse the row (stopPropagation).
+#
+#   StockTable.jsx — empty column header added for TV button column.
+#
+#   AllStocksPage.jsx — TV icon button in last column:
+#     Same icon pattern as StockRow.
+#     tvTicker state manages which ticker's modal is open.
+#
+# No npm install needed.
+# No Supabase changes needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.1.4/. .
+
+git add .
+git commit -m "feat: TradingView chart modal + fixes (v7.1.4)
+
+TradingViewModal.jsx — new reusable component:
+  Embedded TradingView standard widget (free, no API key).
+  Dark theme, daily interval, full toolbar.
+  Exchange mapping: .DE→XETR, .AS→AMS, .PA→EPA, .L→LSE, .MC→BME.
+  Close: click outside, ✕ button, or Escape key.
+
+StockRow.jsx — TV icon button in Batch Overview:
+  Chart icon in last column — opens modal on click.
+  stopPropagation prevents row expand/collapse on icon click.
+  cn import restored (was accidentally removed).
+
+StockTable.jsx — adaptive colSpan:
+  TOTAL_COLS = 17 defined once with column inventory comment.
+  Passed as totalCols prop to StockRow — no more hardcoded 16/17.
+
+AllStocksPage.jsx — TV icon button in All Stocks:
+  tvTicker state controls modal visibility.
+  SparkLine NaN guard: shows — for < 2 data points.
+
+README.md — changelog updated, duplicate v7.1.1 entry removed.
+SPEC_FUNDAMENTALS.md — implementation plan updated to actual delivery.
+
+Tests: 107/107 passing"
+
+git tag -a v7.1.4 -m "v7.1.4: TradingView chart modal"
+git push origin main && git push origin v7.1.4
+

@@ -1,6 +1,6 @@
 # Specification: Fundamentals, Investment Score & Charts
-**Feature:** v7.1.0 → v7.1.3
-**Status:** Ready for implementation
+**Feature:** v7.1.0 → v7.1.4
+**Status:** ✅ Implemented
 **Goal:** Add fundamental analysis metrics, Investment Score, sparklines,
 and TradingView chart integration so the user can evaluate whether a price
 prediction is supported by company fundamentals and make informed investment
@@ -303,37 +303,41 @@ create policy "authenticated users can update fundamentals"
 
 ---
 
-## 9. Implementation plan
+## 9. Implementation plan — actual delivery
 
-### v7.1.0 — Data layer
-- Add `fundamentals_cache` table to Supabase
-- Extend `useFundamentals.js`:
-  - Fetch Twelve Data `/statistics` (PEG, P/E, growth, beta, insider, short)
-  - Fetch FMP `/stable/ratios-ttm` (margins, ROE, debt, P/FCF, dividend)
-  - Cache in Supabase with 7-day TTL
-  - Calculate PEG score, detect negative growth, apply penalties
-  - Calculate Investment Score with configurable weights
-- Add weight persistence in `localStorage`
+### v7.1.0 — All Stocks page ✅
+- `AllStocksPage.jsx` — consolidated view of all batches
+- Deduplication: most recent batch wins · `· Nx` for repeated tickers
+- Investment Score (0-100): Upside×40% + PEG×45% + Margin×15% − 20 if EPS negative
+- Horizon dropdown (1M/3M/6M/12M) changes entire Upside column
+- Sort by Upside and Score (asc/desc)
+- Filters: sector, PEG range, Score minimum slider
+- Collapsible legend with colour interpretation · CSV export
 
-### v7.1.1 — UI metrics + sparkline
-- Extend `FundamentalsBar` with all new metrics
-- Add sparkline component using Recharts + `weekly_prices`
-- Add Score column to `StockTable`
-- Score weight sliders in Accuracy Stats page
-- PEG tooltip with Lynch scale
-- `⚠ Neg` value trap warning
-- `⚠ Partial data` badge for European tickers
+### v7.1.1 — Ticker normalisation + All Stocks fixes ✅
+- `ImportBox.jsx`: `normalizeTicker()` strips `.US` at CSV parse time
+- `AllStocksPage.jsx`: fundamentals merged from ALL batches
+- `deduplicateStocks`: groups 4 horizon rows per ticker correctly
+- hKey bug fixed: explicit map `{1M→u1, 3M→u3, 6M→u6, 12M→u12}`
+- `FetchBar.jsx`: Refresh Market button added
+- Supabase migration: re-imported May batches without `.US` suffix
 
-### v7.1.2 — All Stocks page
-- New sidebar entry + page
-- Deduplication logic
-- Sortable/filterable table
-- CSV export
+### v7.1.2 — Sparklines + Column tooltips ✅
+- `storage.js`: `loadAllWeeklyPrices()` — single query for all sparklines
+- `SparkLine` with real `weekly_prices` data — green if last > base, red if below
+- `ColTooltip` on all 6 column headers with visual examples
+- NaN guard: SparkLine shows `—` for < 2 data points
 
-### v7.1.3 — TradingView integration
-- TradingView iframe modal
-- "Full chart" button in expanded panel
-- Rename existing PriceChart to "Openbank Chart"
+### v7.1.3 — fundamentals_cache table ✅
+- New Supabase table `fundamentals_cache` (ticker PK, data jsonb)
+- `saveFundamentalsCache()` auto-called on every Save
+- `AllStocksPage.jsx`: 3-layer merge (cache → batches → memory)
+
+### v7.1.4 — TradingView chart modal ✅
+- `TradingViewModal.jsx`: embedded TradingView standard widget (free)
+- Exchange mapping: .DE→XETR, .AS→AMS, .PA→EPA, .L→LSE, .MC→BME
+- Icon button in Batch Overview (`StockRow`) and All Stocks
+- Adaptive `colSpan` via `totalCols` prop in `StockTable`/`StockRow`
 
 ---
 

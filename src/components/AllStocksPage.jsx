@@ -23,6 +23,7 @@ import { TrendingUp, TrendingDown, Download, ChevronDown, ChevronUp, Info } from
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { loadAllWeeklyPrices, loadFundamentalsCache } from '@/services/storage'
+import TradingViewModal from './TradingViewModal.jsx'
 
 // ── Investment Score calculation ──────────────────────────────────────────────
 
@@ -197,8 +198,8 @@ function uColor(v) {
  * @param {number}   base   — base price of the batch (first buy price)
  */
 function SparkLine({ points, base }) {
-  // No data yet — show placeholder dash
-  if (!points?.length) {
+  // Need at least 2 points to draw a line — show dash otherwise
+  if (!points?.length || points.length < 2) {
     return <span className="text-[10px] text-muted-foreground">—</span>
   }
 
@@ -432,8 +433,8 @@ export default function AllStocksPage({ batches, fundamentals }) {
   // weeklyPrices: { [ticker]: { [batchId]: [prices...] } }
   // Loaded once on mount — used to render sparklines
   const [weeklyPrices,       setWeeklyPrices]       = useState({})
-  // cachedFundamentals: { [ticker]: { sector, pegTTM, ... } }
-  // Loaded from fundamentals_cache table — primary source for All Stocks
+  // tvTicker — ticker currently open in TradingView modal (null = closed)
+  const [tvTicker,       setTvTicker]       = useState(null)
   const [cachedFundamentals, setCachedFundamentals] = useState({})
 
   // Load weekly prices and fundamentals cache on mount — single queries each
@@ -711,6 +712,13 @@ export default function AllStocksPage({ batches, fundamentals }) {
                   <ColTooltip text="Date of the most recent batch containing this ticker. · Nx means the ticker appears in N different batches — most recent data wins." />
                 </div>
               </th>
+
+              {/* TradingView column — no header text, just icon */}
+              <th className="px-3 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto opacity-40">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -778,6 +786,20 @@ export default function AllStocksPage({ batches, fundamentals }) {
                       <span className="text-primary font-bold ml-1">· {s.batchCount}×</span>
                     )}
                   </td>
+
+                  {/* TradingView icon button */}
+                  <td className="px-3 py-2.5 text-center">
+                    <button
+                      onClick={() => setTvTicker({ t: s.t, co: s.co })}
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
+                      title={`Open ${s.t} chart in TradingView`}
+                      aria-label="Open TradingView chart"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                      </svg>
+                    </button>
+                  </td>
                 </tr>
               )
             })}
@@ -788,6 +810,15 @@ export default function AllStocksPage({ batches, fundamentals }) {
       <div className="text-[10px] text-muted-foreground text-right">
         Sorted by {sortCol === 'upside' ? `Upside ${horizon}` : 'Score'} {sortDir === -1 ? 'desc' : 'asc'} · Click column headers to re-sort
       </div>
+
+      {/* TradingView modal — opens when TV icon clicked */}
+      {tvTicker && (
+        <TradingViewModal
+          ticker={tvTicker.t}
+          company={tvTicker.co}
+          onClose={() => setTvTicker(null)}
+        />
+      )}
     </div>
   )
 }

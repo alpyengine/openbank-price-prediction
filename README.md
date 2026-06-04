@@ -31,7 +31,7 @@ All persistence, automation and price fetching runs on Supabase.
 - Metrics catalogue (valuation, growth, quality, sentiment)
 - PEG ratio — Peter Lynch interpretation and scoring
 - Investment Score formula and weights (v7.1.x roadmap)
-- Implementation plan v7.1.0 → v7.1.3
+- Implementation plan v7.1.0 → v7.1.4
 - All tables (`batches`, `price_cache`, `weekly_prices`, `profiles`)
 - All functions (`fetch_expired_horizons`, `fetch_weekly_prices`, `backfill_weekly_prices`)
 - All cron jobs (weekday horizon evaluation, Saturday weekly prices, backfill)
@@ -178,12 +178,12 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
-| v7.1.3 | `fundamentals_cache` table in Supabase · TTL 7 days · All Stocks loads from cache first |
-| v7.1.2 | Sparklines in All Stocks · weekly price evolution · ColTooltip on column headers |
-| v7.1.1 | Ticker normalisation — `.US` stripped at import · All Stocks data fixes · Refresh Market button |
-| v7.1.1 | Ticker normalisation — `.US` stripped at CSV import · single normalisation point · Supabase homogeneous |
+| v7.1.4 | TradingView chart modal · icon button in Batch Overview + All Stocks · adaptive colSpan |
+| v7.1.3 | `fundamentals_cache` table in Supabase · auto-populated on Save · All Stocks loads from cache first |
+| v7.1.2 | Sparklines in All Stocks from `weekly_prices` · ColTooltip on all column headers · NaN guard for <2 points |
+| v7.1.1 | Ticker normalisation — `.US` stripped at import · All Stocks fundamentals from all batches · Refresh Market button · upside horizon fix |
 | v7.1.0 | All Stocks page — consolidated view of all batches · deduplication · Investment Score · horizon dropdown · filters · CSV export |
-| v7.0.6 | Finnhub replaces Twelve Data for fundamentals — `useFundamentals.js` extended with PEG, margins, growth metrics |
+| v7.0.6 | Finnhub replaces Twelve Data for fundamentals — `useFundamentals.js` extended with PEG, margins, growth metrics · Refresh Fundamentals button |
 | v7.0.5 | PriceChart rebuilt with Chart.js — real dates, target dots, zoom slider · auto-load first batch · GitHub weekly backup · RLS fix for weekly_prices |
 | v7.0.4 | `formatDate()` fix — `Sept` → `Sep` to prevent Supabase ERROR 22007 |
 | v7.0.3 | Node 18 compatibility — bypass blocking Auth API calls |
