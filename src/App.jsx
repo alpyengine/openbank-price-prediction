@@ -74,6 +74,7 @@ export default function App() {
   const [activePage,   setActivePage]   = useState('batch')
   const role = useRole()
   const [hitMargin,    setHitMargin]    = useState(5)
+  const [closeRatio,   setCloseRatio]   = useState(2.4)  // close zone multiplier
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
@@ -309,6 +310,77 @@ export default function App() {
           {/* ── BATCH OVERVIEW DETAIL ── */}
           {activePage === 'batch-detail' && (
             <>
+              {/* ── Zone controls bar — hit margin slider + close ratio field ── */}
+              {/* These are LIVE mode params — affect display only, not Supabase */}
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  background: 'var(--tw-card)', border: '1px solid var(--tw-border)',
+                  borderRadius: 8, padding: '6px 14px', marginBottom: 10,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexWrap: 'wrap',
+                }}
+              >
+                {/* Hit margin slider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--tw-muted-fg)', whiteSpace: 'nowrap' }}>
+                    Hit margin
+                  </span>
+                  <input
+                    type="range"
+                    min={0.5} max={20} step={0.5}
+                    value={hitMargin}
+                    onChange={e => setHitMargin(parseFloat(e.target.value))}
+                    style={{ width: 96, accentColor: '#4f46e5', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', minWidth: 32 }}>
+                    ±{hitMargin}%
+                  </span>
+                </div>
+
+                {/* Divider */}
+                <div style={{ width: 1, height: 18, background: 'var(--tw-border)' }} />
+
+                {/* Close ratio field */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--tw-muted-fg)', whiteSpace: 'nowrap' }}>
+                    Close ratio
+                  </span>
+                  <input
+                    type="number"
+                    min={1} max={5} step={0.1}
+                    value={closeRatio}
+                    onChange={e => setCloseRatio(parseFloat(e.target.value) || 2.4)}
+                    style={{
+                      width: 40, padding: '2px 4px',
+                      border: '1px solid var(--tw-border)', borderRadius: 5,
+                      fontSize: 11, fontWeight: 600,
+                      color: '#374151', background: '#f9fafb',
+                      textAlign: 'center', outline: 'none',
+                    }}
+                  />
+                </div>
+
+                {/* Divider */}
+                <div style={{ width: 1, height: 18, background: 'var(--tw-border)' }} />
+
+                {/* Zone pills — dynamic labels */}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {[
+                    { label: `🔵 Exceeded ≥+${hitMargin}%`,                                            bg: '#eff6ff', color: '#1d4ed8' },
+                    { label: `🟢 Hit ±${hitMargin}%`,                                                  bg: '#f0fdf4', color: '#15803d' },
+                    { label: `🟡 Close −${hitMargin}% → −${+(hitMargin * closeRatio).toFixed(1)}%`,   bg: '#fefce8', color: '#a16207' },
+                    { label: `🔴 Miss <−${+(hitMargin * closeRatio).toFixed(1)}%`,                    bg: '#fef2f2', color: '#b91c1c' },
+                  ].map(pill => (
+                    <span key={pill.label} style={{
+                      fontSize: 9.5, fontWeight: 600, padding: '2px 7px',
+                      borderRadius: 20, background: pill.bg, color: pill.color,
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {pill.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
               <SummaryCards
                 stocks={stocks}
                 horizon={horizon}
@@ -317,6 +389,7 @@ export default function App() {
                 overrides={overrides}
                 horizonExpired={horizonExpired}
                 hitMargin={hitMargin}
+                closeRatio={closeRatio}
               />
 
               <HorizonTabs
@@ -367,6 +440,7 @@ export default function App() {
                 marketData={marketData}
                 batchCurrency={batchCurrency}
                 hitMargin={hitMargin}
+                closeRatio={closeRatio}
                 batchId={loadedBatchId}
               />
 

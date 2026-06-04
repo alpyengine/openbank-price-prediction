@@ -1331,3 +1331,71 @@ Tests: 164/164 passing (14 new tests)"
 git tag -a v7.3.0 -m "v7.3.0: new verdict system"
 git push origin main && git push origin v7.3.0
 
+
+# ===========================================================================
+# STEP 125 — v7.3.1  New SummaryCards layout + Bug 3 fix + new verdict colors
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   SummaryCards.jsx — complete rewrite:
+#     Row 1: 6 boxes — Stocks | Hit | Exceeded | Close | Miss | Awaiting
+#     Row 2: 2 accuracy boxes — Hit Rate pure % | Hit Rate extended %
+#     Labels are dynamic: show calculated thresholds (e.g. "Close −5% to −12%")
+#     All 5 verdicts counted: hit, exceeded, close, miss, wrong_way, awaiting
+#     new AccuracyCard component for the two bottom boxes
+#     new 'exceeded' (blue) and 'wrong_way' (purple) color schemes
+#     closeRatio prop added (default 2.4) — used for zone threshold labels
+#
+#   StockRow.jsx — Bug 3 fix + new verdict colors:
+#     BUG 3 FIX: each horizon column now resolves its OWN price independently
+#       using getEffectivePrice(stock.t, hKey, ..., colExpired) per column
+#       closed 1M columns now always show historical price regardless of dropdown
+#     New verdict colors: exceeded=blue (#3b82f6), wrong_way=purple (#8b5cf6)
+#     New zone labels: EXCEED, WRONG (replacing the missing grey -- cases)
+#     closeRatio prop added — passed to evaluatePrediction for zone calculation
+#     fillWidth logic updated for exceeded (100%) and wrong_way (15%)
+#
+#   StockTable.jsx:
+#     closeRatio prop added — passed through to StockRow
+#
+#   App.jsx:
+#     closeRatio state added (default 2.4)
+#     Zone controls bar added above SummaryCards in batch-detail:
+#       Hit margin slider (0.5 to 20, step 0.5, default 5%)
+#       Close ratio field (small, white bg, dark grey number)
+#       Zone pills showing dynamic thresholds
+#     closeRatio passed to SummaryCards and StockTable
+#
+# No npm install needed.
+# No Supabase changes needed in this version.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.1/. .
+
+git add .
+git commit -m "feat: new SummaryCards layout + Bug 3 fix + verdict colors (v7.3.1)
+
+SummaryCards.jsx — complete rewrite:
+  Row 1: 6 KPI boxes (Stocks/Hit/Exceeded/Close/Miss/Awaiting)
+  Row 2: 2 accuracy boxes (Hit Rate pure % + Hit Rate extended %)
+  Dynamic labels showing calculated thresholds per slider values.
+  AccuracyCard component for bottom accuracy boxes.
+  All 5 verdicts: hit/exceeded/close/miss/wrong_way.
+
+StockRow.jsx — Bug 3 fix:
+  Each horizon column resolves its own price independently.
+  getEffectivePrice called per column with column-specific hKey and expiry.
+  Closed 1M columns now show historical price regardless of dropdown selection.
+  New colors: exceeded=blue, wrong_way=purple.
+  New labels: EXCEED, WRONG (eliminates grey -- for exceeded predictions).
+
+StockTable.jsx + App.jsx:
+  closeRatio prop added and passed through component chain.
+  Zone controls bar in batch-detail: slider + closeRatio field + zone pills.
+
+Tests: 164/164 passing"
+
+git tag -a v7.3.1 -m "v7.3.1: SummaryCards + Bug 3 fix"
+git push origin main && git push origin v7.3.1
+

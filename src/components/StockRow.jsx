@@ -33,6 +33,7 @@
  * @param {number}   hitMargin       — hit tolerance in % (default 5)
  * @param {string}   batchId         — Supabase batch id for PriceChart
  * @param {number}   totalCols       — total column count for colSpan (default 17)
+ * @param {number}   closeRatio      — close zone multiplier (default 2.4)
  */
 import { memo, useState, useCallback, useEffect } from 'react'
 import { formatDate, targetDates, daysLeft, dateStatus } from '@/utils/dates.js'
@@ -51,7 +52,7 @@ import { Textarea } from '@/components/ui/textarea'
 const StockRow = memo(function StockRow({
   stock, horizon, autoPrice, histPrices, override, horizonExpired,
   fundamental, onOverrideChange, note, onNoteChange,
-  marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5, batchId, totalCols = 17,
+  marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5, batchId, totalCols = 17, closeRatio = 2.4,
 }) {
   const [expanded,  setExpanded]  = useState(false)
   const [showDesc,  setShowDesc]  = useState(false)
@@ -209,57 +210,91 @@ const StockRow = memo(function StockRow({
 
         {/* ── Horizon bar columns 1M / 3M / 6M / 12M ──────────────────── */}
         {horizonDates.map(({ val: t, date }, i) => {
-          const KEYS    = ['1M', '3M', '6M', '12M']
-          const hKey    = KEYS[i]
-          const ds      = date ? dateStatus(date) : null
-          const currentP = p ?? autoPrice
+          const KEYS = ['1M', '3M', '6M', '12M']
+          const hKey = KEYS[i]
+          const ds   = date ? dateStatus(date) : null
 
-          // Distance % from current price to target
+          // ── Bug 3 fix: each column resolves its OWN price independently ──
+          // Previously all columns used `p` (the global horizon's price).
+          // Now each column calls getEffectivePrice with its specific hKey,
+          // so closed columns (e.g. 1M) always show their historical price
+          // even when the user has 3M/6M/12M selected in the dropdown.
+          const colExpired  = ds === 'past'
+          const { price: colPrice } = getEffectivePrice(
+            stock.t, hKey,
+            { [stock.t]: autoPrice },
+            histPrices,
+            override ? { [stock.t]: override } : {},
+            colExpired
+          )
+
+          // Use resolved column price — fall back to autoPrice if unavailable
+          const currentP = colPrice ?? autoPrice
+
+          // Distance % from current price to target (signed: + above, − below)
           let distPct = null
           if (currentP && t) distPct = ((currentP - t) / t) * 100
 
-          // Verdict via evaluatePrediction — single source of truth
+          // Verdict via evaluatePrediction — live mode with slider values
           const { verdict: barVerdict } = currentP && t
-            ? evaluatePrediction(currentP, t, stock.b, hitMargin)
+            ? evaluatePrediction(currentP, t, stock.b, hitMargin, { closeRatio })
             : { verdict: null }
 
-          // Map verdict to zone for styling
+          // Map verdict to display zone — now includes exceeded and wrong_way
           let zone = 'awaiting'
           if (currentP && t) {
-            if (barVerdict === 'hit')        zone = 'hit'
-            else if (barVerdict === 'close') zone = 'close'
-            else if (barVerdict === 'miss')  zone = 'miss'
+            if      (barVerdict === 'hit')       zone = 'hit'
+            else if (barVerdict === 'exceeded')  zone = 'exceeded'
+            else if (barVerdict === 'close')     zone = 'close'
+            else if (barVerdict === 'miss')      zone = 'miss'
+            else if (barVerdict === 'wrong_way') zone = 'wrong_way'
           }
 
           /**
-           * Proportional bar width:
-           *   hit   → always 100% (a hit is a hit regardless of margin)
-           *   close → 88-96% proportional within the ±margin% band
-           *   miss  → 0-75% inversely proportional (farther = shorter bar)
+           * Proportional bar width per zone:
+           *   exceeded  → 100% (full bar — surpassed target)
+           *   hit       → 100%
+           *   close     → 75-95% proportional (nearly there)
+           *   miss      → 0-60% inversely proportional (farther = shorter)
+           *   wrong_way → 15% (minimal bar — wrong direction)
+           *   awaiting  → 0%
            */
           const fillWidth = (() => {
             if (zone === 'awaiting' || distPct == null) return 0
-            if (zone === 'hit') return 100
-            if (zone === 'close') return Math.round(96 + (distPct / hitMargin) * 8)
+            if (zone === 'exceeded')  return 100
+            if (zone === 'hit')       return 100
+            if (zone === 'wrong_way') return 15
+            if (zone === 'close') {
+              const absDist = Math.abs(distPct)
+              return Math.round(Math.max(75, Math.min(95, 95 - absDist * 1.5)))
+            }
+            // miss — shorter bar the further away
             const absDist = Math.abs(distPct)
-            return Math.round(Math.max(0, Math.min(75, 75 - absDist * 0.8)))
+            return Math.round(Math.max(0, Math.min(60, 60 - absDist * 0.8)))
           })()
 
-          // Zone colors (Tailwind + hardcoded for exact shade matching)
-          const zoneColor = zone === 'hit'   ? '#15803d'
-            : zone === 'close'               ? '#a16207'
-            : zone === 'miss'                ? '#b91c1c'
+          // Zone label colors
+          const zoneColor = zone === 'hit'       ? '#15803d'
+            : zone === 'exceeded'                ? '#1d4ed8'
+            : zone === 'close'                   ? '#a16207'
+            : zone === 'miss'                    ? '#b91c1c'
+            : zone === 'wrong_way'               ? '#6d28d9'
             : 'var(--muted-foreground)'
 
-          const zoneFill = zone === 'hit'   ? '#16a34a'
-            : zone === 'close'              ? '#eab308'
-            : zone === 'miss'              ? '#ef4444'
+          // Zone bar fill colors
+          const zoneFill = zone === 'hit'        ? '#16a34a'
+            : zone === 'exceeded'                ? '#3b82f6'
+            : zone === 'close'                   ? '#eab308'
+            : zone === 'miss'                    ? '#ef4444'
+            : zone === 'wrong_way'               ? '#8b5cf6'
             : 'var(--border)'
 
           const pctStr = distPct != null ? ` ${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}%` : ''
-          const label  = zone === 'hit'   ? `HIT${pctStr}`
-            : zone === 'close' ? `CLOSE${pctStr}`
-            : zone === 'miss'  ? `MISS${pctStr}`
+          const label  = zone === 'hit'          ? `HIT${pctStr}`
+            : zone === 'exceeded'                ? `EXCEED${pctStr}`
+            : zone === 'close'                   ? `CLOSE${pctStr}`
+            : zone === 'miss'                    ? `MISS${pctStr}`
+            : zone === 'wrong_way'               ? `WRONG${pctStr}`
             : '--'
 
           return (
