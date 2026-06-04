@@ -1186,3 +1186,80 @@ Total tests: 150 (107 unit + 43 component) — all passing"
 git tag -a v7.2.0 -m "v7.2.0: React Testing Library"
 git push origin main && git push origin v7.2.0
 
+
+# ===========================================================================
+# STEP 123 — v7.2.1  invite-user Edge Function
+# ===========================================================================
+#
+# PROBLEM SOLVED:
+#   supabase.auth.admin.inviteUserByEmail() requires the Service Role Key.
+#   The Service Role Key gives unrestricted database access and must NEVER
+#   be exposed in frontend code. With the anon key, invitations fail with
+#   "User not allowed".
+#
+# SOLUTION — Supabase Edge Function:
+#   The invite-user function runs on Supabase servers where the Service Role
+#   Key is stored securely as an environment secret. The frontend calls the
+#   function with the user's JWT — the function verifies admin role and sends
+#   the invitation.
+#
+# WHAT'S NEW:
+#
+#   supabase/functions/invite-user/index.ts — new Edge Function:
+#     1. Validates email format
+#     2. Verifies caller JWT is valid (auth.getUser)
+#     3. Checks caller has role = 'admin' in profiles table
+#     4. Calls auth.admin.inviteUserByEmail() with Service Role Key (secret)
+#     5. Returns { success: true } or { error: "message" }
+#
+#   ManageUsers.jsx — handleInvite updated:
+#     Was: supabase.auth.admin.inviteUserByEmail() — fails with anon key
+#     Now: fetch POST /functions/v1/invite-user with user's JWT
+#     User list and all other features unchanged.
+#
+#   docs/SUPABASE.md — section 9 added:
+#     Full documentation of the Edge Function including deploy steps,
+#     secret setup, flow diagram, and security checks.
+#
+# DEPLOY STEPS (required before this version works):
+#
+#   1. Install Supabase CLI
+#      npm install -g supabase
+#
+#   2. Login and link project
+#      supabase login
+#      supabase link --project-ref yyenwzljojxbqtzcbchk
+#
+#   3. Deploy the function
+#      supabase functions deploy invite-user
+#
+#   4. Set the Service Role Key as a secret
+#      supabase secrets set SERVICE_ROLE_KEY=your_key_here
+#      (get key from: Supabase Dashboard → Project Settings → API → service_role)
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.2.1/. .
+
+git add .
+git commit -m "feat: invite-user Edge Function for secure user invitations (v7.2.1)
+
+supabase/functions/invite-user/index.ts — new Edge Function:
+  Sends invitation emails using Service Role Key stored as Supabase secret.
+  Security: JWT verification + admin role check before sending invitation.
+  The Service Role Key is never exposed in frontend code.
+
+ManageUsers.jsx — handleInvite rewritten:
+  Was: supabase.auth.admin (fails with anon key — 'User not allowed')
+  Now: POST /functions/v1/invite-user with user JWT
+  User list, role change, delete — all unchanged.
+
+docs/SUPABASE.md — section 9 added:
+  Deploy instructions, secret setup, flow diagram, security explanation.
+
+Tests: 150/150 passing"
+
+git tag -a v7.2.1 -m "v7.2.1: invite-user Edge Function"
+git push origin main && git push origin v7.2.1
+

@@ -89,10 +89,21 @@ export default function ManageUsers() {
   // ── Invite user ─────────────────────────────────────────────────────────────
 
   /**
-   * handleInvite — sends an invitation email to a new user.
+   * handleInvite — sends an invitation email via the invite-user Edge Function.
+   *
+   * Why Edge Function instead of supabase.auth.admin directly?
+   *   supabase.auth.admin.inviteUserByEmail() requires the Service Role Key.
+   *   The Service Role Key must NEVER be exposed in the frontend — it gives
+   *   full unrestricted access to the database.
+   *
+   * The Edge Function:
+   *   1. Verifies the caller is authenticated (JWT check)
+   *   2. Verifies the caller has role = 'admin' (profiles table check)
+   *   3. Calls supabase.auth.admin.inviteUserByEmail() with the Service Role Key
+   *      stored securely as a Supabase secret (never in client code)
+   *
    * The invited user receives an email with a link to set their password.
-   * Their profile is auto-created with role = 'readonly' by the trigger.
-   * The link is valid for 24 hours.
+   * Their profile is auto-created with role = 'readonly' by the DB trigger.
    */
   const handleInvite = async (e) => {
     e.preventDefault()
@@ -102,15 +113,35 @@ export default function ManageUsers() {
     setInviteError('')
 
     try {
-      const { error } = await supabase.auth.admin.inviteUserByEmail(
-        inviteEmail.trim(),
-        { data: { role: 'readonly' } }
+      // Get the current user's JWT to authenticate the Edge Function call
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not authenticated')
+
+      // Call the Edge Function — it runs with Service Role Key on the server
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`,
+        {
+          method:  'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey':        import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ email: inviteEmail.trim().toLowerCase() }),
+        }
       )
-      if (error) throw error
+
+      const result = await res.json()
+
+      if (!res.ok || result.error) {
+        throw new Error(result.error || `HTTP ${res.status}`)
+      }
+
       setInviteMsg(`✓ Invitation sent to ${inviteEmail}`)
       setInviteEmail('')
-      // Reload users after a short delay
+      // Reload users list after a short delay so the new user appears
       setTimeout(loadUsers, 1500)
+
     } catch (err) {
       setInviteError('Could not send invitation: ' + err.message)
     } finally {

@@ -785,3 +785,73 @@ if `fetched_at` >= 7 days ago → use cached data.
 | data | jsonb | full fundamentals object (sector, peg, margin...) |
 | fetched_at | timestamptz | when Finnhub data was fetched |
 | updated_at | timestamptz | when row was last written |
+
+---
+
+## 9. Edge Functions — invite-user
+
+### Purpose
+The `invite-user` Edge Function allows the admin to invite new users from the app
+without exposing the Service Role Key in the frontend.
+
+`supabase.auth.admin.inviteUserByEmail()` requires the Service Role Key — a key
+that gives unrestricted access to the entire database. It must never appear in
+client-side code. The Edge Function runs on Supabase servers where the key is
+stored securely as an environment secret.
+
+### Deploy the function
+
+```bash
+# Install Supabase CLI if not already installed
+npm install -g supabase
+
+# Login
+supabase login
+
+# Link to your project
+supabase link --project-ref yyenwzljojxbqtzcbchk
+
+# Deploy the function
+supabase functions deploy invite-user
+```
+
+### Set the Service Role Key as a secret
+
+```bash
+supabase secrets set SERVICE_ROLE_KEY=your_service_role_key_here
+```
+
+Get the Service Role Key from:
+Supabase Dashboard → Project Settings → API → service_role (secret)
+
+⚠️ Never commit the Service Role Key to git. It gives unrestricted database access.
+
+### How it works
+
+```
+ManageUsers.jsx                    Edge Function (Supabase server)
+─────────────────────────────────────────────────────────────────
+1. Admin clicks "Send invitation"
+2. App gets user's JWT from session
+3. POST /functions/v1/invite-user   →   Receive { email }
+   { email, Authorization: Bearer JWT }
+                                        Verify JWT is valid
+                                        Check role = 'admin' in profiles
+                                        Call auth.admin.inviteUserByEmail()
+                                          using Service Role Key (secret)
+4. Receive { success: true }        ←   Return result
+5. Show "✓ Invitation sent"
+```
+
+### Security checks in the function
+
+1. JWT verification — rejects unauthenticated calls
+2. Role check — rejects non-admin callers
+3. Service Role Key stored as Supabase secret — never in client code
+4. CORS headers — standard Supabase Edge Function configuration
+
+### Function location
+
+```
+supabase/functions/invite-user/index.ts
+```

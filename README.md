@@ -184,6 +184,7 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
+| v7.2.1 | invite-user Edge Function — secure user invitation via Supabase server · Service Role Key never exposed |
 | v7.2.0 | React Testing Library — 43 component tests · `docs/TESTING.md` · adaptive test environments |
 | v7.1.4 | TradingView chart modal · icon button in Batch Overview + All Stocks · adaptive colSpan |
 | v7.1.3 | `fundamentals_cache` table in Supabase · auto-populated on Save · All Stocks loads from cache first |
