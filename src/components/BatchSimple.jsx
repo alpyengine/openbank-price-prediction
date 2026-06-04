@@ -36,10 +36,20 @@ const HORIZONS = [
 // ── HorizonCell ───────────────────────────────────────────────────────────────
 
 /**
+/**
+ * HorizonCell
+ *
  * Renders a single verdict cell for one stock × one horizon combination.
  * Determines expiry state, fetches the effective price, and shows the verdict.
+ *
+ * Verdict colours (v7.3.2+):
+ *   exceeded  — blue  🔵
+ *   hit       — green ✅
+ *   close     — amber 🟡
+ *   miss      — red   ❌
+ *   wrong_way — purple 🟣
  */
-function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, overrides, hitMargin }) {
+function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, overrides, hitMargin, closeRatio }) {
   const target  = stock[tKey]
   const tg      = stock.base ? targetDates(stock.base) : null
   const date    = tg ? tg[dKey] : null
@@ -81,29 +91,29 @@ function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, ov
     )
   }
 
-  // Evaluate verdict
-  const { verdict } = evaluatePrediction(price, target, stock.b, hitMargin)
+  // Evaluate verdict — live mode with slider values
+  const { verdict } = evaluatePrediction(price, target, stock.b, hitMargin, { closeRatio })
   const distPct = (price - target) / target * 100
   const pctStr  = `${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}%`
 
-  if (verdict === 'hit') {
-    return (
-      <TableCell>
-        <div className="flex flex-col gap-0.5">
-          <Badge className="w-fit text-[11px] bg-green-50 text-green-700 border-green-200 hover:bg-green-50">
-            ✅ Hit ({pctStr})
-          </Badge>
-          <span className="text-[11px] text-muted-foreground">{formatDate(date)}</span>
-        </div>
-      </TableCell>
-    )
+  // Verdict badge config — label, emoji, colors
+  const BADGE_CONFIG = {
+    exceeded:  { emoji: '🔵', label: 'Exceeded', bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200'   },
+    hit:       { emoji: '✅', label: 'Hit',       bg: 'bg-green-50',  text: 'text-green-700',  border: 'border-green-200'  },
+    close:     { emoji: '🟡', label: 'Close',     bg: 'bg-amber-50',  text: 'text-amber-700',  border: 'border-amber-200'  },
+    miss:      { emoji: '❌', label: 'Miss',      bg: 'bg-red-50',    text: 'text-red-700',    border: 'border-red-200'    },
+    wrong_way: { emoji: '🟣', label: 'Wrong way', bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
   }
+
+  const cfg = BADGE_CONFIG[verdict] ?? BADGE_CONFIG.miss
 
   return (
     <TableCell>
       <div className="flex flex-col gap-0.5">
-        <Badge className="w-fit text-[11px] bg-red-50 text-red-700 border-red-200 hover:bg-red-50">
-          ❌ Miss ({pctStr})
+        <Badge
+          className={`w-fit text-[11px] ${cfg.bg} ${cfg.text} ${cfg.border} hover:${cfg.bg}`}
+        >
+          {cfg.emoji} {cfg.label} ({pctStr})
         </Badge>
         <span className="text-[11px] text-muted-foreground">{formatDate(date)}</span>
       </div>
@@ -113,7 +123,7 @@ function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, ov
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function BatchSimple({ stocks, autoPrices, histPrices, overrides, hitMargin = 5 }) {
+export default function BatchSimple({ stocks, autoPrices, histPrices, overrides, hitMargin = 5, closeRatio = 2.4 }) {
   if (!stocks.length) {
     return (
       <Card className="flex items-center justify-center p-12 text-muted-foreground text-sm">
@@ -170,6 +180,7 @@ export default function BatchSimple({ stocks, autoPrices, histPrices, overrides,
                     histPrices={histPrices}
                     overrides={overrides}
                     hitMargin={hitMargin}
+                    closeRatio={closeRatio}
                   />
                 ))}
               </TableRow>

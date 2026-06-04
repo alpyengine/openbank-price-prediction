@@ -304,6 +304,7 @@ export default function App() {
               histPrices={histPrices}
               overrides={overrides}
               hitMargin={hitMargin}
+              closeRatio={closeRatio}
             />
           )}
 

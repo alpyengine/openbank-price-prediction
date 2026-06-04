@@ -184,7 +184,8 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
-| v7.3.1 | New SummaryCards layout (6+2 boxes) · exceeded/wrong_way colors · Bug 3 fix (column price independence) · slider + closeRatio in Batch Details |
+| v7.3.2 | BatchSimple verdict colors — exceeded/close/miss/wrong_way badges · `closeRatio` prop |
+| v7.3.1 | New SummaryCards layout (6+2 boxes) · exceeded/wrong_way colors · Bug 3 fix |
 | v7.3.0 | New verdict system — `exceeded` + `wrong_way` · snapshot params per horizon |
 | v7.2.1 | invite-user Edge Function — secure user invitation via Supabase server |
 | v7.2.0 | React Testing Library — 43 component tests · `docs/TESTING.md` · adaptive test environments |

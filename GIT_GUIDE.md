@@ -1399,3 +1399,46 @@ Tests: 164/164 passing"
 git tag -a v7.3.1 -m "v7.3.1: SummaryCards + Bug 3 fix"
 git push origin main && git push origin v7.3.1
 
+
+# ===========================================================================
+# STEP 126 — v7.3.2  BatchSimple verdict colors
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   BatchSimple.jsx — HorizonCell rewritten:
+#     Was: only 2 verdicts — hit (green) or miss (red) for everything else
+#     Now: all 5 verdicts with correct colors:
+#       exceeded  — 🔵 blue  bg-blue-50/text-blue-700
+#       hit       — ✅ green bg-green-50/text-green-700
+#       close     — 🟡 amber bg-amber-50/text-amber-700
+#       miss      — ❌ red   bg-red-50/text-red-700
+#       wrong_way — 🟣 purple bg-purple-50/text-purple-700
+#     BADGE_CONFIG lookup table replaces if/else chains
+#     closeRatio prop added — passed to evaluatePrediction
+#
+#   App.jsx:
+#     closeRatio passed to BatchSimple
+#
+# No npm install needed.
+# No Supabase changes needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.2/. .
+
+git add .
+git commit -m "feat: BatchSimple verdict colors — exceeded/close/wrong_way (v7.3.2)
+
+BatchSimple.jsx — HorizonCell rewritten:
+  5 verdicts with full color support:
+    exceeded=blue, hit=green, close=amber, miss=red, wrong_way=purple
+  BADGE_CONFIG lookup table replaces if/else chain.
+  closeRatio prop added to HorizonCell and BatchSimple.
+
+App.jsx: closeRatio passed to BatchSimple.
+
+Tests: 164/164 passing"
+
+git tag -a v7.3.2 -m "v7.3.2: BatchSimple verdict colors"
+git push origin main && git push origin v7.3.2
+
