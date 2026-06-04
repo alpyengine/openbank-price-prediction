@@ -52,7 +52,7 @@
  *   deleteBatch(id)   — delete a batch from Supabase
  */
 import { useState, useCallback, useEffect } from 'react'
-import { loadHistory, saveHistory, buildBatchId, isStorageConfigured, deleteHistoryBatch } from '../services/storage.js'
+import { loadHistory, saveHistory, buildBatchId, isStorageConfigured, deleteHistoryBatch, saveFundamentalsCache } from '../services/storage.js'
 import { formatDate, today as getToday, targetDates, dateStatus } from '../utils/dates.js'
 import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
 
@@ -267,6 +267,13 @@ export function useHistory(margin = 5) {
     if (ok) {
       setHistory(updated)
       setLog(`Batch ${batchId} saved — ${results.length} predictions`)
+      // Also update fundamentals_cache — keeps ticker-level cache in sync
+      // Fire and forget — don't block UI on cache update
+      if (fundamentals && Object.keys(fundamentals).length > 0) {
+        saveFundamentalsCache(fundamentals).catch(err =>
+          console.warn('[useHistory] fundamentals cache update failed:', err.message)
+        )
+      }
     } else {
       setLog('Save failed — check Supabase credentials')
     }

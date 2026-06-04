@@ -278,3 +278,77 @@ export async function loadAllWeeklyPrices() {
     return {}
   }
 }
+
+// ── fundamentals_cache — ticker-level fundamentals cache ──────────────────────
+
+/**
+ * saveFundamentalsCache(fundamentals)
+ * Upserts fundamentals for each ticker into the fundamentals_cache table.
+ * Called automatically when saving a batch — keeps cache in sync.
+ *
+ * TTL logic: each row stores fetched_at so the app knows when to re-fetch.
+ * Rows older than 7 days will be re-fetched on next Refresh Fundamentals.
+ *
+ * @param {Object} fundamentals — { [ticker]: { sector, pegTTM, ... } }
+ */
+export async function saveFundamentalsCache(fundamentals) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return
+  if (!fundamentals || !Object.keys(fundamentals).length) return
+
+  try {
+    // Build one row per ticker
+    const rows = Object.entries(fundamentals).map(([ticker, data]) => ({
+      ticker,
+      data,
+      fetched_at: data?.fetchedAt || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }))
+
+    // Upsert all rows in one request — merge on ticker PK
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/fundamentals_cache`,
+      {
+        method:  'POST',
+        headers: {
+          ...authHeaders(),
+          'Prefer': 'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify(rows),
+      }
+    )
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      console.warn('[storage] saveFundamentalsCache error:', err.message || res.status)
+    }
+  } catch (err) {
+    console.warn('[storage] saveFundamentalsCache error:', err.message)
+  }
+}
+
+/**
+ * loadFundamentalsCache()
+ * Loads all rows from fundamentals_cache.
+ * Returns { [ticker]: { ...data, fetchedAt } } — same shape as useFundamentals state.
+ *
+ * Used by AllStocksPage as the primary source of fundamentals data.
+ * Falls back to batch.fundamentals if a ticker is missing from cache.
+ */
+export async function loadFundamentalsCache() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return {}
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/fundamentals_cache?select=ticker,data,fetched_at`,
+      { headers: authHeaders(), cache: 'no-store' }
+    )
+    if (!res.ok) return {}
+    const rows = await res.json()
+
+    // Convert array of rows → { ticker: { ...data } }
+    return Object.fromEntries(
+      rows.map(row => [row.ticker, { ...row.data, fetchedAt: row.fetched_at }])
+    )
+  } catch (err) {
+    console.warn('[storage] loadFundamentalsCache error:', err.message)
+    return {}
+  }
+}

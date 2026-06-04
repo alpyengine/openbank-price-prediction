@@ -736,3 +736,52 @@ on conflict (ticker, target_date) do nothing;
 
 This order ensures the Sunday backup always contains the most recent
 weekly prices (Saturday) and verdict evaluations (Friday).
+
+---
+
+## 8. fundamentals_cache — ticker-level fundamentals cache
+
+### Purpose
+Stores fundamentals per ticker independently of batches.
+Allows AllStocksPage to show fundamentals for all tickers without
+requiring each batch to be manually loaded, fetched and saved.
+
+### Create table
+
+```sql
+create table if not exists fundamentals_cache (
+  ticker       text        primary key,
+  data         jsonb       not null,
+  fetched_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+-- RLS: allow read for all authenticated users
+alter table fundamentals_cache enable row level security;
+
+create policy "allow read fundamentals_cache"
+  on fundamentals_cache for select
+  using (true);
+
+create policy "allow upsert fundamentals_cache"
+  on fundamentals_cache for insert
+  with check (true);
+
+create policy "allow update fundamentals_cache"
+  on fundamentals_cache for update
+  using (true);
+```
+
+### TTL logic
+There is no automatic TTL — freshness is managed in the app.
+`useFundamentals.js` checks `fetched_at` before re-fetching:
+if `fetched_at` < 7 days ago → re-fetch from Finnhub.
+if `fetched_at` >= 7 days ago → use cached data.
+
+### Schema
+| Column | Type | Description |
+|---|---|---|
+| ticker | text PK | bare ticker e.g. "MU", "NEM.DE" |
+| data | jsonb | full fundamentals object (sector, peg, margin...) |
+| fetched_at | timestamptz | when Finnhub data was fetched |
+| updated_at | timestamptz | when row was last written |

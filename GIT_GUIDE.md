@@ -951,6 +951,93 @@ AllStocksPage.jsx — ColTooltip on every column header:
 
 Tests: 107/107 passing"
 
-git tag -a v7.1.2 -m "v7.1.2: sparklines from weekly_prices"
+git tag -a v7.1.2 -m "v7.1.2: sparklines + column tooltips"
 git push origin main && git push origin v7.1.2
+
+
+# ===========================================================================
+# STEP 120 — v7.1.3  fundamentals_cache table in Supabase
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   New Supabase table: fundamentals_cache
+#     Stores fundamentals per ticker — independent of batches.
+#     Primary key: ticker (e.g. "MU", "NEM.DE")
+#     Columns: ticker, data (jsonb), fetched_at, updated_at
+#     TTL: managed in app — data older than 7 days is re-fetched.
+#
+#   storage.js — two new functions:
+#     saveFundamentalsCache(fundamentals):
+#       Upserts all tickers from a fundamentals object into the cache.
+#       Called automatically on Save — fire and forget (non-blocking).
+#     loadFundamentalsCache():
+#       Loads all rows from cache → { ticker: { ...data } }.
+#       Used by AllStocksPage as primary fundamentals source.
+#
+#   useHistory.js — saveBatch calls saveFundamentalsCache after save:
+#     Every time you Fetch Fundamentals + Save, the cache is updated.
+#     Non-blocking — doesn't delay the Save operation.
+#
+#   AllStocksPage.jsx — three-layer fundamentals merge:
+#     Layer 1: fundamentals_cache (primary — loaded on mount)
+#     Layer 2: batch.fundamentals (fallback for tickers not in cache)
+#     Layer 3: active-batch memory fundamentals (most recent override)
+#
+# SUPABASE MIGRATION REQUIRED — run this SQL:
+#
+#   create table if not exists fundamentals_cache (
+#     ticker       text        primary key,
+#     data         jsonb       not null,
+#     fetched_at   timestamptz not null default now(),
+#     updated_at   timestamptz not null default now()
+#   );
+#
+#   alter table fundamentals_cache enable row level security;
+#
+#   create policy "allow read fundamentals_cache"
+#     on fundamentals_cache for select using (true);
+#
+#   create policy "allow upsert fundamentals_cache"
+#     on fundamentals_cache for insert with check (true);
+#
+#   create policy "allow update fundamentals_cache"
+#     on fundamentals_cache for update using (true);
+#
+# POPULATE CACHE after migration:
+#   Load each batch → Fetch Fundamentals → Save
+#   This fills fundamentals_cache for all tickers.
+#   Future saves will keep it in sync automatically.
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.1.3/. .
+
+git add .
+git commit -m "feat: fundamentals_cache table in Supabase (v7.1.3)
+
+New Supabase table fundamentals_cache:
+  Stores fundamentals per ticker, independent of batches.
+  TTL managed in app — data older than 7 days is re-fetched.
+
+storage.js:
+  saveFundamentalsCache() — upserts all tickers on save.
+  loadFundamentalsCache() — loads all rows on mount.
+
+useHistory.js:
+  saveBatch() calls saveFundamentalsCache() after every save.
+  Non-blocking — fire and forget.
+
+AllStocksPage.jsx — three-layer fundamentals merge:
+  1. fundamentals_cache (primary)
+  2. batch.fundamentals (fallback)
+  3. active-batch memory (override)
+
+See GIT_GUIDE STEP 120 for SQL migration instructions.
+
+Tests: 107/107 passing"
+
+git tag -a v7.1.3 -m "v7.1.3: fundamentals_cache"
+git push origin main && git push origin v7.1.3
 

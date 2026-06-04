@@ -22,7 +22,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Download, ChevronDown, ChevronUp, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { loadAllWeeklyPrices } from '@/services/storage'
+import { loadAllWeeklyPrices, loadFundamentalsCache } from '@/services/storage'
 
 // ── Investment Score calculation ──────────────────────────────────────────────
 
@@ -431,39 +431,50 @@ export default function AllStocksPage({ batches, fundamentals }) {
   const [legendOpen,   setLegendOpen]   = useState(false)
   // weeklyPrices: { [ticker]: { [batchId]: [prices...] } }
   // Loaded once on mount — used to render sparklines
-  const [weeklyPrices, setWeeklyPrices] = useState({})
+  const [weeklyPrices,       setWeeklyPrices]       = useState({})
+  // cachedFundamentals: { [ticker]: { sector, pegTTM, ... } }
+  // Loaded from fundamentals_cache table — primary source for All Stocks
+  const [cachedFundamentals, setCachedFundamentals] = useState({})
 
-  // Load all weekly prices on mount — single query, 275 rows
+  // Load weekly prices and fundamentals cache on mount — single queries each
   useEffect(() => {
     loadAllWeeklyPrices().then(data => setWeeklyPrices(data))
+    loadFundamentalsCache().then(data => setCachedFundamentals(data))
   }, [])
 
   // Deduplicate stocks from all batches
   const baseStocks = useMemo(() => deduplicateStocks(batches), [batches])
 
-  // Merge fundamentals from ALL batches — oldest first so newest batch wins
-  // Each batch has its own fundamentals field saved in Supabase.
-  // This means All Stocks always shows fresh fundamentals for every ticker
-  // regardless of which batch is currently active in memory.
+  // Merge fundamentals from three sources — priority order (last wins):
+  //   1. fundamentals_cache table (primary — ticker-level, TTL 7 days)
+  //   2. batch.fundamentals from all saved batches (fallback)
+  //   3. active-batch fundamentals from memory (most recent override)
   const allFundamentals = useMemo(() => {
     const merged = {}
-    // Sort batches oldest first so newest overwrites (newest wins)
-    const sorted = [...(batches ?? [])].sort((a, b) => {
+
+    // Layer 1 — fundamentals_cache (loaded from Supabase on mount)
+    Object.assign(merged, cachedFundamentals)
+
+    // Layer 2 — batch fundamentals (fallback for tickers not in cache yet)
+    // Sort oldest first so newest batch overwrites
+    const sortedBatches = [...(batches ?? [])].sort((a, b) => {
       const [da, ma, ya] = (a.date || '').split('/').map(Number)
       const [db, mb, yb] = (b.date || '').split('/').map(Number)
       return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db)
     })
-    for (const batch of sorted) {
+    for (const batch of sortedBatches) {
       if (batch.fundamentals && typeof batch.fundamentals === 'object') {
         Object.assign(merged, batch.fundamentals)
       }
     }
-    // Also merge active-batch fundamentals from memory (may be more recent)
+
+    // Layer 3 — active-batch in-memory fundamentals (most recent override)
     if (fundamentals && typeof fundamentals === 'object') {
       Object.assign(merged, fundamentals)
     }
+
     return merged
-  }, [batches, fundamentals])
+  }, [cachedFundamentals, batches, fundamentals])
 
   // Merge fundamentals + score
   const stocks = useMemo(() => baseStocks.map(s => {
