@@ -1497,3 +1497,62 @@ Tests: 164/164 passing"
 git tag -a v7.3.3 -m "v7.3.3: AccuracyChart fixed thresholds"
 git push origin main && git push origin v7.3.3
 
+
+# ===========================================================================
+# STEP 128 — v7.3.4  Supabase hit_rate_ext + snapshot mode in saveBatch
+# ===========================================================================
+#
+# SUPABASE MIGRATION REQUIRED — run this SQL before deploying:
+#
+#   alter table batches
+#     add column if not exists hit_rate_ext integer;
+#
+# WHAT'S NEW:
+#
+#   useHistory.js — saveBatch():
+#     evaluatePrediction now uses SNAPSHOT_PARAMS per horizon (snapshot mode)
+#       evaluatePrediction(p, tgt, stock.b, 5, { horizon: h })
+#       This replaces the old evaluatePrediction(p, tgt, stock.b, margin)
+#       All batches saved from v7.3.4 use consistent fixed thresholds.
+#     hitRateExt added: (hits + exceeded) / evaluated × 100
+#     hitRateExt added to newBatch and batchMeta objects.
+#
+#   storage.js — saveHistory():
+#     hit_rate_ext column added to upsert row.
+#
+#   storage.js — loadHistory():
+#     hitRateExt: row.hit_rate_ext ?? null added to batch mapping.
+#     null for batches saved before v7.3.4 — backwards compatible.
+#
+# BACKWARDS COMPATIBILITY:
+#   Old batches (saved before v7.3.4) load with hitRateExt = null.
+#   AccuracyChart handles null gracefully (shows '--' or empty badge).
+#   To update old batches: load each batch → Save again.
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.4/. .
+
+git add .
+git commit -m "feat: Supabase hit_rate_ext + snapshot mode in saveBatch (v7.3.4)
+
+useHistory.js — saveBatch():
+  evaluatePrediction uses snapshot mode per horizon.
+    Before: evaluatePrediction(p, tgt, base, margin) — global slider
+    After:  evaluatePrediction(p, tgt, base, 5, { horizon: h }) — fixed
+  hitRateExt = (hits + exceeded) / evaluated added to batch.
+  hitRateExt added to newBatch and batchMeta.
+
+storage.js:
+  saveHistory: hit_rate_ext column added to Supabase upsert row.
+  loadHistory: hitRateExt mapped from hit_rate_ext (null for old batches).
+
+Supabase migration required:
+  alter table batches add column if not exists hit_rate_ext integer;
+
+Tests: 164/164 passing"
+
+git tag -a v7.3.4 -m "v7.3.4: hit_rate_ext + snapshot mode"
+git push origin main && git push origin v7.3.4
+

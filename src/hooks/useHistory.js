@@ -169,7 +169,10 @@ export function useHistory(margin = 5) {
             stock.t, h, autoPrices, histPrices, overrides, true
           )
           if (p) {
-            const { verdict } = evaluatePrediction(p, tgt, stock.b, margin)
+            // Use snapshot mode — fixed SNAPSHOT_PARAMS per horizon
+            // This ensures all batches saved to Supabase use consistent thresholds
+            // regardless of what hitMargin was set in the slider at save time
+            const { verdict } = evaluatePrediction(p, tgt, stock.b, 5, { horizon: h })
             finalVerdict = verdict ?? 'awaiting'
             priceOnDate  = p
           }
@@ -233,10 +236,14 @@ export function useHistory(margin = 5) {
       }
     }
 
-    // Compute HIT rate
-    const evaluated = mergedResults.filter(r => r.verdict !== 'awaiting')
-    const hits      = evaluated.filter(r => r.verdict === 'hit').length
-    const hitRate   = evaluated.length ? Math.round(hits / evaluated.length * 100) : null
+    // Compute hit rates — both pure and extended (for Supabase storage)
+    // Pure:     hits ÷ evaluated (strict — only within ±H% of target)
+    // Extended: (hits + exceeded) ÷ evaluated (includes surpassed targets)
+    const evaluated  = mergedResults.filter(r => r.verdict !== 'awaiting')
+    const hits       = evaluated.filter(r => r.verdict === 'hit').length
+    const exceededs  = evaluated.filter(r => r.verdict === 'exceeded').length
+    const hitRate    = evaluated.length ? Math.round(hits / evaluated.length * 100) : null
+    const hitRateExt = evaluated.length ? Math.round((hits + exceededs) / evaluated.length * 100) : null
 
     // Build complete newBatch in one go — all fields present before passing to saveHistory
     const newBatch = {
@@ -247,6 +254,7 @@ export function useHistory(margin = 5) {
       results:       mergedResults,
       horizonStatus,
       hitRate,
+      hitRateExt,
       marketData:    marketData    ?? existingBatch?.marketData    ?? null,
       fundamentals:  (fundamentals && Object.keys(fundamentals).length > 0)
                        ? fundamentals
@@ -261,6 +269,7 @@ export function useHistory(margin = 5) {
       stocks:    mergedStocks,
       horizonStatus,
       hitRate,
+      hitRateExt,
     }
 
     const ok = await saveHistory(updated, batchMeta)
