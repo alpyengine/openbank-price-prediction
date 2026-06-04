@@ -178,7 +178,8 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
-| v7.1.1 | Ticker normalisation — `.US` stripped at import · single normalisation point · Supabase homogeneous |
+| v7.1.2 | Sparklines in All Stocks — weekly price evolution from `weekly_prices` · green if above base, red if below |
+| v7.1.1 | Ticker normalisation — `.US` stripped at import · All Stocks data fixes · Refresh Market button |
 | v7.1.1 | Ticker normalisation — `.US` stripped at CSV import · single normalisation point · Supabase homogeneous |
 | v7.1.0 | All Stocks page — consolidated view of all batches · deduplication · Investment Score · horizon dropdown · filters · CSV export |
 | v7.0.6 | Finnhub replaces Twelve Data for fundamentals — `useFundamentals.js` extended with PEG, margins, growth metrics |

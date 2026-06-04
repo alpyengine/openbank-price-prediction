@@ -22,6 +22,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Download, ChevronDown, ChevronUp, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { loadAllWeeklyPrices } from '@/services/storage'
 
 // ── Investment Score calculation ──────────────────────────────────────────────
 
@@ -184,14 +185,42 @@ function uColor(v) {
   return v >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'
 }
 
-function SparkLine({ points, upside }) {
-  if (!points?.length) return <span className="text-[10px] text-muted-foreground">—</span>
-  const mn = Math.min(...points), mx = Math.max(...points), rng = mx - mn || 1
-  const coords = points.map((v, i) => `${i * (50 / (points.length - 1))},${20 - ((v - mn) / rng) * 18}`).join(' ')
-  const color  = upside == null ? '#6b7280' : upside >= 0 ? '#16a34a' : '#dc2626'
+/**
+ * SparkLine — mini line chart showing weekly price evolution.
+ *
+ * Colour logic (Option A from spec):
+ *   green  — current price (last point) > base price (first point)
+ *   red    — current price (last point) < base price (first point)
+ *   grey   — no data or flat
+ *
+ * @param {number[]} points — array of weekly close prices (oldest → newest)
+ * @param {number}   base   — base price of the batch (first buy price)
+ */
+function SparkLine({ points, base }) {
+  // No data yet — show placeholder dash
+  if (!points?.length) {
+    return <span className="text-[10px] text-muted-foreground">—</span>
+  }
+
+  const last  = points[points.length - 1]
+  const color = base == null ? '#6b7280'
+              : last > base  ? '#16a34a'   // green — above base
+              : last < base  ? '#dc2626'   // red   — below base
+              : '#6b7280'                  // grey  — flat
+
+  const mn = Math.min(...points)
+  const mx = Math.max(...points)
+  const rng = mx - mn || 1
+
+  const w = 55
+  const h = 22
+  const coords = points
+    .map((v, i) => `${(i / (points.length - 1)) * w},${h - ((v - mn) / rng) * (h - 2) - 1}`)
+    .join(' ')
+
   return (
-    <svg width="55" height="22" viewBox="0 0 55 22" aria-hidden>
-      <polyline points={coords} fill="none" stroke={color} strokeWidth="1.5" />
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
+      <polyline points={coords} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -268,6 +297,66 @@ function HorizonDropdown({ value, onChange }) {
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 
+/**
+ * ColTooltip — ℹ icon with hover tooltip for table column headers.
+ * Uses position:fixed to escape the table's overflow:hidden clipping.
+ * Tooltip appears below the icon, aligned to its position on screen.
+ *
+ * @param {string}    text     — tooltip description text
+ * @param {ReactNode} children — optional extra content (badges, spark examples)
+ */
+function ColTooltip({ text, children }) {
+  const [open, setOpen]   = useState(false)
+  const [pos,  setPos]    = useState({ x: 0, y: 0 })
+  const ref               = useRef(null)
+
+  function handleMouseEnter() {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      // Position tooltip below the icon, right-aligned to it
+      setPos({ x: rect.right, y: rect.bottom + 6 })
+    }
+    setOpen(true)
+  }
+
+  return (
+    <div
+      className="relative inline-flex items-center"
+      ref={ref}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setOpen(false)}
+    >
+      {/* Small ℹ icon */}
+      <svg
+        width="12" height="12" viewBox="0 0 12 12" fill="none"
+        className="text-muted-foreground cursor-help ml-0.5 shrink-0"
+        aria-label="column info"
+      >
+        <circle cx="6" cy="6" r="5.5" stroke="currentColor" strokeWidth="1"/>
+        <text x="6" y="9" textAnchor="middle" fontSize="7" fill="currentColor" fontWeight="500">i</text>
+      </svg>
+
+      {/* Tooltip — fixed position to escape table overflow:hidden */}
+      {open && (
+        <div
+          className="bg-card border border-border rounded-lg shadow-md p-2.5 text-left pointer-events-none"
+          style={{
+            position:  'fixed',
+            top:       pos.y,
+            left:      pos.x,
+            transform: 'translateX(-100%)',
+            zIndex:    9999,
+            width:     '220px',
+          }}
+        >
+          <p className="text-[11px] text-muted-foreground leading-relaxed m-0">{text}</p>
+          {children && <div className="mt-2">{children}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Legend() {
   const [open, setOpen] = useState(false)
   return (
@@ -333,13 +422,21 @@ function exportCSV(rows, horizon) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AllStocksPage({ batches, fundamentals }) {
-  const [horizon,     setHorizon]     = useState('12M')
-  const [sortCol,     setSortCol]     = useState('upside')
-  const [sortDir,     setSortDir]     = useState(-1) // -1 = desc
-  const [filterSec,   setFilterSec]   = useState('')
-  const [filterPeg,   setFilterPeg]   = useState('')
-  const [minScore,    setMinScore]    = useState(0)
-  const [legendOpen,  setLegendOpen]  = useState(false)
+  const [horizon,      setHorizon]      = useState('12M')
+  const [sortCol,      setSortCol]      = useState('upside')
+  const [sortDir,      setSortDir]      = useState(-1) // -1 = desc
+  const [filterSec,    setFilterSec]    = useState('')
+  const [filterPeg,    setFilterPeg]    = useState('')
+  const [minScore,     setMinScore]     = useState(0)
+  const [legendOpen,   setLegendOpen]   = useState(false)
+  // weeklyPrices: { [ticker]: { [batchId]: [prices...] } }
+  // Loaded once on mount — used to render sparklines
+  const [weeklyPrices, setWeeklyPrices] = useState({})
+
+  // Load all weekly prices on mount — single query, 275 rows
+  useEffect(() => {
+    loadAllWeeklyPrices().then(data => setWeeklyPrices(data))
+  }, [])
 
   // Deduplicate stocks from all batches
   const baseStocks = useMemo(() => deduplicateStocks(batches), [batches])
@@ -497,46 +594,112 @@ export default function AllStocksPage({ batches, fundamentals }) {
       <Legend />
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-visible">
         <table className="w-full border-collapse text-[11.5px]">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
               <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Ticker</th>
               <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sector</th>
 
-              {/* Upside column with horizon dropdown */}
+              {/* Upside column with horizon dropdown + info tooltip */}
               <th className="px-3 py-2.5 text-right">
                 <div className="flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => toggleSort('upside')}
-                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
-                      sortCol === 'upside' ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                    style={{ fontFamily: 'inherit' }}
-                  >
-                    Upside {sortIcon('upside')}
-                  </button>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => toggleSort('upside')}
+                      className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                        sortCol === 'upside' ? 'text-primary' : 'text-muted-foreground'
+                      )}
+                      style={{ fontFamily: 'inherit' }}
+                    >
+                      Upside {sortIcon('upside')}
+                    </button>
+                    <ColTooltip text="Expected % gain from batch base price to Openbank AI target for the selected horizon.">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-foreground">Verde = positivo · Rojo = negativo</span>
+                      </div>
+                    </ColTooltip>
+                  </div>
                   <HorizonDropdown value={horizon} onChange={setHorizon} />
                 </div>
               </th>
 
-              {/* Score column */}
+              {/* Score column + info tooltip */}
               <th className="px-3 py-2.5 text-right">
-                <button
-                  onClick={() => toggleSort('score')}
-                  className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
-                    sortCol === 'score' ? 'text-primary' : 'text-muted-foreground'
-                  )}
-                  style={{ fontFamily: 'inherit' }}
-                >
-                  Score {sortIcon('score')}
-                </button>
+                <div className="flex items-center justify-end gap-0.5">
+                  <button
+                    onClick={() => toggleSort('score')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'score' ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    Score {sortIcon('score')}
+                  </button>
+                  <ColTooltip text="Investment score 0–100. Combines Upside (40%), PEG (45%) and Net Margin (15%). −20 penalty if EPS is negative.">
+                    <div className="flex flex-wrap gap-1">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-bold">🟣 80+ very attractive</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">🔵 60+ attractive</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold">🟡 40+ moderate</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold">⚫ &lt;40 low</span>
+                    </div>
+                  </ColTooltip>
+                </div>
               </th>
 
-              <th className="px-3 py-2.5 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wide">PEG</th>
-              <th className="px-3 py-2.5 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Margin</th>
-              <th className="px-3 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sparkline</th>
-              <th className="px-3 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Batch</th>
+              {/* PEG column + info tooltip */}
+              <th className="px-3 py-2.5 text-right">
+                <div className="flex items-center justify-end gap-0.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">PEG</span>
+                  <ColTooltip text="Price/Earnings to Growth ratio (Peter Lynch). Measures if the stock is cheap or expensive relative to its growth rate.">
+                    <div className="flex flex-wrap gap-1">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-800 font-bold">🟢 &lt;1 undervalued</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold">🟡 1–2 fair</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">🔴 &gt;2 expensive</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold">⚠ Neg EPS negative</span>
+                    </div>
+                  </ColTooltip>
+                </div>
+              </th>
+
+              {/* Margin column + info tooltip */}
+              <th className="px-3 py-2.5 text-right">
+                <div className="flex items-center justify-end gap-0.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Margin</span>
+                  <ColTooltip text="Net profit margin TTM — % of revenue kept as profit in the last 12 months. Higher is better." />
+                </div>
+              </th>
+
+              {/* Sparkline column + info tooltip */}
+              <th className="px-3 py-2.5 text-center">
+                <div className="flex items-center justify-center gap-0.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sparkline</span>
+                  <ColTooltip text="Weekly price evolution since the batch date. Colour shows position vs batch base price — not the direction of the line.">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <svg width="40" height="14" viewBox="0 0 40 14"><polyline points="0,12 7,9 14,7 21,5 28,3 35,4 40,2" fill="none" stroke="#16a34a" strokeWidth="1.5"/></svg>
+                        <span className="text-[10px] text-green-700 font-semibold">verde = price &gt; base</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <svg width="40" height="14" viewBox="0 0 40 14"><polyline points="0,2 7,4 14,6 21,8 28,10 35,11 40,12" fill="none" stroke="#dc2626" strokeWidth="1.5"/></svg>
+                        <span className="text-[10px] text-red-600 font-semibold">rojo = price &lt; base</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <svg width="40" height="14" viewBox="0 0 40 14"><polyline points="0,12 7,9 14,7 21,6 28,5 35,4 40,3" fill="none" stroke="#dc2626" strokeWidth="1.5"/></svg>
+                        <span className="text-[10px] text-muted-foreground">rojo + subiendo = recovering, still below base</span>
+                      </div>
+                    </div>
+                  </ColTooltip>
+                </div>
+              </th>
+
+              {/* Batch column + info tooltip */}
+              <th className="px-3 py-2.5 text-center">
+                <div className="flex items-center justify-center gap-0.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Batch</span>
+                  <ColTooltip text="Date of the most recent batch containing this ticker. · Nx means the ticker appears in N different batches — most recent data wins." />
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -587,9 +750,14 @@ export default function AllStocksPage({ batches, fundamentals }) {
                     {s.margin != null ? s.margin.toFixed(1) + '%' : '—'}
                   </td>
 
-                  {/* Sparkline — placeholder, real data needs weekly_prices */}
+                  {/* Sparkline — weekly price evolution from weekly_prices table.
+                      Uses the most recent batchId for this ticker.
+                      Colour: green if last price > base, red if below (Option A). */}
                   <td className="px-3 py-2.5 text-center">
-                    <SparkLine points={null} upside={u} />
+                    <SparkLine
+                      points={weeklyPrices[s.tNorm]?.[s.batchId] ?? null}
+                      base={s.b}
+                    />
                   </td>
 
                   {/* Batch */}

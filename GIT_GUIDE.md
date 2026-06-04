@@ -879,15 +879,15 @@ All Stocks — fundamentals from all batches (AllStocksPage.jsx):
   Newest batch wins on duplicate tickers. Active-batch memory merged last.
 
 All Stocks — upside % now populated (AllStocksPage.jsx):
-  Was: deduplicateStocks looked for r.target1M / r.t1 which don't exist
-       in Supabase — each ticker has 4 separate rows, one per horizon.
-  Now: groups the 4 horizon rows per ticker first, then extracts
-       targetPrice from each horizon row (horizon:'1M', '3M', '6M', '12M').
-  Code is fully commented explaining the Supabase data structure.
+  Bug 1: deduplicateStocks looked for r.target1M / r.t1 which don't exist
+          in Supabase. Each ticker has 4 separate rows, one per horizon.
+          Fixed: groups the 4 horizon rows per ticker first, then extracts
+          targetPrice from each row (horizon:'1M', '3M', '6M', '12M').
+  Bug 2: hKey = 'u' + horizon.toLowerCase() produced 'u12m' not 'u12'.
+          Fixed: explicit map { '1M':'u1', '3M':'u3', '6M':'u6', '12M':'u12' }.
 
 FetchBar.jsx — Refresh Market button added:
-  Same pattern as Refresh Fundamentals. Clears existing market data
-  and re-fetches from scratch. Wrapped in Fragment to fix JSX syntax.
+  Same pattern as Refresh Fundamentals. Wrapped in Fragment (JSX fix).
 
 Supabase migration (done separately):
   Deleted May 2026 batches + weekly_prices + price_cache .US tickers.
@@ -897,4 +897,60 @@ Tests: 107/107 passing"
 
 git tag -a v7.1.1 -m "v7.1.1: ticker normalisation"
 git push origin main && git push origin v7.1.1
+
+
+# ===========================================================================
+# STEP 119 — v7.1.2  Sparklines in All Stocks from weekly_prices
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   storage.js — loadAllWeeklyPrices() added:
+#     Single query loads ALL 275 weekly_prices rows at once.
+#     Groups into { ticker: { batchId: [prices...] } } in memory.
+#     No N+1 queries — one round trip for all sparklines.
+#
+#   AllStocksPage.jsx — SparkLine now shows real data:
+#     useEffect loads weekly prices on mount via loadAllWeeklyPrices().
+#     SparkLine receives points[] from the most recent batchId per ticker.
+#     Colour logic Option A (from SPEC_FUNDAMENTALS):
+#       green  — last weekly price > batch base price
+#       red    — last weekly price < batch base price
+#       grey   — no data or flat
+#     No axes, no labels — pure visual signal.
+#
+# No npm install needed.
+# No Supabase changes needed — weekly_prices table already has the data.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.1.2/. .
+
+git add .
+git commit -m "feat: sparklines + column tooltips in All Stocks (v7.1.2)
+
+storage.js — loadAllWeeklyPrices():
+  Single query loads all weekly_prices rows.
+  Groups into { ticker: { batchId: [prices...] } }.
+  No N+1 queries — one round trip for all sparklines.
+
+AllStocksPage.jsx — SparkLine with real data:
+  Loads weekly prices on mount via loadAllWeeklyPrices().
+  SparkLine uses most recent batchId prices per ticker.
+  Colour logic Option A: green if last > base, red if last < base.
+  Colour reflects position vs base price, NOT line direction.
+  Red + ascending = recovering but still below base price.
+
+AllStocksPage.jsx — ColTooltip on every column header:
+  ColTooltip component: hover ℹ icon shows tooltip above column.
+  Upside: description + verde/rojo explanation.
+  Score: description + colour badge guide (80+/60+/40+/<40).
+  PEG: description + Lynch colour guide (green/amber/red/neg).
+  Margin: description of net margin TTM.
+  Sparkline: description + 3 visual examples (green/red/red+ascending).
+  Batch: description of date + Nx notation.
+
+Tests: 107/107 passing"
+
+git tag -a v7.1.2 -m "v7.1.2: sparklines from weekly_prices"
+git push origin main && git push origin v7.1.2
 

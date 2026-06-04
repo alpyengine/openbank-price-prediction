@@ -236,3 +236,45 @@ export async function loadWeeklyPrices(ticker, batchId) {
     return []
   }
 }
+
+// ── loadAllWeeklyPrices — load all weekly prices for All Stocks sparklines ────
+
+/**
+ * loadAllWeeklyPrices()
+ * Loads ALL weekly_prices rows in a single query — used by AllStocksPage
+ * to render sparklines for every ticker without N individual requests.
+ *
+ * Returns a nested map:
+ *   { [ticker]: { [batchId]: [close_price, ...] } }
+ *
+ * Example:
+ *   { "MU": { "2026-03-17": [357, 366, 420, 455, 496, 542, 746, 724, 751, 971] } }
+ *
+ * The caller picks the most recent batchId for each ticker to get the
+ * sparkline points to display.
+ */
+export async function loadAllWeeklyPrices() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return {}
+  try {
+    // Load all rows ordered by ticker + week — single round trip
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/weekly_prices?select=ticker,batch_id,week,close_price&order=ticker.asc,batch_id.asc,week.asc`,
+      { headers: authHeaders(), cache: 'no-store' }
+    )
+    if (!res.ok) return {}
+    const rows = await res.json()
+
+    // Group into { ticker: { batchId: [prices...] } }
+    const result = {}
+    for (const row of rows) {
+      const { ticker, batch_id, close_price } = row
+      if (!result[ticker])            result[ticker] = {}
+      if (!result[ticker][batch_id])  result[ticker][batch_id] = []
+      result[ticker][batch_id].push(parseFloat(close_price))
+    }
+    return result
+  } catch (err) {
+    console.warn('[storage] loadAllWeeklyPrices error:', err.message)
+    return {}
+  }
+}
