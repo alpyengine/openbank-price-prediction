@@ -465,8 +465,6 @@ export default function App() {
             <AccuracyChart
               stats={stats}
               history={history?.batches ?? []}
-              hitMargin={hitMargin}
-              onMarginChange={setHitMargin}
               loading={histLoading}
               saving={histSaving}
               log={histLog}

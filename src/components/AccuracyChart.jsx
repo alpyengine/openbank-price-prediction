@@ -4,17 +4,15 @@
  * Accuracy Stats page — shows historical prediction performance.
  *
  * Sections:
- *   1. Action bar — hit margin slider + Refresh button + log
- *   2. KPI cards  — overall hit rate, total hits, misses, awaiting
- *   3. Horizon cards — hit rate per horizon (1M/3M/6M/12M) with progress bar
+ *   1. Action bar — Refresh button + log (slider removed in v7.3.3)
+ *   2. KPI cards  — overall hit rate (pure + extended), total hits, awaiting
+ *   3. Horizon cards — hit rate per horizon with SNAPSHOT_PARAMS thresholds
  *   4. Area chart — accuracy trend over time across batches
  *   5. Batch table — all saved batches with Load / Download / Delete actions
  *
- * States:
- *   - Not configured (no Supabase) → setup prompt
- *   - No data loaded → load prompt
- *   - Loading → spinner
- *   - Data available → full dashboard
+ * Note: Accuracy Stats always uses SNAPSHOT_PARAMS fixed thresholds (v7.3.3+).
+ * The hit margin slider was removed — it only applies in Batch Details (live mode).
+ * This ensures all batches are evaluated consistently for historical comparison.
  *
  * @param {Object}   stats          — computed accuracy stats from useHistory
  * @param {Object[]} history        — raw batch history (history.batches)
@@ -24,17 +22,15 @@
  * @param {Function} onLoad         — trigger history refresh
  * @param {Function} onLoadBatch    — load a batch into the main view
  * @param {Function} onDeleteBatch  — delete a batch from Supabase
- * @param {number}   hitMargin      — hit tolerance in % (default 5)
- * @param {Function} onMarginChange — called when slider changes
  */
 import { useState } from 'react'
-import { BarChart2, Target, CheckCircle, Clock, Download, RefreshCw, Trash2 } from 'lucide-react'
+import { BarChart2, Target, CheckCircle, Clock, Download, RefreshCw, Trash2, TrendingUp } from 'lucide-react'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
-import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { SNAPSHOT_PARAMS } from '@/utils/stocks.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -54,10 +50,10 @@ const H_COLORS = {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 /**
- * ActionBar — top row with hit margin slider, log message, and Refresh button.
- * Always visible regardless of data state.
+ * ActionBar — Refresh button + log message.
+ * Slider removed in v7.3.3 — AccuracyChart uses fixed SNAPSHOT_PARAMS.
  */
-function ActionBar({ log, loading, hitMargin, onMarginChange, onLoad }) {
+function ActionBar({ log, loading, onLoad }) {
   return (
     <div className="flex justify-end gap-2 mb-6 flex-wrap items-center">
       {/* Status log */}
@@ -70,18 +66,14 @@ function ActionBar({ log, loading, hitMargin, onMarginChange, onLoad }) {
         <div className="w-3.5 h-3.5 border-2 border-border border-t-primary rounded-full animate-spin" />
       )}
 
-      {/* Hit margin slider */}
-      <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-1.5">
-        <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Hit margin</span>
-        <input
-          type="range"
-          min="1"
-          max="20"
-          value={hitMargin}
-          onChange={e => onMarginChange && onMarginChange(parseInt(e.target.value))}
-          className="w-20 cursor-pointer accent-success"
-        />
-        <span className="text-xs font-bold min-w-[32px] text-center">±{hitMargin}%</span>
+      {/* Snapshot params note */}
+      <div className="flex items-center gap-1.5 bg-card border border-border rounded-lg px-3 py-1.5">
+        <span className="text-[11px] text-muted-foreground font-medium">Fixed thresholds:</span>
+        {['1M', '3M', '6M', '12M'].map(h => (
+          <span key={h} className="text-[10px] font-semibold text-muted-foreground">
+            {h} ±{SNAPSHOT_PARAMS[h].H}%
+          </span>
+        ))}
       </div>
 
       {/* Refresh button */}
@@ -255,7 +247,7 @@ function AreaChart({ chartData, chartLabels }) {
 
 export default function AccuracyChart({
   stats, history: batches, loading, log, configured,
-  onLoad, onLoadBatch, onDeleteBatch, hitMargin = 5, onMarginChange,
+  onLoad, onLoadBatch, onDeleteBatch,
 }) {
   const [loadingBatch,   setLoadingBatch]   = useState(null)
   const [downloadedBatch, setDownloadedBatch] = useState(null)
@@ -334,7 +326,7 @@ export default function AccuracyChart({
 
   if (!configured) return (
     <div>
-      <ActionBar log={log} loading={loading} hitMargin={hitMargin} onMarginChange={onMarginChange} onLoad={onLoad} />
+      <ActionBar log={log} loading={loading} onLoad={onLoad} />
       <Card className="flex flex-col items-center justify-center p-8 text-center gap-3">
         <BarChart2 size={32} className="text-muted-foreground" />
         <div>
@@ -347,7 +339,7 @@ export default function AccuracyChart({
 
   if (!stats && !loading) return (
     <div>
-      <ActionBar log={log} loading={loading} hitMargin={hitMargin} onMarginChange={onMarginChange} onLoad={onLoad} />
+      <ActionBar log={log} loading={loading} onLoad={onLoad} />
       <Card className="flex flex-col items-center justify-center p-10 text-center gap-4">
         <BarChart2 size={32} className="text-muted-foreground" />
         <div>
@@ -361,37 +353,37 @@ export default function AccuracyChart({
     </div>
   )
 
-  const overallHits   = stats?.byHorizon.reduce((a, h) => a + h.hit, 0) ?? 0
-  const overallMiss   = stats?.byHorizon.reduce((a, h) => a + h.miss, 0) ?? 0
-  const overallAwait  = stats?.totalAwaiting ?? 0
-  const uniqueTickers = stats?.uniqueTickers ?? 0
+  const overallHits    = stats?.byHorizon.reduce((a, h) => a + h.hit, 0) ?? 0
+  const overallExc     = stats?.byHorizon.reduce((a, h) => a + h.exceeded, 0) ?? 0
+  const overallAwait   = stats?.totalAwaiting ?? 0
 
   return (
     <div>
-      <ActionBar log={log} loading={loading} hitMargin={hitMargin} onMarginChange={onMarginChange} onLoad={onLoad} />
+      <ActionBar log={log} loading={loading} onLoad={onLoad} />
 
       {stats && (
         <>
           {/* ── KPI cards ─────────────────────────────────────────────── */}
           <div className="grid grid-cols-4 gap-3 mb-6">
             <KpiCard
-              label="Overall hit rate"
+              label="Hit Rate — pure"
               value={stats.overallRate != null ? `${stats.overallRate}%` : '--'}
               icon={Target}
-              sub={`${overallHits} hits · ${stats.evaluated} evaluated`}
+              sub={`${overallHits} hits within ±H% · ${stats.evaluated} evaluated`}
               subColor="text-success"
             />
             <KpiCard
-              label="Total hits"
-              value={overallHits}
-              icon={CheckCircle}
-              sub={`Out of ${stats.evaluated} evaluated`}
+              label="Hit Rate — extended"
+              value={stats.overallRateExt != null ? `${stats.overallRateExt}%` : '--'}
+              icon={TrendingUp}
+              sub={`${overallHits} hit + ${overallExc} exceeded`}
+              subColor="text-purple-600"
             />
             <KpiCard
-              label="Total misses"
-              value={overallMiss}
-              icon={BarChart2}
-              sub={`Out of ${stats.evaluated} evaluated`}
+              label="Total hits"
+              value={overallHits + overallExc}
+              icon={CheckCircle}
+              sub={`${overallHits} hit · ${overallExc} exceeded`}
             />
             <KpiCard
               label="Awaiting"
@@ -404,24 +396,42 @@ export default function AccuracyChart({
           {/* ── Horizon hit rate cards ────────────────────────────────── */}
           <div className="grid grid-cols-4 gap-3 mb-6">
             {stats.byHorizon.map((h, i) => {
-              const pct = h.hitRate ?? 0
+              const pct    = h.hitRate    ?? 0
+              const pctExt = h.hitRateExt ?? 0
               return (
                 <Card key={h.horizon} className="p-4">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs text-muted-foreground font-medium">{h.horizon} horizon</span>
-                    <Badge className={cn('text-[12px] font-bold rounded-full px-2', H_COLORS.badge[i])}>
-                      {pct}%
-                    </Badge>
+                    <div>
+                      <span className="text-xs text-muted-foreground font-medium">{h.horizon} horizon</span>
+                      <div className="text-[10px] text-muted-foreground">
+                        H=±{h.H}% · close&lt;{+(h.H * h.R).toFixed(1)}%
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-0.5">
+                      <Badge className={cn('text-[11px] font-bold rounded-full px-2', H_COLORS.badge[i])}>
+                        {pct}%
+                      </Badge>
+                      <Badge className="text-[10px] font-semibold rounded-full px-2 bg-purple-50 text-purple-700">
+                        +exc {pctExt}%
+                      </Badge>
+                    </div>
                   </div>
-                  {/* Progress bar */}
-                  <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                  {/* Hit rate pure bar */}
+                  <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden mb-1">
                     <div
                       className="h-full rounded-full transition-[width] duration-400"
                       style={{ width: `${pct}%`, background: H_COLORS.bar[i] }}
                     />
                   </div>
-                  <div className="mt-1.5 text-[11px] text-muted-foreground">
-                    {h.hit} hit · {h.miss} miss · {h.total} total
+                  {/* Extended bar */}
+                  <div className="w-full h-1 rounded-full bg-muted overflow-hidden mb-1.5">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-400"
+                      style={{ width: `${pctExt}%`, background: '#8b5cf6' }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {h.hit} hit · {h.exceeded} exc · {h.miss} miss · {h.total} total
                   </div>
                 </Card>
               )
@@ -456,7 +466,7 @@ export default function AccuracyChart({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted">
-                    {['Date', 'Stocks', 'Hit rate', 'Hits', 'Misses', 'Awaiting', 'Actions'].map(h => (
+                    {['Date', 'Stocks', 'Hit Rate', 'Ext Rate', 'Hit', 'Exc', 'Miss', 'Await', 'Actions'].map(h => (
                       <TableHead key={h} className="text-xs py-2.5 px-3.5 whitespace-nowrap">{h}</TableHead>
                     ))}
                   </TableRow>
@@ -465,7 +475,7 @@ export default function AccuracyChart({
                   {/* Empty state row */}
                   {(!batches || batches.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6 text-sm text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center py-6 text-sm text-muted-foreground">
                         No batches saved yet
                       </TableCell>
                     </TableRow>
@@ -473,18 +483,19 @@ export default function AccuracyChart({
 
                   {/* Batch rows */}
                   {(stats?.batchSummary ?? batches)?.map(batch => {
-                    const hits   = batch.hit      ?? batch.results?.filter(r => r.verdict === 'hit').length      ?? 0
-                    const miss   = batch.miss      ?? batch.results?.filter(r => r.verdict === 'miss').length     ?? 0
-                    const await_ = batch.awaiting  ?? batch.results?.filter(r => r.verdict === 'awaiting').length ?? 0
-                    const total  = batch.stocks    ?? batch.results?.length ?? 0
-                    const rate   = batch.hitRate   ?? (batch.evaluated > 0 ? Math.round(hits / batch.evaluated * 100) : null)
+                    const hits     = batch.hit      ?? 0
+                    const exc      = batch.exceeded ?? 0
+                    const miss     = batch.miss     ?? 0
+                    const await_   = batch.awaiting ?? 0
+                    const rate     = batch.hitRate
+                    const rateExt  = batch.hitRateExt
 
                     return (
                       <TableRow key={batch.id}>
                         <TableCell className="py-3 px-3.5 font-medium">{batch.date}</TableCell>
-                        <TableCell className="py-3 px-3.5 text-muted-foreground">{total}</TableCell>
+                        <TableCell className="py-3 px-3.5 text-muted-foreground">{batch.stocks}</TableCell>
 
-                        {/* Hit rate badge — color coded by performance */}
+                        {/* Hit rate pure */}
                         <TableCell className="py-3 px-3.5">
                           {rate != null && (
                             <Badge className={cn(
@@ -498,7 +509,17 @@ export default function AccuracyChart({
                           )}
                         </TableCell>
 
+                        {/* Hit rate extended */}
+                        <TableCell className="py-3 px-3.5">
+                          {rateExt != null && (
+                            <Badge className="text-xs font-semibold rounded-full bg-purple-50 text-purple-700">
+                              {rateExt}%
+                            </Badge>
+                          )}
+                        </TableCell>
+
                         <TableCell className="py-3 px-3.5 font-semibold text-success">{hits}</TableCell>
+                        <TableCell className="py-3 px-3.5 font-semibold text-blue-600">{exc}</TableCell>
                         <TableCell className="py-3 px-3.5 font-semibold text-destructive">{miss}</TableCell>
 
                         {/* Awaiting badge or dash */}
@@ -563,3 +584,4 @@ export default function AccuracyChart({
     </div>
   )
 }
+

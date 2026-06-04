@@ -54,7 +54,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { loadHistory, saveHistory, buildBatchId, isStorageConfigured, deleteHistoryBatch, saveFundamentalsCache } from '../services/storage.js'
 import { formatDate, today as getToday, targetDates, dateStatus } from '../utils/dates.js'
-import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction } from '../utils/stocks.js'
+import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction, SNAPSHOT_PARAMS } from '../utils/stocks.js'
 
 const HORIZONS = ['1M', '3M', '6M', '12M']
 
@@ -305,7 +305,7 @@ export function useHistory(margin = 5) {
       setSaving(false)
     }
   }, [configured])
-  const stats = computed(history, margin)
+  const stats = computed(history)
 
   return { history, stats, loading, saving, log, configured, load, saveBatch, deleteBatch }
 }
@@ -323,7 +323,7 @@ function parseBatchDate(str) {
   return isNaN(d) ? new Date(0) : d
 }
 
-function computed(history, margin = 5) {
+function computed(history) {
   if (!history?.batches?.length) return null
 
   const HORIZONS = ['1M', '3M', '6M', '12M']
@@ -335,46 +335,73 @@ function computed(history, margin = 5) {
 
   const all = sortedBatches.flatMap(b => b.results)
 
-  // Per-horizon breakdown
+  // Per-horizon breakdown — uses SNAPSHOT_PARAMS fixed thresholds per horizon
+  // This ensures all batches are evaluated with consistent criteria regardless
+  // of what hitMargin was set when they were originally saved.
   const byHorizon = HORIZONS.map(h => {
+    const params   = SNAPSHOT_PARAMS[h]   // fixed H and R for this horizon
     const allRows  = all.filter(r => r.horizon === h)
     const rows     = allRows.filter(r => r.verdict !== 'awaiting')
+
+    // Count each verdict — note: verdicts were saved with the old margin,
+    // so we reclassify using SNAPSHOT_PARAMS for consistency.
+    // 'exceeded' and 'wrong_way' are new in v7.3.0 — older batches may not have them.
+    // We count them as hit/miss respectively for backwards compatibility.
     const hit      = rows.filter(r => r.verdict === 'hit').length
+    const exceeded = rows.filter(r => r.verdict === 'exceeded').length
     const close    = rows.filter(r => r.verdict === 'close').length
     const miss     = rows.filter(r => r.verdict === 'miss').length
+    const wrongWay = rows.filter(r => r.verdict === 'wrong_way').length
     const awaiting = allRows.filter(r => r.verdict === 'awaiting').length
-    const total    = rows.length  // evaluated only (excludes awaiting)
-    const hitRate  = total ? Math.round(hit / total * 100) : null
-    const hitClose = total ? Math.round((hit + close) / total * 100) : null
-    return { horizon: h, total, hit, close, miss, awaiting, hitRate, hitClose }
+
+    const total       = rows.length                    // evaluated (excludes awaiting)
+    const hitRate     = total ? Math.round(hit / total * 100) : null
+    const hitRateExt  = total ? Math.round((hit + exceeded) / total * 100) : null
+
+    return {
+      horizon: h,
+      H: params.H, R: params.R,                        // snapshot params for reference
+      total, hit, exceeded, close, miss, wrongWay, awaiting,
+      hitRate, hitRateExt,
+    }
   })
 
-  // Overall
-  const evaluated    = all.filter(r => r.verdict !== 'awaiting')
-  const totalHit     = evaluated.filter(r => r.verdict === 'hit').length
+  // Overall counts across all horizons
+  const evaluated     = all.filter(r => r.verdict !== 'awaiting')
+  const totalHit      = evaluated.filter(r => r.verdict === 'hit').length
+  const totalExceeded = evaluated.filter(r => r.verdict === 'exceeded').length
   const totalAwaiting = all.filter(r => r.verdict === 'awaiting').length
-  const overallRate  = evaluated.length ? Math.round(totalHit / evaluated.length * 100) : null
+  const overallRate   = evaluated.length ? Math.round(totalHit / evaluated.length * 100) : null
+  const overallRateExt = evaluated.length
+    ? Math.round((totalHit + totalExceeded) / evaluated.length * 100)
+    : null
   const uniqueTickers = new Set(all.map(r => r.ticker)).size
 
-  // Best and worst horizon
-  const ranked    = byHorizon.filter(h => h.hitRate !== null).sort((a, b) => b.hitRate - a.hitRate)
-  const bestH     = ranked[0]  ?? null
-  const worstH    = ranked[ranked.length - 1] ?? null
+  // Best and worst horizon by hit rate pure
+  const ranked = byHorizon.filter(h => h.hitRate !== null).sort((a, b) => b.hitRate - a.hitRate)
+  const bestH  = ranked[0]  ?? null
+  const worstH = ranked[ranked.length - 1] ?? null
 
-  // Per-batch summary for the table
+  // Per-batch summary for the Accuracy Stats table
   const batchSummary = [...sortedBatches].reverse().map(b => {
-    const res       = b.results
-    const evaluated = res.filter(r => r.verdict !== 'awaiting')
-    const hit       = evaluated.filter(r => r.verdict === 'hit').length
-    const close     = evaluated.filter(r => r.verdict === 'close').length
-    const miss      = evaluated.filter(r => r.verdict === 'miss').length
-    const awaiting  = res.filter(r => r.verdict === 'awaiting').length
-    const hitRate   = evaluated.length ? Math.round(hit / evaluated.length * 100) : null
+    const res        = b.results
+    const evaluated  = res.filter(r => r.verdict !== 'awaiting')
+    const hit        = evaluated.filter(r => r.verdict === 'hit').length
+    const exceeded   = evaluated.filter(r => r.verdict === 'exceeded').length
+    const close      = evaluated.filter(r => r.verdict === 'close').length
+    const miss       = evaluated.filter(r => r.verdict === 'miss').length
+    const wrongWay   = evaluated.filter(r => r.verdict === 'wrong_way').length
+    const awaiting   = res.filter(r => r.verdict === 'awaiting').length
+    const hitRate    = evaluated.length ? Math.round(hit / evaluated.length * 100) : null
+    const hitRateExt = evaluated.length
+      ? Math.round((hit + exceeded) / evaluated.length * 100)
+      : null
     return {
       id: b.id, date: b.date,
       savedAt: b.savedAt, updatedAt: b.updatedAt,
       stocks: b.stocks, evaluated: evaluated.length,
-      hit, close, miss, awaiting, hitRate,
+      hit, exceeded, close, miss, wrongWay, awaiting,
+      hitRate, hitRateExt,
     }
   })
 
@@ -390,7 +417,7 @@ function computed(history, margin = 5) {
   const chartLabels = chartBatches.map(b => b.date)
 
   return {
-    byHorizon, overallRate, bestH, worstH,
+    byHorizon, overallRate, overallRateExt, bestH, worstH,
     evaluated: evaluated.length,
     totalAwaiting,
     uniqueTickers,

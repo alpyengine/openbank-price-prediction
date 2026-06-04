@@ -1442,3 +1442,58 @@ Tests: 164/164 passing"
 git tag -a v7.3.2 -m "v7.3.2: BatchSimple verdict colors"
 git push origin main && git push origin v7.3.2
 
+
+# ===========================================================================
+# STEP 127 — v7.3.3  AccuracyChart — slider removed + SNAPSHOT_PARAMS
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   useHistory.js — computed() rewritten:
+#     No longer accepts margin parameter — uses SNAPSHOT_PARAMS per horizon.
+#     Adds exceeded and wrongWay counters to byHorizon and batchSummary.
+#     Adds hitRateExt = (hit+exceeded)/evaluated to byHorizon and batchSummary.
+#     Adds overallRateExt to top-level stats object.
+#     SNAPSHOT_PARAMS imported from stocks.js.
+#
+#   AccuracyChart.jsx:
+#     ActionBar: slider removed — replaced with fixed threshold display
+#       (shows H per horizon: 1M ±3%, 3M ±5%, 6M ±7%, 12M ±10%)
+#     KPI cards: 4 cards — Hit Rate pure, Hit Rate extended, Total hits, Awaiting
+#     Horizon cards: show both hitRate (green) and hitRateExt (purple) badges
+#       + two progress bars (pure and extended) + snapshot params label
+#     Batch table: new Ext Rate column + Exc column for exceeded count
+#       table now has 9 columns (was 7)
+#     hitMargin and onMarginChange props removed.
+#
+#   App.jsx:
+#     hitMargin and onMarginChange removed from AccuracyChart props.
+#
+# No npm install needed.
+# No Supabase changes needed in this version.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.3/. .
+
+git add .
+git commit -m "feat: AccuracyChart fixed thresholds + hitRateExt (v7.3.3)
+
+useHistory.js — computed() rewritten:
+  Uses SNAPSHOT_PARAMS per horizon (no more global margin param).
+  Adds exceeded, wrongWay counters and hitRateExt to all stats objects.
+  overallRateExt added to top-level stats.
+
+AccuracyChart.jsx:
+  Slider removed — fixed SNAPSHOT_PARAMS thresholds displayed instead.
+  KPI cards: Hit Rate pure + extended + totals.
+  Horizon cards: dual badge (pure + extended) + dual progress bars.
+  Batch table: Ext Rate and Exc columns added (9 cols total).
+  hitMargin and onMarginChange props removed.
+
+App.jsx: hitMargin/onMarginChange removed from AccuracyChart.
+
+Tests: 164/164 passing"
+
+git tag -a v7.3.3 -m "v7.3.3: AccuracyChart fixed thresholds"
+git push origin main && git push origin v7.3.3
+
