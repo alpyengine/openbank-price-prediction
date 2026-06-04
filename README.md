@@ -30,8 +30,14 @@ All persistence, automation and price fetching runs on Supabase.
 📄 **[SPEC_FUNDAMENTALS.md](./docs/SPEC_FUNDAMENTALS.md)** — Investment Score & fundamentals specification:
 - Metrics catalogue (valuation, growth, quality, sentiment)
 - PEG ratio — Peter Lynch interpretation and scoring
-- Investment Score formula and weights (v7.1.x roadmap)
-- Implementation plan v7.1.0 → v7.1.4
+- Investment Score formula and weights
+- Implementation plan v7.1.0 → v7.1.4 (completed)
+
+📄 **[TESTING.md](./docs/TESTING.md)** — Testing guide (v7.2.0+):
+- Unit tests (Vitest) — pure JS logic, dates, stocks, hooks
+- Component tests (React Testing Library) — UI behaviour
+- What each test covers and why
+- How to add new tests · lessons learned from v7.1.x bugs
 - All tables (`batches`, `price_cache`, `weekly_prices`, `profiles`)
 - All functions (`fetch_expired_horizons`, `fetch_weekly_prices`, `backfill_weekly_prices`)
 - All cron jobs (weekday horizon evaluation, Saturday weekly prices, backfill)
@@ -178,6 +184,7 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
+| v7.2.0 | React Testing Library — 43 component tests · `docs/TESTING.md` · adaptive test environments |
 | v7.1.4 | TradingView chart modal · icon button in Batch Overview + All Stocks · adaptive colSpan |
 | v7.1.3 | `fundamentals_cache` table in Supabase · auto-populated on Save · All Stocks loads from cache first |
 | v7.1.2 | Sparklines in All Stocks from `weekly_prices` · ColTooltip on all column headers · NaN guard for <2 points |

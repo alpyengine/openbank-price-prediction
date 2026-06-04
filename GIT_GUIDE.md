@@ -1101,3 +1101,88 @@ Tests: 107/107 passing"
 git tag -a v7.1.4 -m "v7.1.4: TradingView chart modal"
 git push origin main && git push origin v7.1.4
 
+
+# ===========================================================================
+# STEP 122 — v7.2.0  React Testing Library — component tests
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   New test files (src/components/__tests__/):
+#     TradingViewModal.test.jsx  — 8 tests
+#       Modal renders ticker/company, iframe src, exchange mapping,
+#       close via ✕ button, Escape key, overlay click, not via content click.
+#     ImportBox.test.jsx         — 13 tests
+#       normalizeTicker: strips .US, preserves .DE/.AS/.PA/.L/.MC,
+#       bare tickers unchanged, uppercase, trim whitespace.
+#     AllStocksPage.test.jsx     — 22 tests
+#       calcScore: strong ticker, EPS penalty, clamp to 0, null handling.
+#       horizon key mapping: 1M→u1, 3M→u3, 6M→u6, 12M→u12 (regression).
+#       upsideScore/pegScore thresholds.
+#
+#   New infrastructure:
+#     src/test-setup.js — imports @testing-library/jest-dom for DOM matchers
+#     vite.config.js — environmentMatchGlobs: __tests__/ → jsdom
+#     vite.config.js — setupFiles: test-setup.js
+#     vite.config.js — include: *.test.jsx added
+#
+#   New npm scripts:
+#     npm run test:watch    — watch mode
+#     npm run test:coverage — with coverage report
+#
+#   New documentation:
+#     docs/TESTING.md — complete testing guide:
+#       What RTL is and why it matters
+#       All component tests documented with what each verifies
+#       Lessons learned from v7.1.x bugs
+#       Template for adding new tests
+#       Coverage targets
+#     README.md — TESTING.md link added in docs section
+#
+#   New dependencies (devDependencies):
+#     @testing-library/react
+#     @testing-library/user-event
+#     @testing-library/jest-dom
+#     @testing-library/dom
+#     @testing-library/dom
+#     jsdom@22               ← pinned for Vitest 0.34.6 compatibility
+#     @vitest/coverage-v8@0.34.6  ← pinned to match Vitest version
+#               (latest versions require Vitest 4.x)
+#
+# npm install IS needed for this version (new dev dependencies).
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.2.0/. .
+npm install
+
+git add .
+git commit -m "feat: React Testing Library component tests (v7.2.0)
+
+43 new component tests across 3 test files.
+
+TradingViewModal.test.jsx (8 tests):
+  Render, iframe src, exchange mapping (.DE→XETR),
+  close via button/Escape/overlay, not via content click.
+
+ImportBox.test.jsx (13 tests):
+  normalizeTicker: strips .US, preserves EU suffixes (.DE .AS .PA .L .MC),
+  bare tickers unchanged, uppercase, trim whitespace.
+
+AllStocksPage.test.jsx (22 tests):
+  calcScore: strong ticker=94, EPS penalty=-20, clamp to 0, null handling.
+  Horizon key regression: 12M→u12 not u12m (was the v7.1.1 bug).
+  upsideScore/pegScore Peter Lynch thresholds.
+
+Infrastructure:
+  src/test-setup.js — @testing-library/jest-dom setup
+  vite.config.js — jsdom env for __tests__/, setupFiles, *.test.jsx
+  package.json — test:watch and test:coverage scripts
+
+docs/TESTING.md — complete testing guide with lessons from v7.1.x bugs.
+README.md — TESTING.md link added.
+
+Total tests: 150 (107 unit + 43 component) — all passing"
+
+git tag -a v7.2.0 -m "v7.2.0: React Testing Library"
+git push origin main && git push origin v7.2.0
+

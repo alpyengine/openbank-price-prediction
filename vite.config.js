@@ -27,12 +27,21 @@ export default defineConfig({
 
   // Vitest configuration
   test: {
+    // Two environments:
+    //   node  — for pure JS unit tests (utils, hooks, storage)
+    //   jsdom — for React component tests (RTL)
+    // Files under __tests__/ use jsdom automatically via the
+    // environmentMatchGlobs setting below.
     environment: 'node',
+    environmentMatchGlobs: [
+      ['src/**/__tests__/**', 'jsdom'],
+    ],
     globals: true,
-    include: ['src/**/*.test.js'],
+    setupFiles: ['./src/test-setup.js'],
+    include: ['src/**/*.test.js', 'src/**/*.test.jsx'],
     coverage: {
       reporter: ['text', 'html'],
-      include: ['src/utils/**', 'src/hooks/useHistory.js'],
+      include: ['src/utils/**', 'src/hooks/useHistory.js', 'src/components/**'],
     },
   },
 })
