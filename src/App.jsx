@@ -281,11 +281,13 @@ export default function App() {
                 existingMarketData: marketData,
               })}
               onRefreshMarket={() => {
+                const prevMarketData = marketData
                 resetMarketData()
                 fetchMarketData({
                   stocks, fundamentals,
                   baseDate: stocks.find(s => s.base)?.base,
-                  existingMarketData: null,
+                  existingMarketData: prevMarketData,
+                  forceRefresh: true,
                 })
               }}
               batches={history?.batches ?? []}

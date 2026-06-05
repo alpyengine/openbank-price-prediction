@@ -176,14 +176,12 @@ export default function FetchBar({
 
   return (
     <div className={cn(
-      'flex items-center gap-2.5 mb-6 px-3.5 py-2.5',
+      'flex flex-col gap-1.5 mb-6 px-3.5 py-2.5',
       'border border-border rounded-lg bg-card',
       'shadow-sm'
     )}>
-      {/* ── Status log ─────────────────────────────────────────────────── */}
-      <span className="text-[11px] text-muted-foreground font-mono flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
-        {combinedLog}
-      </span>
+      {/* ── Row 1: buttons ─────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2.5 flex-wrap">
 
       {/* ── Fetch prices — admin only ──────────────────────────────────── */}
       {role === 'admin' && <Button
@@ -239,11 +237,11 @@ export default function FetchBar({
             size="sm"
             variant="outline"
             className="shrink-0 whitespace-nowrap"
-            disabled={anyLoading}
+            disabled={marketLoading}
             onClick={onRefreshMarket}
             title="Force re-fetch all market data (replaces existing)"
           >
-            ↺ Refresh
+            {marketLoading ? <Spinner /> : '↺'} Refresh
           </Button>
         </>
       )}
@@ -269,6 +267,12 @@ export default function FetchBar({
           {saving ? 'Saving…' : 'Save batch'}
         </Button>
       )}
+      </div>
+
+      {/* ── Row 2: status log — full width, always visible ─────────────── */}
+      <span className="text-[11px] text-muted-foreground font-mono w-full truncate leading-tight">
+        {combinedLog}
+      </span>
     </div>
   )
 }

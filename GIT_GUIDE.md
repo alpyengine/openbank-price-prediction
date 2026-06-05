@@ -1556,3 +1556,48 @@ Tests: 164/164 passing"
 git tag -a v7.3.4 -m "v7.3.4: hit_rate_ext + snapshot mode"
 git push origin main && git push origin v7.3.4
 
+
+# ===========================================================================
+# STEP 129 — v7.3.5  FetchBar log + horizon bar labels
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   FetchBar.jsx — log moved to second line:
+#     Layout changed from single flex row to flex-col with 2 rows.
+#     Row 1: all buttons (unchanged)
+#     Row 2: status log — full width, always visible, no truncation by buttons
+#     Log now shows complete messages (e.g. "Waiting 8s before next symbol (3/6)…")
+#
+#   StockRow.jsx — horizon bar labels on two lines:
+#     Was: "1M" and "EXCEED +14.2%" on same line (overflow into next column)
+#     Now: two separate lines stacked above the bar:
+#       Line 1: horizon key "1M" (grey, 9px)
+#       Line 2: verdict + % "EXCEED +14.2%" (color, 9px, break-all)
+#     min-w reduced from 80px to 72px (labels no longer need to be wide)
+#
+# No npm install needed.
+# No Supabase changes needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.5/. .
+
+git add .
+git commit -m "fix: FetchBar log second line + horizon bar two-line labels (v7.3.5)
+
+FetchBar.jsx:
+  Log moved to second row below buttons — full width, always readable.
+  Layout: flex-col with buttons row + log row.
+
+StockRow.jsx:
+  Horizon bar labels split to two lines:
+    Line 1: hKey (1M/3M/6M/12M) in grey
+    Line 2: verdict+% (EXCEED +14.2%) in verdict color
+  No more overflow into adjacent columns.
+  min-w reduced from 80px to 72px.
+
+Tests: 164/164 passing"
+
+git tag -a v7.3.5 -m "v7.3.5: FetchBar log + bar labels"
+git push origin main && git push origin v7.3.5
+

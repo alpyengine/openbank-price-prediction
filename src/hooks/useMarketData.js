@@ -314,14 +314,15 @@ export function useMarketData() {
     setLog('')
   }, [])
 
-  const fetchMarketData = useCallback(async ({ stocks, fundamentals, baseDate, existingMarketData }) => {
+  const fetchMarketData = useCallback(async ({ stocks, fundamentals, baseDate, existingMarketData, forceRefresh = false }) => {
     if (!stocks.length || !baseDate) {
       setLog('No stocks or base date — cannot fetch market data')
       return
     }
 
     // If marketData already loaded for same base date — skip fetch
-    if (existingMarketData?.baseDate === toYMD(baseDate)) {
+    // UNLESS forceRefresh=true (used by Refresh Market button)
+    if (!forceRefresh && existingMarketData?.baseDate === toYMD(baseDate)) {
       setMarketData(existingMarketData)
       setLog('Market data restored from saved batch')
       return

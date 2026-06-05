@@ -298,14 +298,21 @@ const StockRow = memo(function StockRow({
             : '--'
 
           return (
-            <td key={i} className={cn(tdClass, 'min-w-[80px]')}>
+            <td key={i} className={cn(tdClass, 'min-w-[72px]')}>
               <div className="flex flex-col gap-0.5">
-                <div className="flex justify-between items-baseline">
-                  <span className="text-[9px] font-semibold text-muted-foreground">{hKey}</span>
-                  <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: zoneColor }}>{label}</span>
-                </div>
+                {/* Line 1 — horizon key (e.g. "1M") */}
+                <span className="text-[9px] font-semibold text-muted-foreground leading-tight">
+                  {hKey}
+                </span>
+                {/* Line 2 — verdict label + % (e.g. "EXCEED +14.2%") */}
+                <span
+                  className="text-[9px] font-bold leading-tight break-all"
+                  style={{ color: zoneColor }}
+                >
+                  {label}
+                </span>
                 {/* Progress bar */}
-                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden mt-0.5">
                   <div
                     className="h-full rounded-full transition-[width] duration-300"
                     style={{
