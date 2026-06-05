@@ -17,7 +17,7 @@
 import { useState } from 'react'
 import {
   LayoutDashboard, BarChart2, Settings, TrendingUp,
-  Upload, PanelLeftClose, PanelLeft, TableProperties, Globe,
+  Upload, PanelLeftClose, PanelLeft, TableProperties, Globe, HelpCircle,
 } from 'lucide-react'
 import UserPanel from './UserPanel.jsx'
 import { cn } from '@/lib/utils'
@@ -31,6 +31,7 @@ const NAV = [
   { id: 'all-stocks',   Icon: Globe,            label: 'All Stocks'            },
   { id: 'import',       Icon: Upload,           label: 'Import CSV'            },
   { id: 'settings',     Icon: Settings,         label: 'Settings'              },
+  { id: 'help',         Icon: HelpCircle,        label: 'Help & About'          },
 ]
 
 // ── Main component ────────────────────────────────────────────────────────────
