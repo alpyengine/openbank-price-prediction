@@ -1598,6 +1598,86 @@ StockRow.jsx:
 
 Tests: 164/164 passing"
 
-git tag -a v7.3.5 -m "v7.3.5: FetchBar log + bar labels"
+git tag -a v7.3.5 -m "v7.3.5: FetchBar log + bar labels + Refresh Market fix"
 git push origin main && git push origin v7.3.5
+
+
+# ===========================================================================
+# STEP 130 — v7.3.6  Settings page + Help & About page
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   SettingsPage.jsx — new component:
+#     Section 1 — Analysis defaults:
+#       Hit margin slider (persisted in localStorage: openbank_hitMargin)
+#       Close ratio field (persisted in localStorage: openbank_closeRatio)
+#       SNAPSHOT_PARAMS table showing fixed thresholds per horizon
+#     Section 2 — Profile:
+#       User email (read only from useAuth)
+#       Role badge (admin/readonly)
+#     Section 3 — Data:
+#       Supabase connection status badge
+#       Clear cache button (clears localStorage preferences)
+#     Section 4 — About:
+#       App version badge
+#       GitHub link
+#
+#   HelpPage.jsx — new component:
+#     Section 1 — What is this app
+#     Section 2 — Step by step workflow (6 steps with screenshot placeholder)
+#       Screenshot: add openbank-screenshot.jpg to /public/ folder
+#       Image auto-hides if file not found — shows placeholder text instead
+#     Section 3 — Verdict system table (exceeded/hit/close/miss/wrong_way)
+#     Section 4 — Snapshot thresholds table (1M/3M/6M/12M with all zones)
+#     Section 5 — Verify your data (5 SQL queries for Supabase SQL Editor)
+#       Query 1: list batches with hit_rate + hit_rate_ext
+#       Query 2: verdict counts per batch
+#       Query 3: per-horizon verdict breakdown for a specific batch
+#       Query 4: fundamentals_cache check
+#       Query 5: verify hit_rate_ext formula matches stored value
+#
+#   Sidebar.jsx:
+#     HelpCircle icon added
+#     'help' nav item added below Settings
+#
+#   App.jsx:
+#     SettingsPage and HelpPage imported
+#     hitMargin and closeRatio initialised from localStorage
+#     Settings route updated to use SettingsPage
+#     Help route added
+#
+# HOW TO ADD THE SCREENSHOT:
+#   1. Copy your Openbank screenshot to:
+#      /public/openbank-screenshot.jpg
+#   2. The image will appear automatically in Help & About → Step 1
+#   3. If the file is missing, a placeholder message is shown instead
+#
+# No npm install needed.
+# No Supabase changes needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.6/. .
+
+git add .
+git commit -m "feat: Settings page + Help & About page (v7.3.6)
+
+SettingsPage.jsx — new:
+  Hit margin + close ratio with localStorage persistence.
+  SNAPSHOT_PARAMS table. Profile (email+role). Data (Supabase status).
+  About (version + GitHub link).
+
+HelpPage.jsx — new:
+  6-step workflow with screenshot placeholder (/public/openbank-screenshot.jpg).
+  Verdict system table (exceeded/hit/close/miss/wrong_way with conditions).
+  Snapshot thresholds table for all 4 horizons.
+  5 SQL verification queries for Supabase SQL Editor.
+
+Sidebar.jsx: HelpCircle icon + Help & About nav item.
+App.jsx: routes for Settings and Help, localStorage init for hitMargin/closeRatio.
+
+Tests: 164/164 passing"
+
+git tag -a v7.3.6 -m "v7.3.6: Settings + Help pages"
+git push origin main && git push origin v7.3.6
 

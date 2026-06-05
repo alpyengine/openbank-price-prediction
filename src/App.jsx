@@ -60,6 +60,8 @@ import { useMarketData } from './hooks/useMarketData.js'
 import { useRole }        from './hooks/useRole.js'
 import ManageUsers       from './components/ManageUsers.jsx'
 import AllStocksPage     from './components/AllStocksPage.jsx'
+import SettingsPage      from './components/SettingsPage.jsx'
+import HelpPage          from './components/HelpPage.jsx'
 
 /**
  * App — the root component. See module header for full documentation.
@@ -73,8 +75,8 @@ export default function App() {
   const [darkMode,     setDarkMode]     = useState(false)
   const [activePage,   setActivePage]   = useState('batch')
   const role = useRole()
-  const [hitMargin,    setHitMargin]    = useState(5)
-  const [closeRatio,   setCloseRatio]   = useState(2.4)  // close zone multiplier
+  const [hitMargin,    setHitMargin]    = useState(() => parseFloat(localStorage.getItem('openbank_hitMargin'))  || 5)
+  const [closeRatio,   setCloseRatio]   = useState(() => parseFloat(localStorage.getItem('openbank_closeRatio')) || 2.4)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
@@ -495,13 +497,19 @@ export default function App() {
             <ManageUsers />
           )}
 
+          {/* ── SETTINGS ── */}
           {activePage === 'settings' && (
-            <div style={{ background:'var(--tw-card)', border:'1px solid var(--tw-border)', borderRadius:10, padding:'24px', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
-              <div style={{ fontSize:15, fontWeight:600, color:'var(--tw-fg)', marginBottom:8 }}>Application Settings</div>
-              <div style={{ fontSize:13, color:'var(--tw-muted-fg)' }}>
-                Settings panel coming soon. Configure API keys, notification preferences, and more.
-              </div>
-            </div>
+            <SettingsPage
+              hitMargin={hitMargin}
+              closeRatio={closeRatio}
+              onHitMarginChange={setHitMargin}
+              onCloseRatioChange={setCloseRatio}
+            />
+          )}
+
+          {/* ── HELP & ABOUT ── */}
+          {activePage === 'help' && (
+            <HelpPage />
           )}
 
         </div>
