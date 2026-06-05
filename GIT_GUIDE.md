@@ -1681,3 +1681,49 @@ Tests: 164/164 passing"
 git tag -a v7.3.6 -m "v7.3.6: Settings + Help pages"
 git push origin main && git push origin v7.3.6
 
+
+# ===========================================================================
+# STEP 131 — v7.3.7  Settings live thresholds + All Stocks sort by ticker
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   SettingsPage.jsx — live thresholds table:
+#     Second table added below the fixed snapshot table.
+#     Shows the same 4 columns (Hit/Exceeded/Close/Miss) but computed
+#     from the current hitMargin and closeRatio values in real time.
+#     Updates instantly when the slider or close ratio field changes.
+#     Bordered with primary/30 color to visually distinguish from fixed table.
+#     Footer note shows: Close threshold = H × R = X%
+#
+#   AllStocksPage.jsx — sort by ticker:
+#     Ticker column header is now a clickable sort button (same pattern as Upside/Score).
+#     Sort logic updated: 'ticker' uses localeCompare for alphabetical A→Z / Z→A.
+#     Footer sort label updated to include 'Ticker'.
+#     Click Ticker header once → A→Z · click again → Z→A
+#
+# No npm install needed.
+# No Supabase changes needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.7/. .
+
+git add .
+git commit -m "feat: Settings live thresholds + All Stocks sort by ticker (v7.3.7)
+
+SettingsPage.jsx:
+  Live thresholds table added below fixed snapshot table.
+  Updates in real time with hitMargin slider and closeRatio field.
+  All 4 horizons show the same live H/R values.
+  Primary-bordered to distinguish from fixed snapshot table.
+
+AllStocksPage.jsx:
+  Ticker column header → sortable button (localeCompare A→Z/Z→A).
+  Sort logic extended: ticker uses alphabetical sort, not numeric.
+  Footer label updated: 'Sorted by Ticker/Upside/Score'.
+
+Tests: 164/164 passing"
+
+git tag -a v7.3.7 -m "v7.3.7: Settings live thresholds + ticker sort"
+git push origin main && git push origin v7.3.7
+

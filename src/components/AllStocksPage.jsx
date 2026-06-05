@@ -510,8 +510,12 @@ export default function AllStocksPage({ batches, fundamentals }) {
     return true
   }), [stocks, filterSec, filterPeg, minScore])
 
-  // Sort
+  // Sort — supports ticker (alphabetical), upside (numeric), score (numeric)
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
+    if (sortCol === 'ticker') {
+      // Alphabetical sort by ticker symbol
+      return sortDir * a.t.localeCompare(b.t)
+    }
     const va = sortCol === 'upside' ? (a[hKey] ?? -999) : (a.score ?? -1)
     const vb = sortCol === 'upside' ? (b[hKey] ?? -999) : (b.score ?? -1)
     return sortDir * (vb - va)
@@ -610,7 +614,17 @@ export default function AllStocksPage({ batches, fundamentals }) {
         <table className="w-full border-collapse text-[11.5px]">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
-              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Ticker</th>
+              <th className="px-3 py-2.5 text-left">
+                <button
+                  onClick={() => toggleSort('ticker')}
+                  className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                    sortCol === 'ticker' ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                  style={{ fontFamily: 'inherit' }}
+                >
+                  Ticker {sortIcon('ticker')}
+                </button>
+              </th>
               <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sector</th>
 
               {/* Upside column with horizon dropdown + info tooltip */}
@@ -808,7 +822,7 @@ export default function AllStocksPage({ batches, fundamentals }) {
       </div>
 
       <div className="text-[10px] text-muted-foreground text-right">
-        Sorted by {sortCol === 'upside' ? `Upside ${horizon}` : 'Score'} {sortDir === -1 ? 'desc' : 'asc'} · Click column headers to re-sort
+        Sorted by {sortCol === 'upside' ? `Upside ${horizon}` : sortCol === 'score' ? 'Score' : 'Ticker'} {sortDir === -1 ? 'desc' : 'asc'} · Click column headers to re-sort
       </div>
 
       {/* TradingView modal — opens when TV icon clicked */}

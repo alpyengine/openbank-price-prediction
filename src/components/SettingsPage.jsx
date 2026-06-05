@@ -127,6 +127,58 @@ export default function SettingsPage({ hitMargin, closeRatio, onHitMarginChange,
           />
         </Row>
 
+        {/* Live thresholds table — recalculates dynamically with slider + close ratio */}
+        <div className="mt-4">
+          <p className="text-[11px] font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+            Live thresholds (Batch Details view) — updates with slider above
+          </p>
+          <div className="rounded-lg border border-primary/30 overflow-hidden">
+            <table className="w-full text-[12px]">
+              <thead>
+                <tr className="bg-primary/5">
+                  {['Horizon', `Hit ±${hitMargin}%`, 'Exceeded', 'Close zone', 'Miss below'].map(h => (
+                    <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {['1M', '3M', '6M', '12M'].map(h => {
+                  const ct = +(hitMargin * closeRatio).toFixed(1)
+                  return (
+                    <tr key={h} className="border-t border-border">
+                      <td className="px-3 py-2 font-bold text-foreground">{h}</td>
+                      <td className="px-3 py-2">
+                        <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[11px] font-semibold">
+                          ±{hitMargin}%
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-[11px] font-semibold">
+                          &gt;+{hitMargin}%
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded text-[11px] font-semibold">
+                          −{hitMargin}% → −{ct}%
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="bg-red-50 text-red-700 px-1.5 py-0.5 rounded text-[11px] font-semibold">
+                          &lt;−{ct}%
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1.5">
+            All 4 horizons use the same live values in Batch Details ·
+            Close threshold = ±{hitMargin}% × {closeRatio} = {+(hitMargin * closeRatio).toFixed(1)}%
+          </p>
+        </div>
+
         {/* Snapshot params table */}
         <div className="mt-4">
           <p className="text-[11px] font-semibold text-muted-foreground mb-2 uppercase tracking-wide">

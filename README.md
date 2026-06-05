@@ -184,7 +184,8 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
-| v7.3.6 | Settings page (defaults + profile + data + about) · Help & About page (workflow + verdicts + SQL verification guide) |
+| v7.3.7 | Settings live thresholds table (updates with slider) · All Stocks sort by ticker alphabetically |
+| v7.3.6 | Settings page (defaults + profile + data + about) · Help & About page (workflow + verdicts + SQL guide) |
 | v7.3.5 | FetchBar log second line · horizon bar labels two lines · Refresh Market forceRefresh fix |
 | v7.3.4 | Supabase `hit_rate_ext` column · saveBatch uses snapshot mode |
 | v7.3.3 | AccuracyChart — slider removed · fixed SNAPSHOT_PARAMS · hitRateExt in cards + table |

@@ -131,9 +131,8 @@ describe('horizon key mapping', () => {
     expect(HORIZON_KEY['6M']).toBe('u6')
   })
 
-  it('maps 12M to u12 (not u12m)', () => {
+  it('maps 12M to u12 (not u12m — regression test for fixed bug)', () => {
     expect(HORIZON_KEY['12M']).toBe('u12')
-    // This was the bug: '12M'.toLowerCase() = '12m' → 'u12m' ≠ 'u12'
     expect(HORIZON_KEY['12M']).not.toBe('u12m')
   })
 })
