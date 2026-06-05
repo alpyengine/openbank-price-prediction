@@ -223,7 +223,12 @@ export default function App() {
     setSortBySector(false)
     // Restore historical prices from saved results — prevents API calls for expired horizons
     restoreHistPrices(batch.results)
-  }, [resetPrices, restoreHistPrices, restoreMarketData, resetMarketData, restoreFundamentals, resetFundamentals])
+    // Auto-fetch current prices for the loaded batch — no user action required.
+    // Uses a small setTimeout to let React commit the newStocks state first,
+    // so fetchCurrentBatch sees the updated tickers list.
+    // The manual "Fetch prices" button remains available for forced refresh.
+    setTimeout(() => fetchCurrentBatch(newStocks), 100)
+  }, [resetPrices, restoreHistPrices, restoreMarketData, resetMarketData, restoreFundamentals, resetFundamentals, fetchCurrentBatch])
 
   const handleOverrideChange = useCallback((ticker, value) => {
     setOverrides(prev => {

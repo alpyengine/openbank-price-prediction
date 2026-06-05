@@ -1785,3 +1785,45 @@ Tests: 164/164 passing"
 git tag -a v7.3.8 -m "v7.3.8: vs Target column + ticker link"
 git push origin main && git push origin v7.3.8
 
+
+# ===========================================================================
+# STEP 133 — v7.3.9  Auto-fetch prices on batch load
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   App.jsx — handleLoadBatch():
+#     After restoring batch data, automatically calls fetchCurrentBatch(newStocks)
+#     with a 100ms setTimeout to let React commit the state update first.
+#     fetchCurrentBatch added to useCallback dependency array.
+#
+#   User experience:
+#     Before: load batch → prices show "--" → user must click "Fetch prices"
+#     After:  load batch → prices auto-fetch immediately in background
+#     The manual "↓ Fetch prices" button remains available for forced refresh.
+#
+#   Why setTimeout(100ms)?
+#     React batches state updates. If fetchCurrentBatch ran synchronously,
+#     it might see the old stocks list (before setStocks committed).
+#     The 100ms delay ensures newStocks is available before fetching.
+#
+# No npm install needed.
+# No Supabase changes needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.9/. .
+
+git add .
+git commit -m "feat: auto-fetch prices on batch load (v7.3.9)
+
+App.jsx — handleLoadBatch():
+  fetchCurrentBatch(newStocks) called automatically after batch loads.
+  100ms setTimeout ensures React state is committed before fetch starts.
+  fetchCurrentBatch added to useCallback dependency array.
+  Manual fetch button remains available for forced refresh.
+
+Tests: 164/164 passing"
+
+git tag -a v7.3.9 -m "v7.3.9: auto-fetch prices on batch load"
+git push origin main && git push origin v7.3.9
+
