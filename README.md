@@ -184,7 +184,8 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
-| v7.3.7 | Settings live thresholds table (updates with slider) · All Stocks sort by ticker alphabetically |
+| v7.3.8 | All Stocks — vs Target column (current price vs target) · ticker link → Batch Overview Details |
+| v7.3.7 | Settings live thresholds table · All Stocks sort by ticker alphabetically |
 | v7.3.6 | Settings page (defaults + profile + data + about) · Help & About page (workflow + verdicts + SQL guide) |
 | v7.3.5 | FetchBar log second line · horizon bar labels two lines · Refresh Market forceRefresh fix |
 | v7.3.4 | Supabase `hit_rate_ext` column · saveBatch uses snapshot mode |

@@ -484,6 +484,9 @@ export default function App() {
             <AllStocksPage
               batches={history?.batches ?? []}
               fundamentals={fundamentals}
+              autoPrices={autoPrices}
+              onNav={setActivePage}
+              onLoadBatch={handleLoadBatch}
             />
           )}
 

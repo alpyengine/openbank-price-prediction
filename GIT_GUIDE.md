@@ -1727,3 +1727,61 @@ Tests: 164/164 passing"
 git tag -a v7.3.7 -m "v7.3.7: Settings live thresholds + ticker sort"
 git push origin main && git push origin v7.3.7
 
+
+# ===========================================================================
+# STEP 132 — v7.3.8  All Stocks — vs Target column + ticker link
+# ===========================================================================
+#
+# WHAT'S NEW:
+#
+#   AllStocksPage.jsx — new "vs Target" column:
+#     Formula: (currentPrice - target) / target × 100
+#     currentPrice from autoPrices (new prop from App.jsx)
+#     target = stock target for selected horizon (t1/t3/t6/t12)
+#     Color: blue if positive (above target), red if negative (below target)
+#     Sortable — click header to sort asc/desc
+#     Positioned between Upside and Score columns
+#     ColTooltip with formula explanation
+#
+#   AllStocksPage.jsx — Upside column header reorganised:
+#     Sort button now stacked ABOVE the HorizonDropdown (flex-col)
+#     vs Target column has empty spacer to align with dropdown
+#
+#   AllStocksPage.jsx — ticker link → Batch Overview Details:
+#     Ticker name is now a clickable button
+#     Click → finds most recent batch containing that ticker
+#     → calls onLoadBatch(batch) + onNav('batch-detail')
+#     No effect if onLoadBatch/onNav not provided (safe default)
+#
+#   AllStocksPage.jsx — new props:
+#     autoPrices — { [ticker]: price } current prices from usePriceFetch
+#     onNav      — setActivePage function from App.jsx
+#     onLoadBatch — handleLoadBatch function from App.jsx
+#
+#   App.jsx:
+#     autoPrices, onNav, onLoadBatch passed to AllStocksPage
+#
+# No npm install needed.
+# No Supabase changes needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.3.8/. .
+
+git add .
+git commit -m "feat: All Stocks vs Target column + ticker link (v7.3.8)
+
+AllStocksPage.jsx:
+  New 'vs Target' column: (currentPrice - target) / target × 100
+  Blue if positive (above target), red if negative.
+  Sortable. ColTooltip with formula.
+  Ticker is now a clickable link → loads batch + navigates to batch-detail.
+  Upside sort button stacked above HorizonDropdown (flex-col).
+  New props: autoPrices, onNav, onLoadBatch.
+
+App.jsx: autoPrices, onNav, onLoadBatch passed to AllStocksPage.
+
+Tests: 164/164 passing"
+
+git tag -a v7.3.8 -m "v7.3.8: vs Target column + ticker link"
+git push origin main && git push origin v7.3.8
+

@@ -422,7 +422,7 @@ function exportCSV(rows, horizon) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function AllStocksPage({ batches, fundamentals }) {
+export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, onNav, onLoadBatch }) {
   const [horizon,      setHorizon]      = useState('12M')
   const [sortCol,      setSortCol]      = useState('upside')
   const [sortDir,      setSortDir]      = useState(-1) // -1 = desc
@@ -510,16 +510,26 @@ export default function AllStocksPage({ batches, fundamentals }) {
     return true
   }), [stocks, filterSec, filterPeg, minScore])
 
-  // Sort — supports ticker (alphabetical), upside (numeric), score (numeric)
+  // Sort — supports ticker (alphabetical), upside, score, vsTarget (numeric)
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
     if (sortCol === 'ticker') {
-      // Alphabetical sort by ticker symbol
       return sortDir * a.t.localeCompare(b.t)
+    }
+    if (sortCol === 'vsTarget') {
+      const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
+      const getVsTarget = s => {
+        const prices = weeklyPrices[s.tNorm]?.[s.batchId]
+        const price  = prices?.length ? prices[prices.length - 1] : null
+        const target = s[tKey]
+        if (!price || !target) return -999
+        return (price - target) / target * 100
+      }
+      return sortDir * (getVsTarget(b) - getVsTarget(a))
     }
     const va = sortCol === 'upside' ? (a[hKey] ?? -999) : (a.score ?? -1)
     const vb = sortCol === 'upside' ? (b[hKey] ?? -999) : (b.score ?? -1)
     return sortDir * (vb - va)
-  }), [filtered, sortCol, sortDir, hKey])
+  }), [filtered, sortCol, sortDir, hKey, horizon, weeklyPrices])
 
   function toggleSort(col) {
     if (sortCol === col) setSortDir(d => d * -1)
@@ -627,9 +637,9 @@ export default function AllStocksPage({ batches, fundamentals }) {
               </th>
               <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sector</th>
 
-              {/* Upside column with horizon dropdown + info tooltip */}
+              {/* Upside column — sort button above horizon dropdown */}
               <th className="px-3 py-2.5 text-right">
-                <div className="flex items-center justify-end gap-2">
+                <div className="flex flex-col items-end gap-0.5">
                   <div className="flex items-center gap-0.5">
                     <button
                       onClick={() => toggleSort('upside')}
@@ -647,6 +657,33 @@ export default function AllStocksPage({ batches, fundamentals }) {
                     </ColTooltip>
                   </div>
                   <HorizonDropdown value={horizon} onChange={setHorizon} />
+                </div>
+              </th>
+
+              {/* vs Target column — distance of current price to target */}
+              <th className="px-3 py-2.5 text-right">
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => toggleSort('vsTarget')}
+                      className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                        sortCol === 'vsTarget' ? 'text-primary' : 'text-muted-foreground'
+                      )}
+                      style={{ fontFamily: 'inherit' }}
+                    >
+                      vs Target {sortIcon('vsTarget')}
+                    </button>
+                    <ColTooltip text="Distance of the most recent weekly closing price to the Openbank AI target for the selected horizon. Updated every Saturday by the weekly price cron. Positive = already above target. Negative = how far still to go.">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-foreground">Formula: (lastWeeklyPrice − target) / target × 100</span>
+                        <span className="text-[10px] text-blue-700">🔵 Positive = above target</span>
+                        <span className="text-[10px] text-red-600">🔴 Negative = below target</span>
+                        <span className="text-[10px] text-muted-foreground">Price source: weekly_prices table (max 7 days old)</span>
+                      </div>
+                    </ColTooltip>
+                  </div>
+                  {/* Empty space to align with Upside dropdown */}
+                  <div className="h-[22px]" />
                 </div>
               </th>
 
@@ -738,7 +775,7 @@ export default function AllStocksPage({ batches, fundamentals }) {
           <tbody>
             {sorted.length === 0 && (
               <tr>
-                <td colSpan="8" className="px-3 py-8 text-center text-muted-foreground text-[12px]">
+                <td colSpan="9" className="px-3 py-8 text-center text-muted-foreground text-[12px]">
                   No stocks match the current filters
                 </td>
               </tr>
@@ -747,14 +784,31 @@ export default function AllStocksPage({ batches, fundamentals }) {
               const u = s[hKey]
               return (
                 <tr key={s.t} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                  {/* Ticker */}
+                  {/* Ticker — clickable link to Batch Overview Details */}
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-[9px] font-black shrink-0">
                         {s.tNorm.slice(0, 3)}
                       </div>
                       <div>
-                        <div className="font-bold text-foreground">{s.tNorm}</div>
+                        {/* Click ticker → load batch and navigate to batch-detail */}
+                        <button
+                          className="font-bold text-foreground hover:text-primary hover:underline underline-offset-2 bg-transparent border-none cursor-pointer p-0 text-left text-[11.5px]"
+                          onClick={() => {
+                            if (!onLoadBatch || !onNav) return
+                            // Find the most recent batch containing this ticker
+                            const batch = [...(batches ?? [])]
+                              .sort((a, b) => (b.id > a.id ? 1 : -1))
+                              .find(b => b.results?.some(r => r.ticker === s.tNorm || r.ticker === s.t))
+                            if (batch) {
+                              onLoadBatch(batch)
+                              onNav('batch-detail')
+                            }
+                          }}
+                          title={`Open ${s.tNorm} in Batch Overview Details`}
+                        >
+                          {s.tNorm}
+                        </button>
                         <div className="text-[10px] text-muted-foreground">{s.co}</div>
                       </div>
                     </div>
@@ -767,6 +821,28 @@ export default function AllStocksPage({ batches, fundamentals }) {
                   <td className={cn('px-3 py-2.5 text-right font-bold', uColor(u))}>
                     {fmtPct(u)}
                   </td>
+
+                  {/* vs Target — distance of most recent weekly price to target.
+                      Uses the last entry in weeklyPrices[ticker][batchId] —
+                      updated every Saturday by the fetch_weekly_prices cron.
+                      Blue if above target (exceeded), red if below. */}
+                  {(() => {
+                    const tKey   = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
+                    const target = s[tKey]
+                    // Get the most recent weekly close price for this ticker
+                    const prices = weeklyPrices[s.tNorm]?.[s.batchId]
+                    const price  = prices?.length ? prices[prices.length - 1] : null
+                    const vt     = (price && target) ? (price - target) / target * 100 : null
+                    return (
+                      <td className={cn('px-3 py-2.5 text-right font-bold',
+                        vt == null ? 'text-muted-foreground'
+                        : vt >= 0  ? 'text-blue-600'
+                        : 'text-red-600'
+                      )}>
+                        {vt != null ? `${vt >= 0 ? '+' : ''}${vt.toFixed(1)}%` : '—'}
+                      </td>
+                    )
+                  })()}
 
                   {/* Score */}
                   <td className="px-3 py-2.5 text-right">
@@ -822,7 +898,7 @@ export default function AllStocksPage({ batches, fundamentals }) {
       </div>
 
       <div className="text-[10px] text-muted-foreground text-right">
-        Sorted by {sortCol === 'upside' ? `Upside ${horizon}` : sortCol === 'score' ? 'Score' : 'Ticker'} {sortDir === -1 ? 'desc' : 'asc'} · Click column headers to re-sort
+        Sorted by {sortCol === 'upside' ? `Upside ${horizon}` : sortCol === 'score' ? 'Score' : sortCol === 'vsTarget' ? `vs Target ${horizon}` : 'Ticker'} {sortDir === -1 ? 'desc' : 'asc'} · Click column headers to re-sort
       </div>
 
       {/* TradingView modal — opens when TV icon clicked */}
