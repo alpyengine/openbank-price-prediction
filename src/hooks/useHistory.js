@@ -138,6 +138,7 @@ export function useHistory(margin = 5) {
   const saveBatch = useCallback(async ({
     stocks, autoPrices, histPrices, overrides,
     horizonExpired, horizon, notes, marketData, fundamentals,
+    direction = 'bullish',
   }) => {
     if (!configured) { setLog('Storage not configured'); return false }
     if (!stocks.length) { setLog('No stocks to save'); return false }
@@ -255,6 +256,7 @@ export function useHistory(margin = 5) {
       horizonStatus,
       hitRate,
       hitRateExt,
+      direction,
       marketData:    marketData    ?? existingBatch?.marketData    ?? null,
       fundamentals:  (fundamentals && Object.keys(fundamentals).length > 0)
                        ? fundamentals
@@ -270,6 +272,7 @@ export function useHistory(margin = 5) {
       horizonStatus,
       hitRate,
       hitRateExt,
+      direction,
     }
 
     const ok = await saveHistory(updated, batchMeta)

@@ -1827,3 +1827,64 @@ Tests: 164/164 passing"
 git tag -a v7.3.9 -m "v7.3.9: auto-fetch prices on batch load"
 git push origin main && git push origin v7.3.9
 
+
+# ===========================================================================
+# STEP 134 — v7.4.0  Bearish batch support
+# ===========================================================================
+#
+# SUPABASE — column already added (run before this version):
+#   alter table batches add column if not exists direction text not null default 'bullish';
+#   All existing batches automatically get direction = 'bullish'.
+#
+# WHAT'S NEW:
+#
+#   ImportPage.jsx — direction selector:
+#     Two large buttons: 📈 Bullish / 📉 Bearish
+#     Selected direction passed to onImport(stocks, direction)
+#     Default: bullish
+#
+#   App.jsx:
+#     batchDirection state added (default 'bullish')
+#     handleImport(stocks, direction) — stores direction in state
+#     handleLoadBatch — restores direction from batch.direction
+#     saveBatch called with direction: batchDirection
+#     batchDirection passed to BatchSimple
+#
+#   useHistory.js — saveBatch():
+#     direction param added (default 'bullish')
+#     direction stored in newBatch and batchMeta
+#
+#   storage.js:
+#     saveHistory: direction column written to Supabase
+#     loadHistory: direction read from row (default 'bullish' for old batches)
+#
+#   BatchSimple.jsx:
+#     direction prop added
+#     Header shows 📈 Bullish / 📉 Bearish badge next to "Batch Overview"
+#
+#   AccuracyChart.jsx:
+#     Batch table date cell shows direction emoji badge (📈/📉)
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.0/. .
+
+git add .
+git commit -m "feat: bearish batch support — direction selector + badges (v7.4.0)
+
+ImportPage.jsx: 📈 Bullish / 📉 Bearish selector before import.
+App.jsx: batchDirection state + handleImport/handleLoadBatch updated.
+useHistory.js: direction in saveBatch, newBatch, batchMeta.
+storage.js: direction read/written in Supabase batches table.
+BatchSimple.jsx: direction badge in Batch Overview header.
+AccuracyChart.jsx: direction emoji in batch table date column.
+
+Supabase: direction column added with default 'bullish'.
+All existing batches automatically classified as bullish.
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.0 -m "v7.4.0: bearish batch support"
+git push origin main && git push origin v7.4.0
+

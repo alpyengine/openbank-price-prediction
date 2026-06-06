@@ -76,7 +76,8 @@ export async function loadHistory() {
       results:       row.results ?? [],
       horizonStatus: row.horizon_status ?? {},
       hitRate:       row.hit_rate,
-      hitRateExt:    row.hit_rate_ext ?? null,   // null for batches saved before v7.3.4
+      hitRateExt:    row.hit_rate_ext ?? null,
+      direction:     row.direction ?? 'bullish',   // default bullish for old batches
       marketData:    row.market_data ?? null,
       fundamentals:  row.fundamentals ?? null,
     }))
@@ -108,7 +109,8 @@ export async function saveHistory(history, batchMeta) {
       results:        batch.results,
       horizon_status: batch.horizonStatus ?? {},
       hit_rate:       batch.hitRate    ?? null,
-      hit_rate_ext:   batch.hitRateExt ?? null,   // extended hit rate (hits + exceeded)
+      hit_rate_ext:   batch.hitRateExt ?? null,
+      direction:      batch.direction  ?? 'bullish',
       market_data:    batch.marketData ?? null,
       fundamentals:   (batch.fundamentals && Object.keys(batch.fundamentals).length > 0)
                         ? batch.fundamentals : null,

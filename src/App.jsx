@@ -75,8 +75,9 @@ export default function App() {
   const [darkMode,     setDarkMode]     = useState(false)
   const [activePage,   setActivePage]   = useState('batch')
   const role = useRole()
-  const [hitMargin,    setHitMargin]    = useState(() => parseFloat(localStorage.getItem('openbank_hitMargin'))  || 5)
-  const [closeRatio,   setCloseRatio]   = useState(() => parseFloat(localStorage.getItem('openbank_closeRatio')) || 2.4)
+  const [hitMargin,      setHitMargin]      = useState(() => parseFloat(localStorage.getItem('openbank_hitMargin'))  || 5)
+  const [closeRatio,     setCloseRatio]     = useState(() => parseFloat(localStorage.getItem('openbank_closeRatio')) || 2.4)
+  const [batchDirection, setBatchDirection] = useState('bullish') // 'bullish' | 'bearish'
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
@@ -156,9 +157,11 @@ export default function App() {
    * handleImport — called by ImportPage when a CSV is successfully parsed.
    * Resets all batch-dependent state and navigates to the Batch Overview page.
    * Also computes the batchId from the base date for PriceChart data loading.
+   * direction: 'bullish' | 'bearish' — selected in ImportPage before import.
    */
-  const handleImport = useCallback((newStocks) => {
+  const handleImport = useCallback((newStocks, direction = 'bullish') => {
     setStocks(newStocks)
+    setBatchDirection(direction)
     setLoadedBatchDate(null)
     // Compute batchId from base date of first stock — enables PriceChart
     // when batch was previously saved and data exists in weekly_prices
@@ -208,6 +211,7 @@ export default function App() {
     setStocks(newStocks)
     setLoadedBatchDate(batch.date)
     setLoadedBatchId(batch.id)
+    setBatchDirection(batch.direction ?? 'bullish') // restore direction — default bullish for old batches
     setOverrides({})
     const restoredNotes = {}
     for (const r of batch.results) { if (r.note && !restoredNotes[r.ticker]) restoredNotes[r.ticker] = r.note }
@@ -301,7 +305,7 @@ export default function App() {
               loadedBatchDate={loadedBatchDate}
               onLoadBatch={handleLoadBatch}
               saving={histSaving}
-              onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData, fundamentals })}
+              onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData, fundamentals, direction: batchDirection })}
             />
           )}
 
@@ -314,6 +318,7 @@ export default function App() {
               overrides={overrides}
               hitMargin={hitMargin}
               closeRatio={closeRatio}
+              direction={batchDirection}
             />
           )}
 

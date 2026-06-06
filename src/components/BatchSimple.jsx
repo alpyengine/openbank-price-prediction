@@ -123,7 +123,7 @@ function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, ov
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function BatchSimple({ stocks, autoPrices, histPrices, overrides, hitMargin = 5, closeRatio = 2.4 }) {
+export default function BatchSimple({ stocks, autoPrices, histPrices, overrides, hitMargin = 5, closeRatio = 2.4, direction = 'bullish' }) {
   if (!stocks.length) {
     return (
       <Card className="flex items-center justify-center p-12 text-muted-foreground text-sm">
@@ -136,7 +136,18 @@ export default function BatchSimple({ stocks, autoPrices, histPrices, overrides,
     <Card className="overflow-hidden">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <CardHeader className="py-3.5 px-4 border-b border-border space-y-0.5">
-        <div className="text-[15px] font-bold">Batch Overview</div>
+        <div className="flex items-center gap-2">
+          <div className="text-[15px] font-bold">Batch Overview</div>
+          {/* Direction badge — shows bullish/bearish type of this batch */}
+          <span className={cn(
+            'text-[10px] font-bold px-2 py-0.5 rounded-full',
+            direction === 'bearish'
+              ? 'bg-red-50 text-red-700'
+              : 'bg-green-50 text-green-700'
+          )}>
+            {direction === 'bearish' ? '📉 Bearish' : '📈 Bullish'}
+          </span>
+        </div>
         <div className="text-xs text-muted-foreground">
           Prediction status per horizon — {stocks.length} stock{stocks.length > 1 ? 's' : ''}
         </div>

@@ -492,7 +492,19 @@ export default function AccuracyChart({
 
                     return (
                       <TableRow key={batch.id}>
-                        <TableCell className="py-3 px-3.5 font-medium">{batch.date}</TableCell>
+                        <TableCell className="py-3 px-3.5 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            {batch.date}
+                            <span className={cn(
+                              'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
+                              batch.direction === 'bearish'
+                                ? 'bg-red-50 text-red-700'
+                                : 'bg-green-50 text-green-700'
+                            )}>
+                              {batch.direction === 'bearish' ? '📉' : '📈'}
+                            </span>
+                          </div>
+                        </TableCell>
                         <TableCell className="py-3 px-3.5 text-muted-foreground">{batch.stocks}</TableCell>
 
                         {/* Hit rate pure */}
