@@ -26,6 +26,8 @@ const PAGE_TITLES = {
   'batch':        { title: 'Batch Overview',        sub: 'Quick prediction status at a glance' },
   'batch-detail': { title: 'Batch Overview Detail', sub: 'Full analysis with proximity bars and market comparison' },
   'accuracy':     { title: 'Accuracy Stats',        sub: 'Historical performance metrics and hit rate analysis' },
+  'all-stocks':   { title: 'All Stocks',            sub: 'All tickers across all batches' },
+  'watchlist':    { title: 'Watchlist',             sub: 'Your starred tickers across all batches' },
   'import':       { title: 'Import CSV',            sub: 'Load a new batch of stock predictions' },
   'settings':     { title: 'Settings',             sub: 'Configure your preferences and integrations' },
 }

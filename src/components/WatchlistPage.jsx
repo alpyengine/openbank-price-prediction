@@ -179,10 +179,10 @@ function DetailPanel({ row, fundamentals, onClose, onOpenBatch, onRemove }) {
     : null
 
   return (
-    <div className="w-64 shrink-0 border-l border-border flex flex-col bg-card">
+    <div className="w-64 shrink-0 border-l border-border flex flex-col bg-card overflow-y-auto">
 
-      {/* Panel header */}
-      <div className="flex items-start justify-between px-4 py-3 border-b border-border">
+      {/* Panel header — sticky so ticker name stays visible when panel scrolls */}
+      <div className="flex items-start justify-between px-4 py-3 border-b border-border sticky top-0 bg-card z-10">
         <div>
           <div className="flex items-center gap-2">
             <div className="text-[15px] font-semibold text-foreground">{row.ticker}</div>
@@ -209,7 +209,7 @@ function DetailPanel({ row, fundamentals, onClose, onOpenBatch, onRemove }) {
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+      <div className="flex-1 p-4 flex flex-col gap-4">
 
         {/* Current price + sparkline */}
         <div className="bg-muted/40 rounded-lg p-3">
@@ -356,10 +356,10 @@ export default function WatchlistPage({
   }
 
   return (
-    <div className="flex gap-0 border border-border rounded-xl overflow-hidden" style={{ minHeight: 520 }}>
+    <div className="flex gap-0 border border-border rounded-xl overflow-hidden" style={{ height: 600 }}>
 
       {/* ── LEFT: main list ─────────────────────────────────────────── */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="px-5 py-3 border-b border-border">

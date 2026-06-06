@@ -2275,3 +2275,51 @@ Tests: 164/164 passing"
 git tag -a v7.4.4 -m "v7.4.4: price alerts"
 git push origin main && git push origin v7.4.4
 
+
+# ===========================================================================
+# STEP 139 — v7.4.5  Watchlist sticky panel + sidebar label
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/components/WatchlistPage.jsx — layout fixes:
+#     Outer container: minHeight:520 → height:600 (fixed height enables
+#       independent scroll in each column)
+#     Left column: added overflow-hidden so header stays fixed and
+#       only the table scrolls
+#     DetailPanel container: added overflow-y-auto — panel has its own
+#       independent scroll context. Now stays fixed while list scrolls.
+#     Panel header: position sticky top-0 z-10 — ticker name always visible
+#       even when panel body content is long and scrolls
+#     Panel body: removed overflow-y-auto (whole panel scrolls now)
+#
+#   src/components/Sidebar.jsx — label already correct ('Watchlist')
+#     No change needed — was already 'Watchlist' in v7.4.2+
+#
+# LAYOUT TECHNIQUE:
+#   Both columns are flex children of a fixed-height container.
+#   Each column has overflow-y:auto → they scroll independently.
+#   Scrolling the left list does NOT move the right panel.
+#   Panel header is sticky:top-0 so ticker name stays visible.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.5/. .
+
+git add .
+git commit -m "fix: watchlist sticky panel — independent scroll (v7.4.5)
+
+WatchlistPage.jsx:
+  Outer container height:600 (fixed, enables independent column scroll).
+  Left column: overflow-hidden (header fixed, table scrolls).
+  DetailPanel: overflow-y-auto (independent scroll context).
+  Panel header: sticky top-0 z-10 (always visible).
+  Panel body: removed overflow-y-auto (whole panel scrolls).
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.5 -m "v7.4.5: watchlist sticky panel"
+git push origin main && git push origin v7.4.5
+
