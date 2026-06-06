@@ -184,7 +184,8 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
-| v7.4.0 | Bearish batch support — direction selector in Import · badge in Batch Overview + Accuracy Stats · Supabase `direction` column |
+| v7.4.1 | Watchlist table (Supabase) · SUPABASE.md rewritten · Bug #3 documented (v_ prefix fix) · cron schedule corrected (Tue–Sat 02:00 UTC) · backup_to_github v1.1 (fundamentals_cache) · weekly + monthly Google Calendar verification reminders |
+| v7.4.0 | Bearish batch support — direction selector in Import · badge in Batch Overview + Accuracy Stats |
 | v7.3.9 | Auto-fetch prices on batch load · manual fetch button remains available |
 | v7.3.8 | All Stocks — vs Target column (last weekly price vs target) · ticker link → Batch Overview Details |
 | v7.3.7 | Settings live thresholds table · All Stocks sort by ticker alphabetically |

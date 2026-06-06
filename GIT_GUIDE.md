@@ -1888,3 +1888,86 @@ Tests: 164/164 passing"
 git tag -a v7.4.0 -m "v7.4.0: bearish batch support"
 git push origin main && git push origin v7.4.0
 
+
+# ===========================================================================
+# STEP 135 — v7.4.1  Watchlist table + SUPABASE.md rewrite + Bug #3 fix
+# ===========================================================================
+#
+# SUPABASE CHANGES — execute before deploying (in order):
+#
+#   1. Create watchlist table:
+#      create table if not exists watchlist (
+#        id         uuid primary key default gen_random_uuid(),
+#        user_id    uuid references auth.users(id) on delete cascade,
+#        ticker     text not null,
+#        added_at   timestamptz default now(),
+#        unique(user_id, ticker)
+#      );
+#      alter table watchlist enable row level security;
+#      create policy "watchlist_own" on watchlist
+#        for all using (auth.uid() = user_id);
+#
+#   2. fetch_expired_horizons() — CRITICAL BUG FIX (Bug #3):
+#      All local variables renamed with v_ prefix to eliminate
+#      PostgreSQL column/variable name collision.
+#      This bug caused the function to run silently with no effect —
+#      verdicts never updated despite cron showing 'succeeded'.
+#      See docs/SUPABASE.md Bug #3 for full diagnosis and explanation.
+#
+#   3. Cron schedule corrected:
+#      Job 1 changed from '0 2 * * 1-5' to '0 2 * * 2-6' (Tue-Sat)
+#      Reason: 02:00 UTC is the next calendar day after market close.
+#
+#   4. backup_to_github() updated to v1.1:
+#      Added fundamentals_cache to backup.
+#
+# WHAT'S NEW IN APP CODE:
+#
+#   useHistory.js — computed() — batchSummary fix:
+#     direction field was missing from batchSummary objects.
+#     AccuracyChart uses stats.batchSummary for table rows — so batch.direction
+#     was always undefined → badge always showed 📈 even for bearish batches.
+#     Fix: added direction: b.direction ?? 'bullish' to batchSummary return.
+#
+#   App.jsx — onSave handler:
+#     saveBatch is now awaited and loadHistory() called on success.
+#     Ensures AccuracyChart reloads fresh data from Supabase after every save.
+#
+# DOCS UPDATED:
+#   docs/SUPABASE.md — complete rewrite (767 lines).
+#   See SUPABASE.md sections 8 and 9 for Bug #3 documentation.
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.1/. .
+
+git add .
+git commit -m "fix: direction badge in AccuracyChart + Bug #3 v_ prefix + SUPABASE.md (v7.4.1)
+
+BUG FIX — direction badge always showing 📈:
+  Root cause: batchSummary in computed() was missing 'direction' field.
+  AccuracyChart renders stats.batchSummary rows — batch.direction was
+  undefined → always evaluated as bullish → always showed 📈.
+  Fix: direction: b.direction ?? 'bullish' added to batchSummary return.
+
+App.jsx onSave: saveBatch awaited + loadHistory() called on success.
+  Ensures history reloads from Supabase after every save.
+
+CRITICAL SUPABASE FIX — fetch_expired_horizons() Bug #3:
+  All local variables renamed with v_ prefix (v_ticker, v_target_date etc.)
+  Eliminates PostgreSQL column/variable name collision that caused
+  cron to show 'succeeded' but never update any verdicts.
+
+Supabase infrastructure:
+  Watchlist table created with RLS.
+  Cron Job 1: '0 2 * * 1-5' → '0 2 * * 2-6' (Tue-Sat).
+  backup_to_github() v1.1: fundamentals_cache added.
+
+docs/SUPABASE.md complete rewrite — 767 lines.
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.1 -m "v7.4.1: direction badge fix + Bug #3 + SUPABASE.md"
+git push origin main && git push origin v7.4.1
+

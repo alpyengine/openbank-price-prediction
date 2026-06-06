@@ -305,7 +305,11 @@ export default function App() {
               loadedBatchDate={loadedBatchDate}
               onLoadBatch={handleLoadBatch}
               saving={histSaving}
-              onSave={() => saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData, fundamentals, direction: batchDirection })}
+              onSave={async () => {
+                const ok = await saveBatch({ stocks, autoPrices, histPrices, overrides, horizonExpired, horizon, notes, marketData, fundamentals, direction: batchDirection })
+                // Reload history so AccuracyChart shows correct direction badge immediately
+                if (ok) loadHistory()
+              }}
             />
           )}
 

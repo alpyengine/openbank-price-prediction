@@ -414,6 +414,7 @@ function computed(history) {
       stocks: b.stocks, evaluated: evaluated.length,
       hit, exceeded, close, miss, wrongWay, awaiting,
       hitRate, hitRateExt,
+      direction: b.direction ?? 'bullish',
     }
   })
 
