@@ -64,6 +64,7 @@ import AllStocksPage     from './components/AllStocksPage.jsx'
 import SettingsPage      from './components/SettingsPage.jsx'
 import HelpPage          from './components/HelpPage.jsx'
 import WatchlistPage     from './components/WatchlistPage.jsx'
+import ExportPage        from './components/ExportPage.jsx'
 import { useWatchlist }  from './hooks/useWatchlist.js'
 import { useAlerts }     from './hooks/useAlerts.js'
 
@@ -543,6 +544,15 @@ export default function App() {
               onNav={setActivePage}
               onLoadBatch={handleLoadBatch}
               onCheckAlerts={() => checkAlerts(autoPrices, watchlist, history?.batches ?? [], hitMargin)}
+            />
+          )}
+
+          {/* ── EXPORT ── */}
+          {activePage === 'export' && (
+            <ExportPage
+              batches={history?.batches ?? []}
+              loadedBatchId={loadedBatchId}
+              fundamentals={fundamentals}
             />
           )}
 

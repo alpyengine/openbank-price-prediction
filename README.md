@@ -184,6 +184,7 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
+| v7.4.6 | Export page — HTML + PDF reports · batch + content selection · jspdf + html2canvas |
 | v7.4.5 | Watchlist sticky panel — independent scroll · sidebar label fix |
 | v7.4.4 | Price alerts — browser notifications + email via EmailJS · Settings alerts section · Watchlist "Check alerts" button · alert_config + alert_log Supabase tables |
 | v7.4.3 | Direction badges in Batch Details header · Watchlist one row per ticker×batch + Direction column + panel badge |

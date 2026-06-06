@@ -28,6 +28,7 @@ const PAGE_TITLES = {
   'accuracy':     { title: 'Accuracy Stats',        sub: 'Historical performance metrics and hit rate analysis' },
   'all-stocks':   { title: 'All Stocks',            sub: 'All tickers across all batches' },
   'watchlist':    { title: 'Watchlist',             sub: 'Your starred tickers across all batches' },
+  'export':       { title: 'Export',               sub: 'Download batch reports as HTML or PDF' },
   'import':       { title: 'Import CSV',            sub: 'Load a new batch of stock predictions' },
   'settings':     { title: 'Settings',             sub: 'Configure your preferences and integrations' },
 }

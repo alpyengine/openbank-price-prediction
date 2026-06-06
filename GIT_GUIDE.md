@@ -2323,3 +2323,71 @@ Tests: 164/164 passing"
 git tag -a v7.4.5 -m "v7.4.5: watchlist sticky panel"
 git push origin main && git push origin v7.4.5
 
+
+# ===========================================================================
+# STEP 140 — v7.4.6  Export page — HTML + PDF reports
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+#
+# npm install — required (new dependencies added to package.json):
+#   jspdf@^2.5.1       — PDF generation
+#   html2canvas@^1.4.1 — captures HTML as canvas for PDF rendering
+#   Both are loaded dynamically (import()) when PDF export is clicked.
+#
+# WHAT'S NEW:
+#
+#   src/components/ExportPage.jsx — new page:
+#     Step 1: Select batch dropdown (defaults to currently loaded batch)
+#     Step 2: Content checkboxes with live preview badges:
+#       ☑ Summary cards  — hit rate, stocks count, direction
+#       ☑ Predictions table — all tickers with targets and verdicts
+#       ☑ Market performance — SPY + ETFs vs batch period
+#       ☐ Fundamentals   — sector, PEG, beta, margin, fwd PE
+#       ☐ Notes          — per-ticker notes saved with batch
+#     Step 3: Export buttons:
+#       HTML — generates report.html and triggers browser download
+#       PDF  — renders HTML in hidden iframe → html2canvas → jsPDF → download
+#     buildReportHtml() — generates complete standalone HTML report:
+#       - Branded header (OB logo, batch date, direction badge)
+#       - All selected sections as clean tables
+#       - print-ready CSS (@media print)
+#       - Multi-page PDF support
+#
+#   src/components/Sidebar.jsx:
+#     Download icon added to lucide imports
+#     'export' nav item added between Watchlist and Import
+#
+#   src/components/Header.jsx:
+#     'export' page title added: "Export · Download batch reports as HTML or PDF"
+#
+#   src/App.jsx:
+#     ExportPage imported + route added
+#     Receives: batches, loadedBatchId, fundamentals
+#
+#   package.json:
+#     jspdf and html2canvas added to dependencies
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.6/. .
+
+npm install
+
+git add .
+git commit -m "feat: Export page — HTML + PDF batch reports (v7.4.6)
+
+ExportPage.jsx: 3-step UI (batch selector, content checkboxes, export).
+  HTML: generates standalone report.html and downloads it.
+  PDF: hidden iframe → html2canvas → jsPDF → A4 multi-page download.
+  buildReportHtml(): branded report with summary, predictions,
+  market, fundamentals, notes — all optional via checkboxes.
+
+Sidebar + Header: Export nav item + page title.
+App.jsx: ExportPage route wired with batches, loadedBatchId, fundamentals.
+package.json: jspdf + html2canvas added to dependencies.
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.6 -m "v7.4.6: Export page HTML + PDF"
+git push origin main && git push origin v7.4.6
+
