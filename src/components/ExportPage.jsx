@@ -30,6 +30,16 @@ const CONTENT_ITEMS = [
   { id: 'notes',        label: 'Notes',              sub: 'Per-ticker notes saved with the batch'    },
 ]
 
+// ── Currency helper ───────────────────────────────────────────────────────────
+
+function getCurrencySymbol(batch) {
+  if (!batch?.results?.length) return '$'
+  const cu = batch.results.find(r => r.currency)?.currency ?? 'USD'
+  if (cu === 'EUR') return '€'
+  if (cu === 'GBP') return '£'
+  return '$'
+}
+
 // ── HTML report builder ───────────────────────────────────────────────────────
 
 const VERDICT_STYLES = {
@@ -47,6 +57,7 @@ function buildReportHtml(batch, selection, fundamentals) {
   const now    = new Date().toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' })
   const tickers = [...new Set(batch.results.map(r => r.ticker))]
   const dir     = batch.direction ?? 'bullish'
+  const sym     = getCurrencySymbol(batch)
   const dirBadge = dir === 'bearish'
     ? '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">📉 Bearish</span>'
     : '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">📈 Bullish</span>'
@@ -84,14 +95,14 @@ function buildReportHtml(batch, selection, fundamentals) {
         const c = VERDICT_STYLES[s?.verdict] ?? VERDICT_STYLES.awaiting
         const pct = (s?.targetPrice && base) ? ((s.targetPrice - base) / base * 100).toFixed(1) : '—'
         return `<td style="padding:8px 12px;text-align:right">
-          <div style="font-size:12px;font-weight:500">${s?.targetPrice ? '$' + s.targetPrice.toFixed(2) : '—'}</div>
+          <div style="font-size:12px;font-weight:500">${s?.targetPrice ? sym + s.targetPrice.toFixed(2) : '—'}</div>
           <span style="background:${c.bg};color:${c.color};padding:1px 6px;border-radius:20px;font-size:10px;font-weight:600">${c.label}</span>
         </td>`
       }
       return `<tr style="border-bottom:1px solid #f0f0f0">
         <td style="padding:8px 12px;font-weight:600;font-size:13px">${ticker}</td>
         <td style="padding:8px 12px;font-size:12px;color:#71717a">${r1?.company ?? ''}</td>
-        <td style="padding:8px 12px;text-align:right;font-size:13px;font-weight:500">$${base.toFixed(2)}</td>
+        <td style="padding:8px 12px;text-align:right;font-size:13px;font-weight:500">${sym}${base.toFixed(2)}</td>
         ${vs(r1)}${vs(r3)}${vs(r6)}${vs(r12)}
       </tr>`
     }).join('')

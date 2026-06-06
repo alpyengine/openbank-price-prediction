@@ -183,6 +183,7 @@ export function useHistory(margin = 5) {
         results.push({
           ticker:      stock.t,
           company:     stock.co,
+          currency:    stock.cu ?? 'USD',
           horizon:     h,
           verdict:     finalVerdict,
           basePrice:   stock.b,

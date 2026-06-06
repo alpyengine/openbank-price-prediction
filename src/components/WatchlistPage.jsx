@@ -38,6 +38,21 @@ import {
   LineChart, Line, ResponsiveContainer, Tooltip as RTooltip,
 } from 'recharts'
 
+// ── Currency helper ───────────────────────────────────────────────────────────
+
+/**
+ * getCurrencySymbol — derives the currency symbol from a batch's results.
+ * Reads the `currency` field saved in results (added in v7.4.7).
+ * Falls back to '$' for older batches that don't have the field.
+ */
+function getCurrencySymbol(batch) {
+  if (!batch?.results?.length) return '$'
+  const cu = batch.results.find(r => r.currency)?.currency ?? 'USD'
+  if (cu === 'EUR') return '€'
+  if (cu === 'GBP') return '£'
+  return '$'
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const HORIZONS = ['1M', '3M', '6M', '12M']
@@ -90,12 +105,15 @@ function buildStockRows(watchlist, batches, weeklyPrices, autoPrices) {
       const r1      = get('1M')
       const verdict = r1?.verdict ?? 'awaiting'
 
+      const currSym = getCurrencySymbol(batch)
+
       rows.push({
         ticker,
         co:        r12?.company ?? ticker,
         batchId:   batch.id,
         batchDate: batch.date,
         direction: batch.direction ?? 'bullish',
+        currSym,
         u12, vt, verdict, lastPrice,
         basePrice: r12?.basePrice ?? null,
         horizons: HORIZONS.map(h => {
@@ -156,7 +174,7 @@ function Sparkline({ prices }) {
           />
           <RTooltip
             contentStyle={{ fontSize: 11, padding: '2px 6px' }}
-            formatter={(v) => [`$${v.toFixed(2)}`, 'Price']}
+            formatter={(v) => [`${row?.currSym ?? '$'}${v.toFixed(2)}`, 'Price']}
             labelFormatter={(l) => `Week ${l}`}
           />
         </LineChart>
@@ -220,12 +238,12 @@ function DetailPanel({ row, fundamentals, onClose, onOpenBatch, onRemove }) {
             <div className={cn('text-[18px] font-semibold',
               chgPct != null && chgPct >= 0 ? 'text-green-700' : 'text-red-700'
             )}>
-              ${row.lastPrice.toFixed(2)}
+              {row.currSym ?? '$'}{row.lastPrice.toFixed(2)}
             </div>
           )}
           {chgPct != null && (
             <div className="text-[11px] text-muted-foreground mt-0.5">
-              {fmtPct(chgPct)} from base ${row.basePrice?.toFixed(2)}
+              {fmtPct(chgPct)} from base {row.currSym ?? '$'}{row.basePrice?.toFixed(2)}
             </div>
           )}
           <Sparkline prices={row.prices} />
@@ -250,7 +268,7 @@ function DetailPanel({ row, fundamentals, onClose, onOpenBatch, onRemove }) {
                 <tr key={h.h} className="border-b border-border last:border-0">
                   <td className="py-1 font-semibold text-foreground">{h.h}</td>
                   <td className="py-1 text-right text-muted-foreground">
-                    {h.target ? `$${h.target.toFixed(0)}` : '—'}
+                    {h.target ? `${row.currSym ?? '$'}${h.target.toFixed(0)}` : '—'}
                   </td>
                   <td className={cn('py-1 text-right font-semibold',
                     h.vt == null ? 'text-muted-foreground'

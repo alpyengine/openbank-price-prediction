@@ -111,6 +111,8 @@ export default function App() {
     const cu = stocks.find(s => s.cu)?.cu ?? 'USD'
     if (cu === 'EUR') return '€'
     if (cu === 'GBP') return '£'
+    if (cu === 'JPY') return '¥'
+    if (cu === 'CHF') return 'CHF'
     return '$'
   }, [stocks])
 
@@ -222,7 +224,7 @@ export default function App() {
         const parts = batch.date.split('/')
         if (parts.length === 3) base = new Date(+parts[2], +parts[1] - 1, +parts[0])
       }
-      newStocks.push({ t:r.ticker, co:r.company, cu:'USD', b:r.basePrice, t1:get('1M'), t3:get('3M'), t6:get('6M'), t12:get('12M'), base:base||new Date() })
+      newStocks.push({ t:r.ticker, co:r.company, cu: rows.find(x => x.currency)?.currency ?? 'USD', b:r.basePrice, t1:get('1M'), t3:get('3M'), t6:get('6M'), t12:get('12M'), base:base||new Date() })
     }
     if (!newStocks.length) return
     setStocks(newStocks)

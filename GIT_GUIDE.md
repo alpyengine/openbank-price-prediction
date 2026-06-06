@@ -2391,3 +2391,69 @@ Tests: 164/164 passing"
 git tag -a v7.4.6 -m "v7.4.6: Export page HTML + PDF"
 git push origin main && git push origin v7.4.6
 
+
+# ===========================================================================
+# STEP 141 — v7.4.7  Multi-currency EUR/GBP/JPY/CHF
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/hooks/useHistory.js — saveBatch results:
+#     currency: stock.cu ?? 'USD' added to every result row.
+#     Previously currency was NOT saved to Supabase results — it was lost
+#     when reloading a batch from history.
+#
+#   src/App.jsx:
+#     handleLoadBatch: cu now reads from saved results currency field
+#       instead of hardcoding 'USD' for all restored batches.
+#     batchCurrency: extended with JPY (¥) and CHF symbols.
+#
+#   src/components/WatchlistPage.jsx:
+#     getCurrencySymbol(batch) helper — reads batch.results[].currency
+#       and returns the correct symbol. Falls back to '$' for old batches.
+#     buildStockRows() — each row includes currSym from its batch.
+#     Sparkline tooltip: $  → row.currSym
+#     Price display: $ → row.currSym
+#     Horizon targets: $ → row.currSym
+#
+#   src/components/ExportPage.jsx:
+#     getCurrencySymbol(batch) helper added (same logic as WatchlistPage).
+#     buildReportHtml(): sym variable replaces all hardcoded '$'
+#       in base price column and target price cells.
+#
+# SUPPORTED CURRENCIES:
+#   USD → $  (default, all US-listed tickers)
+#   EUR → €  (Frankfurt/Xetra .DE tickers)
+#   GBP → £  (London .L tickers)
+#   JPY → ¥  (Tokyo tickers)
+#   CHF → CHF (Swiss tickers)
+#
+# BACKWARD COMPATIBILITY:
+#   Batches saved before v7.4.7 don't have currency in results.
+#   getCurrencySymbol() falls back to '$' — no data loss.
+#   New batches saved from v7.4.7 onwards store currency per result row.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.7/. .
+
+git add .
+git commit -m "feat: multi-currency EUR/GBP/JPY/CHF (v7.4.7)
+
+useHistory.js: currency field added to saveBatch results.
+App.jsx: handleLoadBatch reads cu from results (not hardcoded USD).
+  batchCurrency extended: JPY (¥) and CHF.
+
+WatchlistPage.jsx: getCurrencySymbol(batch) helper.
+  buildStockRows: currSym per row. All price displays use currSym.
+
+ExportPage.jsx: getCurrencySymbol(batch) helper.
+  buildReportHtml: sym replaces all hardcoded dollar signs.
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.7 -m "v7.4.7: multi-currency"
+git push origin main && git push origin v7.4.7
+
