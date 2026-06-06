@@ -33,12 +33,14 @@
  * @param {number}   closeRatio       — close zone multiplier (default 2.4)
  * @param {Set}      watchlist        — Set of watched tickers
  * @param {Function} onToggleWatchlist — toggle watchlist for a ticker
+ * @param {string}   batchDirection   — 'bullish' | 'bearish' for badge in header
  */
 import { useMemo, useState } from 'react'
 import StockRow from './StockRow.jsx'
 import { formatDate, targetDates } from '@/utils/dates.js'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { TrendingUp, TrendingDown } from 'lucide-react'
 
 // ── Column help definitions ───────────────────────────────────────────────────
 
@@ -192,6 +194,7 @@ export default function StockTable({
   fundamentals, groupBySector, filterSector, filterIndustry, sortBySector,
   onOverrideChange, notes, onNoteChange, marketData, batchCurrency,
   hitMargin = 5, batchId, closeRatio = 2.4, watchlist = new Set(), onToggleWatchlist,
+  batchDirection = 'bullish',
 }) {
   const base = stocks.find(s => s.base)?.base
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
@@ -279,7 +282,22 @@ export default function StockTable({
       {/* ── Table title + legend + expand all ────────────────────────── */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h2 className="text-base font-bold m-0">Batch Predictions</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold m-0">Batch Predictions</h2>
+            {/* Direction badge — bullish or bearish */}
+            <span className={cn(
+              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
+              batchDirection === 'bearish'
+                ? 'bg-red-50 text-red-800'
+                : 'bg-green-50 text-green-800'
+            )}>
+              {batchDirection === 'bearish'
+                ? <TrendingDown size={10} />
+                : <TrendingUp size={10} />
+              }
+              {batchDirection === 'bearish' ? 'Bearish' : 'Bullish'}
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground mt-0.5 mb-0">
             {tg
               ? `Base date: ${formatDate(stocks[0]?.base)} · Click row to expand details`

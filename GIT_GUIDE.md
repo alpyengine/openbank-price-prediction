@@ -1976,46 +1976,62 @@ git push origin main && git push origin v7.4.1
 # STEP 136 — v7.4.2  Watchlist UI
 # ===========================================================================
 #
-# NO SUPABASE CHANGES — watchlist table already created in v7.4.1.
+# SUPABASE — RLS fix required (if not already done):
+#
+#   The 'watchlist_own' policy created in v7.4.1 used 'for all using' which
+#   does NOT cover INSERT (needs 'with check'). Replace with 3 policies:
+#
+#   drop policy if exists "watchlist_own" on watchlist;
+#   create policy "watchlist_select" on watchlist
+#     for select using (auth.uid() = user_id);
+#   create policy "watchlist_insert" on watchlist
+#     for insert with check (auth.uid() = user_id);
+#   create policy "watchlist_delete" on watchlist
+#     for delete using (auth.uid() = user_id);
+#
+#   Verify:
+#   select policyname, cmd from pg_policies where tablename = 'watchlist';
 #
 # WHAT'S NEW:
 #
-#   src/services/storage.js — 3 new functions:
+#   src/services/storage.js — 4 new functions:
+#     getUserId()             — decodes JWT from localStorage → user UUID
+#                               required by RLS insert policy (with check)
 #     loadWatchlist()         — fetch user's watchlist tickers (string[])
-#     addToWatchlist(ticker)  — add ticker, ignore duplicates (409)
-#     removeFromWatchlist(ticker) — delete by ticker
-#     All use RLS — each user only sees their own rows.
+#     addToWatchlist(ticker)  — inserts { ticker, user_id } — user_id required by RLS
+#     removeFromWatchlist(ticker) — delete by ticker (user scoped via RLS)
 #
 #   src/hooks/useWatchlist.js — new hook:
-#     watchlist   — Set<string> of watched tickers (O(1) lookup)
-#     toggle(t)   — optimistic add/remove with Supabase persist + rollback on fail
-#     isWatched(t)— O(1) check
-#     reload()    — force refresh from Supabase
+#     watchlist    — Set<string> of watched tickers (O(1) lookup)
+#     toggle(t)    — optimistic add/remove with Supabase persist + rollback on fail
+#     isWatched(t) — O(1) check
+#     reload()     — force refresh from Supabase
 #
 #   src/components/WatchlistPage.jsx — new page:
-#     Left side: summary cards (total/above/below target/awaiting) + table
-#     Right side: detail panel (slides in on row click):
-#       - Sparkline chart (Chart.js, last N weekly prices, green/red)
-#       - Current price + % from base price
-#       - Per-horizon target table with verdicts
+#     Left: summary cards (total/above/below target/awaiting) + table
+#     Right: detail panel on row click:
+#       - Recharts sparkline (green/red, last N weekly prices)
+#       - Current price + % from base
+#       - Per-horizon targets with verdicts
 #       - Fundamentals (sector, PEG, beta, margin)
-#       - "Open in Batch Details" button → loads batch + navigates
-#       - "Remove from Watchlist" button
-#     Empty state when watchlist is empty with instructions.
-#     Uses most recent batch per ticker (Scenario B).
+#       - Open in Batch Details button
+#       - Remove from Watchlist button
+#     Empty state with instructions when watchlist is empty
+#     Scenario B: uses most recent batch per ticker
+#     Uses Recharts (already installed) — NOT chart.js/react-chartjs-2
 #
 #   src/components/Sidebar.jsx:
 #     Star icon added to lucide imports
 #     'watchlist' nav item added between All Stocks and Import
 #
 #   src/components/AllStocksPage.jsx:
-#     weeklyPrices now received as prop (lifted to App.jsx)
-#     ⭐ column added — click to toggle watchlist, filled red if watched
+#     weeklyPrices now received as prop (lifted to App.jsx — shared with Watchlist)
+#     ⭐ column added — filled red if watched, grey if not
 #     watchlist + onToggleWatchlist props added
 #     colSpan updated 9 → 10
 #
 #   src/components/StockRow.jsx:
-#     ⭐ icon added next to ticker name
+#     ⭐ icon added next to ticker name in Batch Details
 #     isWatched + onToggleWatchlist props added
 #
 #   src/components/StockTable.jsx:
@@ -2024,9 +2040,23 @@ git push origin main && git push origin v7.4.1
 #   src/App.jsx:
 #     useWatchlist hook added → watchlist + toggleWatchlist
 #     WatchlistPage imported + route added
-#     weeklyPrices state lifted: loadAllWeeklyPrices() on mount
-#     weeklyPrices passed to AllStocksPage and WatchlistPage
+#     weeklyPrices state lifted: loadAllWeeklyPrices() on mount, shared
 #     watchlist + toggleWatchlist passed to AllStocksPage, StockTable, WatchlistPage
+#
+# BUGS FIXED DURING TESTING:
+#
+#   Bug A — react-chartjs-2 not installed:
+#     WatchlistPage originally imported react-chartjs-2 — not in package.json.
+#     Fixed: replaced with Recharts LineChart (already installed).
+#
+#   Bug B — 403 on watchlist INSERT (RLS):
+#     'for all using' does not cover INSERT in PostgreSQL RLS.
+#     INSERT requires 'with check'. Fixed: 3 separate policies above.
+#
+#   Bug C — addToWatchlist missing user_id in body:
+#     RLS 'with check (auth.uid() = user_id)' requires user_id in the row.
+#     Fixed: getUserId() decodes JWT sub claim from localStorage session.
+#     Body now: { ticker, user_id: userId }.
 #
 # No npm install needed.
 #
@@ -2036,23 +2066,82 @@ cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.2/. .
 git add .
 git commit -m "feat: Watchlist UI — page + sparkline + star toggle (v7.4.2)
 
-storage.js: loadWatchlist, addToWatchlist, removeFromWatchlist.
-useWatchlist.js: Set<string> state, optimistic toggle with rollback.
+storage.js: getUserId() + loadWatchlist, addToWatchlist, removeFromWatchlist.
+  addToWatchlist sends { ticker, user_id } required by RLS insert policy.
+  getUserId() decodes JWT sub claim from localStorage Supabase session.
+
+useWatchlist.js: Set<string> state, optimistic toggle with rollback on fail.
 
 WatchlistPage.jsx:
-  Cards (total/above/below/awaiting) + sortable table.
-  Detail panel on row click: sparkline (Chart.js), price vs base,
-  horizon targets, fundamentals, open-in-batch + remove actions.
-  Empty state with instructions.
+  Cards (total/above/below/awaiting) + table.
+  Detail panel: Recharts sparkline, price vs base, horizon targets,
+  fundamentals, open-in-batch + remove actions. Empty state.
 
-AllStocksPage.jsx: ⭐ column, watchlist prop, weeklyPrices as prop.
-StockRow.jsx: ⭐ next to ticker name.
+AllStocksPage.jsx: star column, watchlist prop, weeklyPrices as prop.
+StockRow.jsx: star next to ticker name in Batch Details.
 StockTable.jsx: watchlist props passed through.
 Sidebar.jsx: Watchlist nav item added.
-App.jsx: weeklyPrices lifted, watchlist wired to all pages.
+App.jsx: weeklyPrices lifted to App, watchlist wired to all pages.
+
+Supabase RLS fix: watchlist_own replaced with 3 separate policies.
+INSERT requires 'with check' not 'using'.
 
 Tests: 164/164 passing"
 
 git tag -a v7.4.2 -m "v7.4.2: Watchlist UI"
 git push origin main && git push origin v7.4.2
+
+
+# ===========================================================================
+# STEP 137 — v7.4.3  Direction badges + Watchlist multi-row
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/components/StockTable.jsx:
+#     batchDirection prop added (default 'bullish')
+#     TrendingUp / TrendingDown icons imported from lucide-react
+#     Badge 📈 Bullish / 📉 Bearish shown next to "Batch Predictions" title
+#
+#   src/App.jsx:
+#     batchDirection passed to StockTable
+#
+#   src/components/WatchlistPage.jsx:
+#     buildStockRows() rewritten: one row per ticker × batch
+#       (was: one row per ticker using most recent batch)
+#     Each row now includes direction from batch.direction
+#     Row key changed from ticker to ticker__batchId (unique per ticker×batch)
+#     selectedTicker state now holds the rowKey (ticker__batchId)
+#     selectedRow lookup updated to match new rowKey format
+#     Direction column added to table (📈/📉 badge)
+#     DetailPanel header now shows direction badge next to ticker
+#
+# BEHAVIOUR:
+#   - If MU appears in 3 batches → 3 rows in Watchlist
+#   - If ENPH appears in 1 bullish + 1 bearish batch → 2 rows, each with correct badge
+#   - Click ⭐ on any batch removes ticker from all watchlist rows (watchlist is per-ticker)
+#   - Panel opens for the specific batch row clicked (not just ticker)
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.3/. .
+
+git add .
+git commit -m "feat: direction badges + watchlist multi-row per batch (v7.4.3)
+
+StockTable.jsx: batchDirection prop + Bullish/Bearish badge in header.
+App.jsx: batchDirection passed to StockTable.
+
+WatchlistPage.jsx:
+  buildStockRows() → one row per ticker × batch (was: most recent only).
+  Direction column added with 📈/📉 badge.
+  DetailPanel header shows direction badge.
+  Row key: ticker__batchId (unique). selectedTicker uses rowKey.
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.3 -m "v7.4.3: direction badges + watchlist multi-row"
+git push origin main && git push origin v7.4.3
 

@@ -61,54 +61,58 @@ function fmtPct(n) {
 }
 
 /**
- * buildStockRows — derives one display row per watched ticker.
- * Uses the most recent batch where the ticker appears.
+ * buildStockRows — derives one display row per ticker × batch.
+ * If a ticker appears in 3 batches, 3 rows are returned.
+ * This allows seeing all forecasts for a ticker across batches,
+ * including cases where the same ticker has both bullish and bearish batches.
  */
 function buildStockRows(watchlist, batches, weeklyPrices, autoPrices) {
-  return [...watchlist].map(ticker => {
-    // Find the most recent batch containing this ticker
-    const batch = [...batches]
+  const rows = []
+
+  for (const ticker of watchlist) {
+    // Find all batches containing this ticker, sorted newest first
+    const tickerBatches = [...batches]
       .sort((a, b) => (b.id > a.id ? 1 : -1))
-      .find(b => b.results?.some(r => r.ticker === ticker))
+      .filter(b => b.results?.some(r => r.ticker === ticker))
 
-    if (!batch) return { ticker, batchId: null, co: ticker }
+    for (const batch of tickerBatches) {
+      const results = batch.results.filter(r => r.ticker === ticker)
+      const get = h => results.find(r => r.horizon === h)
 
-    const results = batch.results.filter(r => r.ticker === ticker)
-    const get = h => results.find(r => r.horizon === h)
+      const r12 = get('12M')
+      const u12 = r12 ? (r12.targetPrice - r12.basePrice) / r12.basePrice * 100 : null
 
-    // 12M upside from base
-    const r12 = get('12M')
-    const u12 = r12 ? (r12.targetPrice - r12.basePrice) / r12.basePrice * 100 : null
+      const prices    = weeklyPrices[ticker]?.[batch.id] ?? []
+      const lastPrice = prices.length ? prices[prices.length - 1] : (autoPrices[ticker] ?? null)
+      const vt        = (lastPrice && r12) ? (lastPrice - r12.targetPrice) / r12.targetPrice * 100 : null
 
-    // vs Target — last weekly price vs 12M target
-    const prices = weeklyPrices[ticker]?.[batch.id] ?? []
-    const lastPrice = prices.length ? prices[prices.length - 1] : (autoPrices[ticker] ?? null)
-    const vt = (lastPrice && r12) ? (lastPrice - r12.targetPrice) / r12.targetPrice * 100 : null
+      const r1      = get('1M')
+      const verdict = r1?.verdict ?? 'awaiting'
 
-    // Best non-awaiting verdict for 1M horizon
-    const r1 = get('1M')
-    const verdict = r1?.verdict ?? 'awaiting'
-
-    return {
-      ticker,
-      co:       r12?.company ?? ticker,
-      batchId:  batch.id,
-      batchDate: batch.date,
-      u12, vt, verdict, lastPrice,
-      basePrice: r12?.basePrice ?? null,
-      horizons: HORIZONS.map(h => {
-        const r = get(h)
-        const vt_h = (lastPrice && r) ? (lastPrice - r.targetPrice) / r.targetPrice * 100 : null
-        return {
-          h,
-          target:  r?.targetPrice ?? null,
-          verdict: r?.verdict ?? 'awaiting',
-          vt:      vt_h,
-        }
-      }),
-      prices,
+      rows.push({
+        ticker,
+        co:        r12?.company ?? ticker,
+        batchId:   batch.id,
+        batchDate: batch.date,
+        direction: batch.direction ?? 'bullish',
+        u12, vt, verdict, lastPrice,
+        basePrice: r12?.basePrice ?? null,
+        horizons: HORIZONS.map(h => {
+          const r    = get(h)
+          const vt_h = (lastPrice && r) ? (lastPrice - r.targetPrice) / r.targetPrice * 100 : null
+          return { h, target: r?.targetPrice ?? null, verdict: r?.verdict ?? 'awaiting', vt: vt_h }
+        }),
+        prices,
+      })
     }
-  })
+
+    // If ticker not found in any batch, add a placeholder row
+    if (tickerBatches.length === 0) {
+      rows.push({ ticker, batchId: null, co: ticker, direction: 'bullish', prices: [] })
+    }
+  }
+
+  return rows
 }
 
 // ── VerdictBadge ──────────────────────────────────────────────────────────────
@@ -179,7 +183,16 @@ function DetailPanel({ row, fundamentals, onClose, onOpenBatch, onRemove }) {
       {/* Panel header */}
       <div className="flex items-start justify-between px-4 py-3 border-b border-border">
         <div>
-          <div className="text-[15px] font-semibold text-foreground">{row.ticker}</div>
+          <div className="flex items-center gap-2">
+            <div className="text-[15px] font-semibold text-foreground">{row.ticker}</div>
+            <span className={cn(
+              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold',
+              row.direction === 'bearish' ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'
+            )}>
+              {row.direction === 'bearish' ? '📉' : '📈'}
+              {row.direction === 'bearish' ? 'Bearish' : 'Bullish'}
+            </span>
+          </div>
           <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{row.co}</div>
           {row.batchDate && (
             <div className="text-[10px] text-muted-foreground mt-0.5">Batch {row.batchDate}</div>
@@ -319,7 +332,7 @@ export default function WatchlistPage({
     [watchlist, batches, weeklyPrices, autoPrices]
   )
 
-  const selectedRow = rows.find(r => r.ticker === selectedTicker) ?? null
+  const selectedRow = rows.find(r => `${r.ticker}__${r.batchId ?? 'none'}` === selectedTicker) ?? null
 
   // Summary counts
   const aboveTarget = rows.filter(r => r.vt != null && r.vt >= 0).length
@@ -380,7 +393,7 @@ export default function WatchlistPage({
           <table className="w-full text-[12px] border-collapse">
             <thead>
               <tr className="bg-muted/50">
-                {['Ticker', 'Batch', '12M Upside', 'vs Target', 'Verdict', ''].map(h => (
+                {['Ticker', 'Batch', 'Direction', '12M Upside', 'vs Target', 'Verdict', ''].map(h => (
                   <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
                     {h}
                   </th>
@@ -388,15 +401,17 @@ export default function WatchlistPage({
               </tr>
             </thead>
             <tbody>
-              {rows.map(row => (
+              {rows.map(row => {
+                const rowKey = `${row.ticker}__${row.batchId ?? 'none'}`
+                return (
                 <tr
-                  key={row.ticker}
+                  key={rowKey}
                   className={cn(
                     'border-b border-border cursor-pointer transition-colors',
-                    selectedTicker === row.ticker ? 'bg-muted/60' : 'hover:bg-muted/30'
+                    selectedTicker === rowKey ? 'bg-muted/60' : 'hover:bg-muted/30'
                   )}
                   onClick={() => setSelectedTicker(
-                    selectedTicker === row.ticker ? null : row.ticker
+                    selectedTicker === rowKey ? null : rowKey
                   )}
                 >
                   {/* Ticker + company */}
@@ -408,6 +423,19 @@ export default function WatchlistPage({
                   {/* Batch date */}
                   <td className="px-4 py-2.5 text-muted-foreground">
                     {row.batchDate ?? '—'}
+                  </td>
+
+                  {/* Direction badge */}
+                  <td className="px-4 py-2.5">
+                    <span className={cn(
+                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                      row.direction === 'bearish'
+                        ? 'bg-red-50 text-red-800'
+                        : 'bg-green-50 text-green-800'
+                    )}>
+                      {row.direction === 'bearish' ? '📉' : '📈'}
+                      {row.direction === 'bearish' ? 'Bearish' : 'Bullish'}
+                    </span>
                   </td>
 
                   {/* 12M Upside */}
@@ -442,7 +470,8 @@ export default function WatchlistPage({
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

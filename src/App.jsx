@@ -475,6 +475,7 @@ export default function App() {
                 batchId={loadedBatchId}
                 watchlist={watchlist}
                 onToggleWatchlist={toggleWatchlist}
+                batchDirection={batchDirection}
               />
 
               {showEmail && (

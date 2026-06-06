@@ -184,6 +184,7 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
+| v7.4.3 | Direction badges in Batch Details header · Watchlist one row per ticker×batch + Direction column + panel badge |
 | v7.4.2 | Watchlist UI — page with cards + table + side panel + sparkline · ⭐ toggle in All Stocks + Batch Details · weeklyPrices lifted to App.jsx |
 | v7.4.1 | Watchlist table (Supabase) · SUPABASE.md rewritten · Bug #3 documented (v_ prefix fix) · cron schedule corrected (Tue–Sat 02:00 UTC) · backup_to_github v1.1 (fundamentals_cache) · weekly + monthly Google Calendar verification reminders |
 | v7.4.0 | Bearish batch support — direction selector in Import · badge in Batch Overview + Accuracy Stats |
