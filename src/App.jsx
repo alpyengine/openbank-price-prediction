@@ -65,6 +65,7 @@ import SettingsPage      from './components/SettingsPage.jsx'
 import HelpPage          from './components/HelpPage.jsx'
 import WatchlistPage     from './components/WatchlistPage.jsx'
 import { useWatchlist }  from './hooks/useWatchlist.js'
+import { useAlerts }     from './hooks/useAlerts.js'
 
 /**
  * App — the root component. See module header for full documentation.
@@ -84,6 +85,9 @@ export default function App() {
 
   // Watchlist — per-user starred tickers stored in Supabase
   const { watchlist, toggle: toggleWatchlist } = useWatchlist()
+
+  // Alerts — price notifications for watchlisted tickers
+  const { alertConfig, saveConfig: saveAlertConfig, checkAlerts } = useAlerts()
 
   // Weekly prices — loaded once on mount, shared between AllStocks and Watchlist
   const [weeklyPrices, setWeeklyPrices] = useState({})
@@ -290,7 +294,12 @@ export default function App() {
             <FetchBar
               log={log}
               fetching={fetching}
-              onFetch={() => fetchCurrentBatch(stocks)}
+              onFetch={async () => {
+                await fetchCurrentBatch(stocks)
+                // Check alerts after prices are updated
+                // Small delay to let autoPrices state settle
+                setTimeout(() => checkAlerts(autoPrices, watchlist, history?.batches ?? [], hitMargin), 500)
+              }}
               fundLog={fundLog}
               fundLoading={fundLoading}
               onFetchFundamentals={() => fetchFundamentals(stocks)}
@@ -533,6 +542,7 @@ export default function App() {
               onToggle={toggleWatchlist}
               onNav={setActivePage}
               onLoadBatch={handleLoadBatch}
+              onCheckAlerts={() => checkAlerts(autoPrices, watchlist, history?.batches ?? [], hitMargin)}
             />
           )}
 
@@ -553,6 +563,8 @@ export default function App() {
               closeRatio={closeRatio}
               onHitMarginChange={setHitMargin}
               onCloseRatioChange={setCloseRatio}
+              alertConfig={alertConfig}
+              onSaveAlertConfig={saveAlertConfig}
             />
           )}
 

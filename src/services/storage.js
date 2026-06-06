@@ -449,3 +449,126 @@ export async function removeFromWatchlist(ticker) {
     return false
   }
 }
+
+// ── Alert config — per-user alert preferences ─────────────────────────────────
+
+/**
+ * loadAlertConfig — fetch the current user's alert configuration.
+ * Returns the config object or null if not yet configured.
+ */
+export async function loadAlertConfig() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/alert_config?select=*&limit=1`,
+      { headers: authHeaders(), cache: 'no-store' }
+    )
+    if (!res.ok) return null
+    const rows = await res.json()
+    if (!rows?.length) return null
+    const r = rows[0]
+    return {
+      enabled:     r.enabled,
+      email:       r.email ?? '',
+      browser:     r.browser,
+      on_exceeded: r.on_exceeded,
+      on_hit:      r.on_hit,
+      on_close:    r.on_close,
+      on_stop:     r.on_stop,
+      stop_pct:    r.stop_pct,
+      cooldown_h:  r.cooldown_h,
+    }
+  } catch (err) {
+    console.warn('[storage] loadAlertConfig error:', err.message)
+    return null
+  }
+}
+
+/**
+ * saveAlertConfig — upsert the current user's alert configuration.
+ * Includes user_id in the body (required by RLS insert policy).
+ */
+export async function saveAlertConfig(cfg) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false
+  const userId = getUserId()
+  if (!userId) return false
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/alert_config`,
+      {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify({ ...cfg, user_id: userId, updated_at: new Date().toISOString() }),
+      }
+    )
+    return res.ok || res.status === 409
+  } catch (err) {
+    console.warn('[storage] saveAlertConfig error:', err.message)
+    return false
+  }
+}
+
+// ── Alert log — cooldown tracking ─────────────────────────────────────────────
+
+/**
+ * loadAlertLog — fetch alert log entries within the cooldown window.
+ * Returns array of { ticker, batch_id, horizon } to check for duplicates.
+ *
+ * @param {number} cooldownH — hours to look back (default 24)
+ */
+export async function loadAlertLog(cooldownH = 24) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
+  try {
+    const since = new Date(Date.now() - cooldownH * 3600 * 1000).toISOString()
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/alert_log?select=ticker,batch_id,horizon&sent_at=gte.${since}`,
+      { headers: authHeaders(), cache: 'no-store' }
+    )
+    if (!res.ok) return []
+    return await res.json()
+  } catch (err) {
+    console.warn('[storage] loadAlertLog error:', err.message)
+    return []
+  }
+}
+
+/**
+ * appendAlertLog — insert alert log entries for cooldown tracking.
+ * Includes user_id (required by RLS insert policy).
+ *
+ * @param {Object[]} alerts — triggered alerts from useAlerts.checkAlerts()
+ */
+export async function appendAlertLog(alerts) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !alerts.length) return
+  const userId = getUserId()
+  if (!userId) return
+  try {
+    const rows = alerts.map(a => ({
+      user_id:  userId,
+      ticker:   a.ticker,
+      batch_id: a.batchId,
+      horizon:  a.horizon,
+      verdict:  a.alertType,
+      price:    a.price,
+      target:   a.target,
+    }))
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/alert_log`,
+      {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify(rows),
+      }
+    )
+  } catch (err) {
+    console.warn('[storage] appendAlertLog error:', err.message)
+  }
+}

@@ -26,13 +26,14 @@
  * @param {Function}  onToggle     — toggle(ticker) to add/remove from watchlist
  * @param {Function}  onNav        — navigate to a page ('batch-detail' etc.)
  * @param {Function}  onLoadBatch  — load a batch into the main view
+ * @param {Function}  onCheckAlerts — trigger manual alert check
  */
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Star, X, ExternalLink } from 'lucide-react'
+import { Star, X, ExternalLink, Bell } from 'lucide-react'
 import {
   LineChart, Line, ResponsiveContainer, Tooltip as RTooltip,
 } from 'recharts'
@@ -322,7 +323,7 @@ function DetailPanel({ row, fundamentals, onClose, onOpenBatch, onRemove }) {
 
 export default function WatchlistPage({
   batches = [], weeklyPrices = {}, fundamentals = {},
-  autoPrices = {}, watchlist, onToggle, onNav, onLoadBatch,
+  autoPrices = {}, watchlist, onToggle, onNav, onLoadBatch, onCheckAlerts,
 }) {
   const [selectedTicker, setSelectedTicker] = useState(null)
 
@@ -362,14 +363,29 @@ export default function WatchlistPage({
 
         {/* Header */}
         <div className="px-5 py-3 border-b border-border">
-          <div className="text-[14px] font-semibold text-foreground">
-            Watchlist
-            <span className="text-[12px] font-normal text-muted-foreground ml-2">
-              — {watchlist.size} ticker{watchlist.size !== 1 ? 's' : ''}
-            </span>
-          </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">
-            Most recent batch per ticker · vs Target uses last weekly price
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[14px] font-semibold text-foreground">
+                Watchlist
+                <span className="text-[12px] font-normal text-muted-foreground ml-2">
+                  — {watchlist.size} ticker{watchlist.size !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                One row per batch · vs Target uses last weekly price
+              </div>
+            </div>
+            {onCheckAlerts && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-[12px] gap-1.5"
+                onClick={onCheckAlerts}
+              >
+                <Bell size={13} />
+                Check alerts
+              </Button>
+            )}
           </div>
         </div>
 

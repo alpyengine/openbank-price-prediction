@@ -2145,3 +2145,133 @@ Tests: 164/164 passing"
 git tag -a v7.4.3 -m "v7.4.3: direction badges + watchlist multi-row"
 git push origin main && git push origin v7.4.3
 
+
+# ===========================================================================
+# STEP 138 — v7.4.4  Price alerts
+# ===========================================================================
+#
+# SUPABASE — execute before deploying:
+#
+#   create table if not exists alert_config (
+#     user_id     uuid references auth.users on delete cascade primary key,
+#     enabled     boolean not null default true,
+#     email       text,
+#     browser     boolean not null default true,
+#     on_exceeded boolean not null default true,
+#     on_hit      boolean not null default true,
+#     on_close    boolean not null default false,
+#     on_stop     boolean not null default true,
+#     stop_pct    numeric not null default 10,
+#     cooldown_h  integer not null default 24,
+#     updated_at  timestamptz default now()
+#   );
+#   alter table alert_config enable row level security;
+#   create policy "alert_config_own" on alert_config
+#     for all using (auth.uid() = user_id)
+#     with check (auth.uid() = user_id);
+#
+#   create table if not exists alert_log (
+#     id         bigserial primary key,
+#     user_id    uuid references auth.users on delete cascade,
+#     ticker     text not null,
+#     batch_id   text not null,
+#     horizon    text not null,
+#     verdict    text not null,
+#     price      numeric,
+#     target     numeric,
+#     sent_at    timestamptz default now()
+#   );
+#   alter table alert_log enable row level security;
+#   create policy "alert_log_own" on alert_log
+#     for all using (auth.uid() = user_id)
+#     with check (auth.uid() = user_id);
+#
+#   Verify:
+#   select tablename from pg_tables where tablename in ('alert_config','alert_log');
+#
+# EMAILJS — add template variable:
+#   In your EmailJS template, ensure {{{alert_body}}} exists (triple braces for HTML).
+#   The existing {{{report_body}}} template also works — alerts reuse the same template.
+#
+# WHAT'S NEW:
+#
+#   src/hooks/useAlerts.js — new hook:
+#     DEFAULT_ALERT_CONFIG — default values for all settings
+#     buildAlertEmailHtml(alerts) — HTML email body matching app design
+#     requestNotificationPermission() — requests browser OS notification permission
+#     useAlerts() — main hook:
+#       alertConfig     — current user's config (loaded from Supabase on mount)
+#       loadingConfig   — true while loading
+#       saveConfig(cfg) — partial update + persist to Supabase
+#       checkAlerts(autoPrices, watchlist, batches, hitMargin):
+#         - Evaluates all watchlisted tickers with current prices
+#         - Checks: exceeded / hit / close / stop_loss conditions
+#         - Enforces cooldown (no repeat alerts within cooldown_h hours)
+#         - Fires browser notification per alert
+#         - Sends single email with all triggered alerts via EmailJS
+#         - Logs alerts to alert_log for cooldown tracking
+#
+#   src/services/storage.js — 4 new functions:
+#     loadAlertConfig()      — fetch user's alert config from Supabase
+#     saveAlertConfig(cfg)   — upsert alert config (includes user_id for RLS)
+#     loadAlertLog(h)        — fetch recent log entries for cooldown check
+#     appendAlertLog(alerts) — insert alert log entries
+#
+#   src/components/SettingsPage.jsx — new "Alerts" section:
+#     Enable/disable toggle
+#     Alert email input
+#     Browser notification toggle
+#     Checkboxes: on_exceeded, on_hit, on_close, on_stop
+#     Stop loss % slider (admin only)
+#     Cooldown hours slider (admin only)
+#     alertConfig + onSaveAlertConfig props added
+#
+#   src/components/WatchlistPage.jsx:
+#     onCheckAlerts prop added
+#     "Check alerts" button (Bell icon) in header
+#
+#   src/App.jsx:
+#     useAlerts hook added
+#     onFetch → after fetchCurrentBatch → checkAlerts() (500ms delay for state)
+#     alertConfig + saveAlertConfig passed to SettingsPage
+#     onCheckAlerts passed to WatchlistPage
+#
+# ALERT CONDITIONS:
+#   exceeded  — price > target × (1 + hitMargin%) AND on_exceeded = true
+#   hit       — |price - target| / target ≤ hitMargin% AND on_hit = true
+#   close     — within close threshold AND on_close = true
+#   stop_loss — price < base × (1 - stop_pct/100) AND on_stop = true
+#
+# COOLDOWN LOGIC:
+#   After sending an alert for ticker+batch_id+horizon, no repeat for cooldown_h hours.
+#   Cooldown checked against alert_log table in Supabase.
+#   Default: 24h. Admin can change in Settings.
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.4/. .
+
+git add .
+git commit -m "feat: price alerts — browser + email notifications (v7.4.4)
+
+useAlerts.js: new hook — checkAlerts() evaluates watchlist tickers,
+  fires browser notifications + EmailJS email, enforces cooldown.
+  Conditions: exceeded / hit / close / stop_loss. All configurable.
+
+storage.js: loadAlertConfig, saveAlertConfig, loadAlertLog, appendAlertLog.
+  All use getUserId() for RLS insert policies.
+
+SettingsPage.jsx: new Alerts section with all config options.
+  Stop loss % and cooldown are admin-only settings.
+
+WatchlistPage.jsx: Check alerts button in header.
+App.jsx: checkAlerts called after fetchCurrentBatch (500ms delay).
+
+Supabase: alert_config + alert_log tables with RLS.
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.4 -m "v7.4.4: price alerts"
+git push origin main && git push origin v7.4.4
+

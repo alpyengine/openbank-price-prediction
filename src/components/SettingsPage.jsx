@@ -50,8 +50,9 @@ function Row({ label, sub, children }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function SettingsPage({ hitMargin, closeRatio, onHitMarginChange, onCloseRatioChange }) {
+export default function SettingsPage({ hitMargin, closeRatio, onHitMarginChange, onCloseRatioChange, alertConfig, onSaveAlertConfig }) {
   const { user, role } = useAuth()
+  const isAdmin = role === 'admin'
   const configured     = isStorageConfigured()
   const [cleared,      setCleared] = useState(false)
 
@@ -246,6 +247,100 @@ export default function SettingsPage({ hitMargin, closeRatio, onHitMarginChange,
       </Section>
 
       {/* ── 3. Data ──────────────────────────────────────────────────── */}
+      {/* ── 3b. Alerts ───────────────────────────────────────────────── */}
+      {alertConfig && onSaveAlertConfig && (
+        <Section title="Alerts">
+
+          {/* Enable / disable */}
+          <Row label="Enable alerts" sub="Send browser + email notifications when watchlist tickers trigger">
+            <input
+              type="checkbox"
+              checked={alertConfig.enabled}
+              onChange={e => onSaveAlertConfig({ enabled: e.target.checked })}
+              className="w-4 h-4 cursor-pointer accent-primary"
+            />
+          </Row>
+
+          {/* Email destination */}
+          <Row label="Alert email" sub="Address to receive alert emails (leave empty to disable email)">
+            <input
+              type="email"
+              value={alertConfig.email ?? ''}
+              onChange={e => onSaveAlertConfig({ email: e.target.value })}
+              placeholder="you@email.com"
+              style={{ width: 200, fontSize: 12 }}
+            />
+          </Row>
+
+          {/* Browser notification */}
+          <Row label="Browser notifications" sub="Show OS notification when alert triggers">
+            <input
+              type="checkbox"
+              checked={alertConfig.browser}
+              onChange={e => onSaveAlertConfig({ browser: e.target.checked })}
+              className="w-4 h-4 cursor-pointer accent-primary"
+            />
+          </Row>
+
+          {/* Conditions */}
+          <Row label="Alert on Exceeded" sub="Price surpassed target by more than hit margin">
+            <input type="checkbox" checked={alertConfig.on_exceeded}
+              onChange={e => onSaveAlertConfig({ on_exceeded: e.target.checked })}
+              className="w-4 h-4 cursor-pointer accent-primary" />
+          </Row>
+          <Row label="Alert on Hit" sub="Price within ±hit margin of target">
+            <input type="checkbox" checked={alertConfig.on_hit}
+              onChange={e => onSaveAlertConfig({ on_hit: e.target.checked })}
+              className="w-4 h-4 cursor-pointer accent-primary" />
+          </Row>
+          <Row label="Alert on Close" sub="Price within close threshold of target">
+            <input type="checkbox" checked={alertConfig.on_close}
+              onChange={e => onSaveAlertConfig({ on_close: e.target.checked })}
+              className="w-4 h-4 cursor-pointer accent-primary" />
+          </Row>
+          <Row label="Alert on Stop loss" sub="Price dropped below base × (1 − stop %)">
+            <input type="checkbox" checked={alertConfig.on_stop}
+              onChange={e => onSaveAlertConfig({ on_stop: e.target.checked })}
+              className="w-4 h-4 cursor-pointer accent-primary" />
+          </Row>
+
+          {/* Admin-only settings */}
+          <Row
+            label={<span className="flex items-center gap-1.5">Stop loss % {!isAdmin && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">admin only</span>}</span>}
+            sub={`Trigger stop loss alert if price falls more than ${alertConfig.stop_pct}% below base`}
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="range" min={1} max={30} step={1}
+                value={alertConfig.stop_pct}
+                disabled={!isAdmin}
+                onChange={e => onSaveAlertConfig({ stop_pct: parseFloat(e.target.value) })}
+                style={{ width: 100 }}
+              />
+              <span className="text-[12px] font-medium w-8">{alertConfig.stop_pct}%</span>
+            </div>
+          </Row>
+
+          <Row
+            label={<span className="flex items-center gap-1.5">Cooldown {!isAdmin && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">admin only</span>}</span>}
+            sub={`Minimum ${alertConfig.cooldown_h}h between alerts for the same ticker + horizon`}
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="range" min={1} max={168} step={1}
+                value={alertConfig.cooldown_h}
+                disabled={!isAdmin}
+                onChange={e => onSaveAlertConfig({ cooldown_h: parseInt(e.target.value) })}
+                style={{ width: 100 }}
+              />
+              <span className="text-[12px] font-medium w-12">{alertConfig.cooldown_h}h</span>
+            </div>
+          </Row>
+
+        </Section>
+      )}
+
+      {/* ── 4. Data ───────────────────────────────────────────────────── */}
       <Section title="Data">
         <Row label="Supabase connection" sub="VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY in .env">
           <Badge className={cn(
@@ -276,7 +371,7 @@ export default function SettingsPage({ hitMargin, closeRatio, onHitMarginChange,
       <Section title="About">
         <Row label="Version" sub="Openbank Price Prediction">
           <Badge variant="secondary" className="text-[11px] font-mono">
-            v7.3.6
+            v7.4.4
           </Badge>
         </Row>
         <Row label="Documentation" sub="Full README on GitHub">
