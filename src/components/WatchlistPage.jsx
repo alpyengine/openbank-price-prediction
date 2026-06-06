@@ -125,11 +125,19 @@ function buildStockRows(watchlist, batches, weeklyPrices, autoPrices) {
       })
     }
 
-    // If ticker not found in any batch, add a placeholder row
+    // If ticker not found in any batch, add a placeholder row with safe defaults
     if (tickerBatches.length === 0) {
-      rows.push({ ticker, batchId: null, co: ticker, direction: 'bullish', prices: [] })
+      rows.push({
+        ticker, batchId: null, co: ticker, direction: 'bullish',
+        currSym: '$', u12: null, vt: null, verdict: 'awaiting',
+        lastPrice: null, basePrice: null, prices: [],
+        horizons: HORIZONS.map(h => ({ h, target: null, verdict: 'awaiting', vt: null })),
+      })
     }
   }
+
+  // Sort rows alphabetically by ticker ascending
+  rows.sort((a, b) => a.ticker.localeCompare(b.ticker))
 
   return rows
 }
@@ -264,7 +272,7 @@ function DetailPanel({ row, fundamentals, onClose, onOpenBatch, onRemove }) {
               </tr>
             </thead>
             <tbody>
-              {row.horizons.map(h => (
+              {(row.horizons ?? []).map(h => (
                 <tr key={h.h} className="border-b border-border last:border-0">
                   <td className="py-1 font-semibold text-foreground">{h.h}</td>
                   <td className="py-1 text-right text-muted-foreground">

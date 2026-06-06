@@ -184,6 +184,7 @@ npm run test       # watch mode
 
 | Version | What |
 |---|---|
+| v7.4.8 | Watchlist bug fixes — crash on European tickers + alphabetical sort |
 | v7.4.7 | Multi-currency — EUR/GBP/JPY/CHF · currency saved in results · WatchlistPage + ExportPage currency-aware |
 | v7.4.6 | Export page — HTML + PDF reports · batch + content selection · jspdf + html2canvas |
 | v7.4.5 | Watchlist sticky panel — independent scroll · sidebar label fix |

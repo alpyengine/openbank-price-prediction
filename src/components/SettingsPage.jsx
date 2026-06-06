@@ -371,7 +371,7 @@ export default function SettingsPage({ hitMargin, closeRatio, onHitMarginChange,
       <Section title="About">
         <Row label="Version" sub="Openbank Price Prediction">
           <Badge variant="secondary" className="text-[11px] font-mono">
-            v7.4.7
+            v7.4.8
           </Badge>
         </Row>
         <Row label="Documentation" sub="Full README on GitHub">

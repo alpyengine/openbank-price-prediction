@@ -2457,3 +2457,47 @@ Tests: 164/164 passing"
 git tag -a v7.4.7 -m "v7.4.7: multi-currency"
 git push origin main && git push origin v7.4.7
 
+
+# ===========================================================================
+# STEP 142 — v7.4.8  Watchlist crash fix + alphabetical sort
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# BUGS FIXED:
+#
+#   Bug A — Crash: Cannot read properties of undefined (reading 'map')
+#     WatchlistPage.jsx line 267 — row.horizons was undefined for tickers
+#     whose watchlist entry exists but the batch hasn't been saved yet,
+#     OR for European tickers added to watchlist before the batch was saved.
+#     The placeholder row (tickerBatches.length === 0) was created without
+#     the horizons field — DetailPanel then crashed on row.horizons.map().
+#
+#     Fix 1: placeholder row now includes full safe-default horizons:
+#       horizons: HORIZONS.map(h => ({ h, target: null, verdict: 'awaiting', vt: null }))
+#     Fix 2: defensive guard in DetailPanel:
+#       (row.horizons ?? []).map(...) — never crashes even if horizons is missing
+#
+#   Bug B — Watchlist table not sorted
+#     buildStockRows() returned rows in Set iteration order (insertion order).
+#     Fix: rows.sort((a, b) => a.ticker.localeCompare(b.ticker)) at end of
+#     buildStockRows() — always alphabetical ascending by ticker name.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.8/. .
+
+git add .
+git commit -m "fix: watchlist crash on European tickers + alphabetical sort (v7.4.8)
+
+WatchlistPage.jsx:
+  Placeholder row now includes horizons with safe defaults — prevents
+  DetailPanel crash when ticker has no matching batch results.
+  Defensive guard: (row.horizons ?? []).map() in DetailPanel.
+  buildStockRows: rows sorted alphabetically by ticker (localeCompare).
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.8 -m "v7.4.8: watchlist crash fix + sort"
+git push origin main && git push origin v7.4.8
+
