@@ -31,6 +31,8 @@
  * @param {number}   hitMargin        — hit tolerance in % (default 5)
  * @param {string}   batchId          — Supabase batch id for PriceChart
  * @param {number}   closeRatio       — close zone multiplier (default 2.4)
+ * @param {Set}      watchlist        — Set of watched tickers
+ * @param {Function} onToggleWatchlist — toggle watchlist for a ticker
  */
 import { useMemo, useState } from 'react'
 import StockRow from './StockRow.jsx'
@@ -189,7 +191,7 @@ export default function StockTable({
   stocks, horizon, autoPrices, histPrices, overrides, horizonExpired,
   fundamentals, groupBySector, filterSector, filterIndustry, sortBySector,
   onOverrideChange, notes, onNoteChange, marketData, batchCurrency,
-  hitMargin = 5, batchId, closeRatio = 2.4,
+  hitMargin = 5, batchId, closeRatio = 2.4, watchlist = new Set(), onToggleWatchlist,
 }) {
   const base = stocks.find(s => s.base)?.base
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
@@ -260,6 +262,8 @@ export default function StockTable({
       batchId={batchId}
       totalCols={colSpan}
       closeRatio={closeRatio}
+      isWatched={watchlist.has(stock.t.split('.')[0])}
+      onToggleWatchlist={onToggleWatchlist}
     />
   )
 

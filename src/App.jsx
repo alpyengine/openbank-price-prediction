@@ -43,6 +43,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { usePriceFetch }     from './hooks/usePriceFetch.js'
 import { useFundamentals }   from './hooks/useFundamentals.js'
 import { useHistory }        from './hooks/useHistory.js'
+import { loadAllWeeklyPrices } from './services/storage.js'
 import { DEFAULT_STOCKS }    from './utils/stocks.js'
 import { targetDates, dateStatus } from './utils/dates.js'
 import Sidebar          from './components/Sidebar.jsx'
@@ -62,6 +63,8 @@ import ManageUsers       from './components/ManageUsers.jsx'
 import AllStocksPage     from './components/AllStocksPage.jsx'
 import SettingsPage      from './components/SettingsPage.jsx'
 import HelpPage          from './components/HelpPage.jsx'
+import WatchlistPage     from './components/WatchlistPage.jsx'
+import { useWatchlist }  from './hooks/useWatchlist.js'
 
 /**
  * App — the root component. See module header for full documentation.
@@ -77,7 +80,16 @@ export default function App() {
   const role = useRole()
   const [hitMargin,      setHitMargin]      = useState(() => parseFloat(localStorage.getItem('openbank_hitMargin'))  || 5)
   const [closeRatio,     setCloseRatio]     = useState(() => parseFloat(localStorage.getItem('openbank_closeRatio')) || 2.4)
-  const [batchDirection, setBatchDirection] = useState('bullish') // 'bullish' | 'bearish'
+  const [batchDirection, setBatchDirection] = useState('bullish')
+
+  // Watchlist — per-user starred tickers stored in Supabase
+  const { watchlist, toggle: toggleWatchlist } = useWatchlist()
+
+  // Weekly prices — loaded once on mount, shared between AllStocks and Watchlist
+  const [weeklyPrices, setWeeklyPrices] = useState({})
+  useEffect(() => {
+    loadAllWeeklyPrices().then(data => setWeeklyPrices(data))
+  }, [])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
@@ -461,6 +473,8 @@ export default function App() {
                 hitMargin={hitMargin}
                 closeRatio={closeRatio}
                 batchId={loadedBatchId}
+                watchlist={watchlist}
+                onToggleWatchlist={toggleWatchlist}
               />
 
               {showEmail && (
@@ -499,6 +513,23 @@ export default function App() {
               batches={history?.batches ?? []}
               fundamentals={fundamentals}
               autoPrices={autoPrices}
+              weeklyPrices={weeklyPrices}
+              onNav={setActivePage}
+              onLoadBatch={handleLoadBatch}
+              watchlist={watchlist}
+              onToggleWatchlist={toggleWatchlist}
+            />
+          )}
+
+          {/* ── WATCHLIST ── */}
+          {activePage === 'watchlist' && (
+            <WatchlistPage
+              batches={history?.batches ?? []}
+              weeklyPrices={weeklyPrices}
+              fundamentals={fundamentals}
+              autoPrices={autoPrices}
+              watchlist={watchlist}
+              onToggle={toggleWatchlist}
               onNav={setActivePage}
               onLoadBatch={handleLoadBatch}
             />

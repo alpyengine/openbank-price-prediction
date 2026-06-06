@@ -1971,3 +1971,88 @@ Tests: 164/164 passing"
 git tag -a v7.4.1 -m "v7.4.1: direction badge fix + Bug #3 + SUPABASE.md"
 git push origin main && git push origin v7.4.1
 
+
+# ===========================================================================
+# STEP 136 — v7.4.2  Watchlist UI
+# ===========================================================================
+#
+# NO SUPABASE CHANGES — watchlist table already created in v7.4.1.
+#
+# WHAT'S NEW:
+#
+#   src/services/storage.js — 3 new functions:
+#     loadWatchlist()         — fetch user's watchlist tickers (string[])
+#     addToWatchlist(ticker)  — add ticker, ignore duplicates (409)
+#     removeFromWatchlist(ticker) — delete by ticker
+#     All use RLS — each user only sees their own rows.
+#
+#   src/hooks/useWatchlist.js — new hook:
+#     watchlist   — Set<string> of watched tickers (O(1) lookup)
+#     toggle(t)   — optimistic add/remove with Supabase persist + rollback on fail
+#     isWatched(t)— O(1) check
+#     reload()    — force refresh from Supabase
+#
+#   src/components/WatchlistPage.jsx — new page:
+#     Left side: summary cards (total/above/below target/awaiting) + table
+#     Right side: detail panel (slides in on row click):
+#       - Sparkline chart (Chart.js, last N weekly prices, green/red)
+#       - Current price + % from base price
+#       - Per-horizon target table with verdicts
+#       - Fundamentals (sector, PEG, beta, margin)
+#       - "Open in Batch Details" button → loads batch + navigates
+#       - "Remove from Watchlist" button
+#     Empty state when watchlist is empty with instructions.
+#     Uses most recent batch per ticker (Scenario B).
+#
+#   src/components/Sidebar.jsx:
+#     Star icon added to lucide imports
+#     'watchlist' nav item added between All Stocks and Import
+#
+#   src/components/AllStocksPage.jsx:
+#     weeklyPrices now received as prop (lifted to App.jsx)
+#     ⭐ column added — click to toggle watchlist, filled red if watched
+#     watchlist + onToggleWatchlist props added
+#     colSpan updated 9 → 10
+#
+#   src/components/StockRow.jsx:
+#     ⭐ icon added next to ticker name
+#     isWatched + onToggleWatchlist props added
+#
+#   src/components/StockTable.jsx:
+#     watchlist + onToggleWatchlist props passed through to StockRow
+#
+#   src/App.jsx:
+#     useWatchlist hook added → watchlist + toggleWatchlist
+#     WatchlistPage imported + route added
+#     weeklyPrices state lifted: loadAllWeeklyPrices() on mount
+#     weeklyPrices passed to AllStocksPage and WatchlistPage
+#     watchlist + toggleWatchlist passed to AllStocksPage, StockTable, WatchlistPage
+#
+# No npm install needed.
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.2/. .
+
+git add .
+git commit -m "feat: Watchlist UI — page + sparkline + star toggle (v7.4.2)
+
+storage.js: loadWatchlist, addToWatchlist, removeFromWatchlist.
+useWatchlist.js: Set<string> state, optimistic toggle with rollback.
+
+WatchlistPage.jsx:
+  Cards (total/above/below/awaiting) + sortable table.
+  Detail panel on row click: sparkline (Chart.js), price vs base,
+  horizon targets, fundamentals, open-in-batch + remove actions.
+  Empty state with instructions.
+
+AllStocksPage.jsx: ⭐ column, watchlist prop, weeklyPrices as prop.
+StockRow.jsx: ⭐ next to ticker name.
+StockTable.jsx: watchlist props passed through.
+Sidebar.jsx: Watchlist nav item added.
+App.jsx: weeklyPrices lifted, watchlist wired to all pages.
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.2 -m "v7.4.2: Watchlist UI"
+git push origin main && git push origin v7.4.2
+

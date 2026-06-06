@@ -422,7 +422,7 @@ function exportCSV(rows, horizon) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, onNav, onLoadBatch }) {
+export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, weeklyPrices: weeklyPricesProps = {}, onNav, onLoadBatch, watchlist = new Set(), onToggleWatchlist }) {
   const [horizon,      setHorizon]      = useState('12M')
   const [sortCol,      setSortCol]      = useState('upside')
   const [sortDir,      setSortDir]      = useState(-1) // -1 = desc
@@ -430,16 +430,14 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   const [filterPeg,    setFilterPeg]    = useState('')
   const [minScore,     setMinScore]     = useState(0)
   const [legendOpen,   setLegendOpen]   = useState(false)
-  // weeklyPrices: { [ticker]: { [batchId]: [prices...] } }
-  // Loaded once on mount — used to render sparklines
-  const [weeklyPrices,       setWeeklyPrices]       = useState({})
+  // weeklyPrices passed from App.jsx (loaded once, shared with WatchlistPage)
+  const weeklyPrices = weeklyPricesProps
   // tvTicker — ticker currently open in TradingView modal (null = closed)
   const [tvTicker,       setTvTicker]       = useState(null)
   const [cachedFundamentals, setCachedFundamentals] = useState({})
 
-  // Load weekly prices and fundamentals cache on mount — single queries each
+  // Load fundamentals cache on mount — weeklyPrices now comes from App.jsx prop
   useEffect(() => {
-    loadAllWeeklyPrices().then(data => setWeeklyPrices(data))
     loadFundamentalsCache().then(data => setCachedFundamentals(data))
   }, [])
 
@@ -636,6 +634,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 </button>
               </th>
               <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sector</th>
+              <th className="px-2 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide">⭐</th>
 
               {/* Upside column — sort button above horizon dropdown */}
               <th className="px-3 py-2.5 text-right">
@@ -775,7 +774,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           <tbody>
             {sorted.length === 0 && (
               <tr>
-                <td colSpan="9" className="px-3 py-8 text-center text-muted-foreground text-[12px]">
+                <td colSpan="10" className="px-3 py-8 text-center text-muted-foreground text-[12px]">
                   No stocks match the current filters
                 </td>
               </tr>
@@ -816,6 +815,20 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
 
                   {/* Sector */}
                   <td className="px-3 py-2.5 text-muted-foreground">{s.sector}</td>
+
+                  {/* Watchlist star toggle */}
+                  <td className="px-2 py-2.5 text-center">
+                    <button
+                      onClick={e => { e.stopPropagation(); onToggleWatchlist?.(s.tNorm) }}
+                      className={cn(
+                        'transition-colors',
+                        watchlist.has(s.tNorm) ? 'text-red-500' : 'text-muted-foreground hover:text-red-400'
+                      )}
+                      aria-label={watchlist.has(s.tNorm) ? `Remove ${s.tNorm} from watchlist` : `Add ${s.tNorm} to watchlist`}
+                    >
+                      ★
+                    </button>
+                  </td>
 
                   {/* Upside */}
                   <td className={cn('px-3 py-2.5 text-right font-bold', uColor(u))}>

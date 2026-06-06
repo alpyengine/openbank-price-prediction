@@ -356,3 +356,96 @@ export async function loadFundamentalsCache() {
     return {}
   }
 }
+
+// ── Watchlist — per-user ticker favourites ────────────────────────────────────
+
+/**
+ * loadWatchlist — fetch all tickers in the current user's watchlist.
+ * Returns an array of ticker strings e.g. ['MU', 'AMD', 'TER'].
+ * RLS ensures each user only sees their own rows.
+ *
+ * @returns {Promise<string[]>}
+ */
+export async function loadWatchlist() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/watchlist?select=ticker&order=added_at.asc`,
+      { headers: authHeaders(), cache: 'no-store' }
+    )
+    if (!res.ok) return []
+    const rows = await res.json()
+    return rows.map(r => r.ticker)
+  } catch (err) {
+    console.warn('[storage] loadWatchlist error:', err.message)
+    return []
+  }
+}
+
+/**
+ * addToWatchlist — add a ticker to the current user's watchlist.
+ * Silently ignores duplicates (unique constraint on user_id + ticker).
+ *
+ * @param {string} ticker — bare ticker e.g. 'MU'
+ * @returns {Promise<boolean>} true on success
+ */
+/**
+ * getUserId — extract the current user's UUID from the Supabase session
+ * stored in localStorage. Returns null if not authenticated.
+ * Used to populate user_id in watchlist inserts (required by RLS).
+ */
+function getUserId() {
+  try {
+    const key = Object.keys(localStorage).find(k => k.includes('auth-token'))
+    if (!key) return null
+    const parsed = JSON.parse(localStorage.getItem(key))
+    // JWT payload is base64url encoded — decode to get user id
+    const payload = parsed?.access_token?.split('.')[1]
+    if (!payload) return null
+    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    return decoded?.sub ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function addToWatchlist(ticker) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false
+  const userId = getUserId()
+  if (!userId) { console.warn('[storage] addToWatchlist: no user_id'); return false }
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/watchlist`,
+      {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ ticker, user_id: userId }),
+      }
+    )
+    // 201 = created, 409 = conflict (already exists) — both are acceptable
+    return res.status === 201 || res.status === 409
+  } catch (err) {
+    console.warn('[storage] addToWatchlist error:', err.message)
+    return false
+  }
+}
+
+/**
+ * removeFromWatchlist — remove a ticker from the current user's watchlist.
+ *
+ * @param {string} ticker — bare ticker e.g. 'MU'
+ * @returns {Promise<boolean>} true on success
+ */
+export async function removeFromWatchlist(ticker) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/watchlist?ticker=eq.${encodeURIComponent(ticker)}`,
+      { method: 'DELETE', headers: authHeaders() }
+    )
+    return res.ok
+  } catch (err) {
+    console.warn('[storage] removeFromWatchlist error:', err.message)
+    return false
+  }
+}

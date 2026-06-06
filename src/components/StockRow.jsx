@@ -34,6 +34,8 @@
  * @param {string}   batchId         — Supabase batch id for PriceChart
  * @param {number}   totalCols       — total column count for colSpan (default 17)
  * @param {number}   closeRatio      — close zone multiplier (default 2.4)
+ * @param {boolean}  isWatched       — true if ticker is in user's watchlist
+ * @param {Function} onToggleWatchlist — called with ticker to toggle watchlist
  */
 import { memo, useState, useCallback, useEffect } from 'react'
 import { formatDate, targetDates, daysLeft, dateStatus } from '@/utils/dates.js'
@@ -53,6 +55,7 @@ const StockRow = memo(function StockRow({
   stock, horizon, autoPrice, histPrices, override, horizonExpired,
   fundamental, onOverrideChange, note, onNoteChange,
   marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5, batchId, totalCols = 17, closeRatio = 2.4,
+  isWatched = false, onToggleWatchlist,
 }) {
   const [expanded,  setExpanded]  = useState(false)
   const [showDesc,  setShowDesc]  = useState(false)
@@ -166,6 +169,19 @@ const StockRow = memo(function StockRow({
           <div className="flex items-center gap-1.5 font-semibold text-sm whitespace-nowrap">
             <span className="text-[10px] text-muted-foreground">{expanded ? '▾' : '›'}</span>
             {stock.t.split('.')[0]}
+            {/* Watchlist star — shown next to ticker */}
+            {onToggleWatchlist && (
+              <button
+                onClick={e => { e.stopPropagation(); onToggleWatchlist(stock.t.split('.')[0]) }}
+                className={cn(
+                  'text-[11px] leading-none transition-colors ml-0.5',
+                  isWatched ? 'text-red-500' : 'text-muted-foreground hover:text-red-400'
+                )}
+                aria-label={isWatched ? `Remove ${stock.t} from watchlist` : `Add ${stock.t} to watchlist`}
+              >
+                ★
+              </button>
+            )}
           </div>
           <div className="text-[10px] text-muted-foreground font-normal mt-0.5">
             {stock.t.includes('.') ? stock.t.split('.').pop() : 'US'}

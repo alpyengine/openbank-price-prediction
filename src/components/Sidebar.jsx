@@ -17,7 +17,7 @@
 import { useState } from 'react'
 import {
   LayoutDashboard, BarChart2, Settings, TrendingUp,
-  Upload, PanelLeftClose, PanelLeft, TableProperties, Globe, HelpCircle,
+  Upload, PanelLeftClose, PanelLeft, TableProperties, Globe, HelpCircle, Star,
 } from 'lucide-react'
 import UserPanel from './UserPanel.jsx'
 import { cn } from '@/lib/utils'
@@ -29,9 +29,10 @@ const NAV = [
   { id: 'batch-detail', Icon: TableProperties, label: 'Batch Overview Detail' },
   { id: 'accuracy',     Icon: BarChart2,        label: 'Accuracy Stats'        },
   { id: 'all-stocks',   Icon: Globe,            label: 'All Stocks'            },
+  { id: 'watchlist',    Icon: Star,             label: 'Watchlist'             },
   { id: 'import',       Icon: Upload,           label: 'Import CSV'            },
   { id: 'settings',     Icon: Settings,         label: 'Settings'              },
-  { id: 'help',         Icon: HelpCircle,        label: 'Help & About'          },
+  { id: 'help',         Icon: HelpCircle,       label: 'Help & About'          },
 ]
 
 // ── Main component ────────────────────────────────────────────────────────────
