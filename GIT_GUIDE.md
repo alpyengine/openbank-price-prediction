@@ -2501,3 +2501,131 @@ Tests: 164/164 passing"
 git tag -a v7.4.8 -m "v7.4.8: watchlist crash fix + sort"
 git push origin main && git push origin v7.4.8
 
+
+# ===========================================================================
+# STEP 143 — v7.4.9  Alpha Vantage rate limit detection
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# PROBLEM:
+#   Alpha Vantage free tier: 25 requests/day.
+#   When the daily limit is exceeded, AV returns:
+#     { "Information": "Thank you for using Alpha Vantage! Our standard API
+#       rate limit is 25 requests per day..." }
+#   Previously the app silently treated this as a failed price (null) with
+#   the generic message "Failed: IFX.DE, AIXA.DE, EVT.DE" — no indication
+#   that the daily limit was reached.
+#
+# FIX:
+#   fetchCurrentPrices_AV() now checks for 'Information' and 'Note' fields
+#   in the AV response — both indicate rate limit or API issues.
+#   When detected: marks remaining tickers as null and throws AV_RATE_LIMIT error.
+#   fetchCurrentBatch() catches AV_RATE_LIMIT and shows:
+#     "⚠️ Alpha Vantage daily limit reached (25 req/day). Try again tomorrow."
+#
+# NOTE ON TRIPLE FETCH IN DEV:
+#   In development, React StrictMode renders components twice to detect
+#   side effects. This can cause fetch to appear to run 3x in the browser
+#   network tab. This is normal in dev and does NOT happen in production.
+#   The 25 req/day limit should be fine for daily use (4 tickers = 4 req).
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.9/. .
+
+git add .
+git commit -m "fix: Alpha Vantage rate limit detection + clear error (v7.4.9)
+
+usePriceFetch.js: fetchCurrentPrices_AV detects AV rate limit response
+  (Information/Note fields) and throws AV_RATE_LIMIT error.
+  fetchCurrentBatch catches it and shows user-friendly message:
+  '⚠️ Alpha Vantage daily limit reached (25 req/day). Try again tomorrow.'
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.9 -m "v7.4.9: AV rate limit detection"
+git push origin main && git push origin v7.4.9
+
+
+# ===========================================================================
+# STEP 144 — v7.4.10  Final release — EU support + SUPABASE.md + SQL setup
+# ===========================================================================
+#
+# NO npm install needed.
+#
+# SUPABASE CHANGES — both functions now have EU market support:
+#
+#   fetch_expired_horizons() — updated:
+#     Detects EU ticker suffix (.DE, .AS, .PA, .L, .MC)
+#     EU tickers → Yahoo Finance /v8/finance/chart with ±3 day window
+#     US tickers → Twelve Data /eod (unchanged)
+#     Verified: prosrc like '%yahoo%' = true, prosrc like '%v_is_eu%' = true
+#
+#   fetch_weekly_prices() — updated (v7.4.7, confirmed in this release):
+#     Same EU detection logic
+#     EU tickers → Yahoo Finance ?interval=1wk&range=1wk
+#     US tickers → Twelve Data /eod (unchanged)
+#
+# WHAT'S NEW:
+#
+#   docs/supabase_setup.sql — NEW FILE:
+#     Complete SQL to recreate the entire Supabase project from scratch.
+#     Single file execution: tables, indexes, RLS policies, trigger,
+#     all 3 functions, all 3 cron jobs, verification queries.
+#     Safe to re-run (CREATE IF NOT EXISTS / CREATE OR REPLACE).
+#
+#   docs/SUPABASE.md — completely rewritten:
+#     All 8 tables documented with full SQL and field descriptions
+#     All 4 functions documented with EU support details
+#     All 3 cron jobs with schedules and purposes
+#     New section 8: EU market support (Yahoo Finance endpoints, backfill SQL)
+#     All 5 known bugs documented with root causes and fixes
+#     Complete verification query set
+#     Updated version to v7.4.10
+#
+#   src/components/SettingsPage.jsx — version bumped to v7.4.10
+#   package.json — version bumped to 7.4.10
+#   README.md — v7.4.10 entry added
+#
+# EU MARKET SUPPORT SUMMARY (complete picture after this release):
+#
+#   Supabase fetch_expired_horizons():
+#     EU (.DE/.AS/.PA/.L/.MC) → Yahoo Finance ✅
+#     US → Twelve Data ✅
+#
+#   Supabase fetch_weekly_prices():
+#     EU → Yahoo Finance ✅
+#     US → Twelve Data ✅
+#
+#   React usePriceFetch.js fetchCurrentBatch (live prices):
+#     EU → Alpha Vantage (25 req/day free tier) ✅
+#     US → Twelve Data ✅
+#
+#   React usePriceFetch.js fetchHistoricalForHorizon:
+#     EU → Alpha Vantage ✅
+#     US → Twelve Data ✅
+#
+find . -not -path './.git/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.4.10/. .
+
+git add .
+git commit -m "feat: final release — EU support complete + SUPABASE.md + SQL setup (v7.4.10)
+
+Supabase:
+  fetch_expired_horizons(): EU detection → Yahoo Finance for .DE/.AS/.PA/.L/.MC
+  fetch_weekly_prices(): same EU detection (confirmed working)
+  Both functions verified: has_yahoo=true, has_eu_detection=true
+
+docs/supabase_setup.sql: new — complete project SQL in single file.
+  Tables, indexes, RLS, trigger, 3 functions, 3 cron jobs, verification queries.
+
+docs/SUPABASE.md: completely rewritten v7.4.10.
+  All tables, functions, cron jobs, EU support section,
+  5 known bugs documented, complete verification queries.
+
+Tests: 164/164 passing"
+
+git tag -a v7.4.10 -m "v7.4.10: final release — EU support + SUPABASE.md"
+git push origin main && git push origin v7.4.10
+

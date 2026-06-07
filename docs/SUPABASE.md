@@ -2,12 +2,15 @@
 
 **Project:** Openbank Price Prediction  
 **Supabase project:** `yyenwzljojxbqtzcbchk`  
-**Version:** v7.4.1+  
+**Version:** v7.4.10  
 **Last updated:** June 2026
 
 This document describes every table, function, cron job, and configuration
 in Supabase for this project. Use it as the single source of truth when
 debugging, migrating, or onboarding a new developer.
+
+A single SQL file that recreates the entire project is available at:
+`docs/supabase_setup.sql`
 
 ---
 
@@ -20,8 +23,9 @@ debugging, migrating, or onboarding a new developer.
 5. [Row Level Security](#5-row-level-security)
 6. [Backup system](#6-backup-system)
 7. [Edge Functions](#7-edge-functions)
-8. [Known issues & fixes](#8-known-issues--fixes)
-9. [Verification queries](#9-verification-queries)
+8. [EU market support](#8-eu-market-support)
+9. [Known issues & fixes](#9-known-issues--fixes)
+10. [Verification queries](#10-verification-queries)
 
 ---
 
@@ -34,64 +38,54 @@ stock forecasts evaluated at a specific base date.
 
 ```sql
 create table public.batches (
-  id            text        primary key,  -- YYYY-MM-DD from base date
-  date          text        not null,     -- DD/MM/YYYY display format
-  saved_at      timestamptz not null default now(),
-  updated_at    timestamptz,
-  results       jsonb       not null,     -- array of prediction results
-  stocks        integer,                  -- number of tickers
-  hit_rate      integer,                  -- pure hit rate % (hits only)
-  hit_rate_ext  integer,                  -- extended hit rate % (hits + exceeded)
-  direction     text        not null default 'bullish', -- 'bullish' | 'bearish'
-  market_data   jsonb,                    -- SPY/ETF benchmark data
-  fundamentals  jsonb,                    -- per-ticker fundamentals snapshot
-  horizon_status jsonb                    -- { '1M': bool, '3M': bool, ... }
+  id             text        primary key,           -- YYYY-MM-DD from base date
+  date           text        not null,              -- DD/MM/YYYY display format
+  saved_at       timestamptz not null default now(),
+  updated_at     timestamptz,
+  results        jsonb       not null,              -- array of prediction results
+  stocks         integer,                           -- number of tickers
+  hit_rate       integer,                           -- pure hit rate % (hits only)
+  hit_rate_ext   integer,                           -- extended hit rate % (hits+exceeded)
+  direction      text        not null default 'bullish', -- 'bullish' | 'bearish'
+  market_data    jsonb,                             -- SPY/ETF benchmark data
+  fundamentals   jsonb,                             -- per-ticker fundamentals snapshot
+  horizon_status jsonb                              -- { '1M': bool, ... }
 );
 ```
 
-**Column history:**
-- `hit_rate` — added v7.3.4
-- `hit_rate_ext` — added v7.3.4
-- `direction` — added v7.4.0 with `default 'bullish'` (all existing batches auto-classified)
-
-**`results` array item shape:**
+**results jsonb structure** (one object per ticker × horizon):
 ```json
 {
-  "ticker":      "TER",
-  "company":     "Teradyne",
+  "ticker":      "MU",
+  "company":     "Micron Technology",
+  "currency":    "USD",
   "horizon":     "1M",
   "verdict":     "awaiting",
-  "basePrice":   299.40,
-  "targetPrice": 353.92,
-  "targetDate":  "17 Apr 2026",
+  "basePrice":   82.50,
+  "targetPrice": 90.00,
+  "targetDate":  "19 Apr 2026",
   "priceOnDate": null,
   "note":        ""
 }
 ```
 
-**Verdict values:** `awaiting` | `hit` | `exceeded` | `close` | `miss` | `wrong_way`
-
-**IMPORTANT — `targetDate` format:**  
-Always use 3-letter month abbreviations (`Sep` not `Sept`).  
-The `formatDate()` function in `src/utils/dates.js` guarantees this.  
-Never use `toLocaleDateString()` for dates stored in Supabase.
+`currency` field added in v7.4.7. Values: `USD`, `EUR`, `GBP`, `JPY`, `CHF`.
+Older batches without this field default to `USD` in the frontend.
 
 ---
 
 ### `price_cache`
 
-Caches historical closing prices from Twelve Data for expired horizon dates.
-Avoids duplicate API calls when the same ticker+date is needed multiple times.
+Historical EOD prices cached after horizon evaluation. Avoids repeated API calls.
 
 ```sql
 create table public.price_cache (
-  id           bigserial   primary key,
-  ticker       text        not null,
-  target_date  date        not null,
-  close_price  numeric     not null,
-  source       text        default 'twelve_data',
-  fetched_at   timestamptz not null default now(),
-  unique(ticker, target_date)
+  ticker       text    not null,
+  target_date  date    not null,
+  close_price  numeric not null,
+  fetched_at   timestamptz default now(),
+  source       text    default 'twelve_data',  -- 'twelve_data' | 'yahoo'
+  primary key (ticker, target_date)
 );
 ```
 
@@ -99,22 +93,17 @@ create table public.price_cache (
 
 ### `weekly_prices`
 
-Stores weekly closing prices (Friday close) for each ticker in each batch.
-Used by `PriceChart` to draw the price evolution chart.
-
-One row per ticker × batch × week.  
-Week 1 = first Friday after base date.
+Weekly closing prices used for sparkline charts in WatchlistPage.
+Populated automatically every Saturday by `fetch_weekly_prices()`.
 
 ```sql
 create table public.weekly_prices (
-  id          bigserial   primary key,
-  ticker      text        not null,
-  batch_id    text        not null,
-  week        integer     not null,   -- 1..52 from base date
-  week_date   date        not null,   -- exact Friday date
-  close_price numeric     not null,
-  fetched_at  timestamptz not null default now(),
-  unique(ticker, batch_id, week)
+  ticker       text    not null,
+  batch_id     text    not null references public.batches(id) on delete cascade,
+  week         integer not null,   -- week number from base date (1 = first full week)
+  week_date    date,               -- Friday date of the week
+  close_price  numeric not null,
+  primary key (ticker, batch_id, week)
 );
 
 create index idx_weekly_prices_lookup
@@ -123,71 +112,93 @@ create index idx_weekly_prices_lookup
 
 ---
 
-### `fundamentals_cache`
+### `profiles`
 
-Stores fundamentals per ticker independently of batches.
-Allows AllStocksPage to show fundamentals for all tickers.
-
-TTL: managed in app — `useFundamentals.js` re-fetches if `fetched_at` > 7 days ago.
+User metadata: role (`admin` | `readonly`). Created automatically on sign-up.
 
 ```sql
-create table if not exists fundamentals_cache (
-  ticker       text        primary key,
-  data         jsonb       not null,
-  fetched_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+create table public.profiles (
+  id         uuid references auth.users on delete cascade primary key,
+  email      text,
+  role       text not null default 'readonly',
+  created_at timestamptz default now()
 );
+```
 
-alter table fundamentals_cache enable row level security;
+---
 
-create policy "allow read fundamentals_cache"
-  on fundamentals_cache for select using (true);
+### `fundamentals_cache`
 
-create policy "allow upsert fundamentals_cache"
-  on fundamentals_cache for insert with check (true);
+Per-ticker fundamentals from Finnhub + FMP APIs.
 
-create policy "allow update fundamentals_cache"
-  on fundamentals_cache for update using (true);
+```sql
+create table public.fundamentals_cache (
+  ticker         text primary key,
+  sector         text,
+  industry       text,
+  market_cap     numeric,
+  beta           numeric,
+  peg_ttm        numeric,
+  net_margin_ttm numeric,
+  forward_pe     numeric,
+  fetched_at     timestamptz default now()
+);
 ```
 
 ---
 
 ### `watchlist`
 
-Stores tickers marked as favourites by each user.
-Watchlist is user-scoped — each user has their own list.
-Direction B: each ticker points to the most recent batch where it appears.
+Per-user starred tickers. One row per user × ticker.
 
 ```sql
-create table if not exists watchlist (
-  id         uuid primary key default gen_random_uuid(),
-  user_id    uuid references auth.users(id) on delete cascade,
-  ticker     text not null,
-  added_at   timestamptz default now(),
-  unique(user_id, ticker)
+create table public.watchlist (
+  user_id   uuid references auth.users on delete cascade,
+  ticker    text not null,
+  added_at  timestamptz default now(),
+  primary key (user_id, ticker)
 );
-
-alter table watchlist enable row level security;
-
-create policy "watchlist_own" on watchlist
-  for all using (auth.uid() = user_id);
 ```
 
 ---
 
-### `profiles`
+### `alert_config`
 
-User profiles linked to Supabase Auth.
-Created automatically by trigger when a new user signs up.
+Per-user price alert preferences (added v7.4.4).
 
 ```sql
-create table public.profiles (
-  id          uuid        primary key references auth.users(id) on delete cascade,
-  role        text        not null default 'readonly'
-                          check (role in ('admin', 'readonly')),
-  full_name   text,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+create table public.alert_config (
+  user_id     uuid references auth.users on delete cascade primary key,
+  enabled     boolean not null default true,
+  email       text,
+  browser     boolean not null default true,
+  on_exceeded boolean not null default true,
+  on_hit      boolean not null default true,
+  on_close    boolean not null default false,
+  on_stop     boolean not null default true,
+  stop_pct    numeric not null default 10,
+  cooldown_h  integer not null default 24,
+  updated_at  timestamptz default now()
+);
+```
+
+---
+
+### `alert_log`
+
+Log of sent price alerts — enforces cooldown between repeat alerts (added v7.4.4).
+
+```sql
+create table public.alert_log (
+  id         bigserial primary key,
+  user_id    uuid references auth.users on delete cascade,
+  ticker     text not null,
+  batch_id   text not null,
+  horizon    text not null,
+  verdict    text not null,
+  price      numeric,
+  target     numeric,
+  sent_at    timestamptz default now()
 );
 ```
 
@@ -195,136 +206,88 @@ create table public.profiles (
 
 ## 2. Functions
 
-### `fetch_expired_horizons()` ⚠️ Critical — see Bug #3
+### `handle_new_user()` — trigger
 
-**Cron:** Job 1 — Tue–Sat at 02:00 UTC  
-**Purpose:** Evaluates prediction results for horizons that have expired.
-
-For each `results` row where `verdict = 'awaiting'` and `targetDate <= today`:
-1. Checks `price_cache` for existing price
-2. If not cached → calls Twelve Data `/eod` API
-3. Saves price to `price_cache`
-4. Calculates verdict using direction-aware SNAPSHOT_PARAMS logic
-5. Updates `batches.results` with new verdict and `priceOnDate`
-6. After all rows processed → recalculates `hit_rate` and `hit_rate_ext`
-
-**SNAPSHOT_PARAMS (mirrors `stocks.js`):**
-
-| Horizon | H (hit margin) | R (close ratio) | Close threshold |
-|---|---|---|---|
-| 1M | ±3% | 2.0× | −6% |
-| 3M | ±5% | 2.0× | −10% |
-| 6M | ±7% | 1.8× | −12.6% |
-| 12M | ±10% | 1.6× | −16% |
-
-**Verdict logic:**
-
-| Verdict | Bullish condition | Bearish condition |
-|---|---|---|
-| `exceeded` | price > target × (1 + H%) | price < target × (1 − H%) |
-| `hit` | \|dist\| ≤ H% | \|dist\| ≤ H% |
-| `close` | below target, within close threshold | above target, within close threshold |
-| `wrong_way` | price < base price | price > base price |
-| `miss` | everything else | everything else |
-
-**Rate limit:** `pg_sleep(8)` between API calls.
-
-**⚠️ CRITICAL — Variable naming convention:**  
-All local variables MUST use `v_` prefix to avoid ambiguity with column names.  
-See Bug #3 for full explanation of this critical issue.
+Auto-creates a `profiles` row with `role = 'readonly'` when a new user signs up.
 
 ```sql
--- Current function uses v_ prefix for ALL variables:
--- v_api_key, v_ticker, v_target_date, v_target_price, v_base_price,
--- v_horizon, v_cached_price, v_close_price, v_new_verdict,
--- v_signed_dist, v_dist_abs, v_h_margin, v_r_ratio, v_close_thresh
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into public.profiles (id, email, role)
+  values (new.id, new.email, 'readonly')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
 ```
+
+---
+
+### `fetch_expired_horizons()` ⚠️ Critical
+
+**Cron:** Job 1 — Tue–Sat 02:00 UTC  
+**Purpose:** Evaluates all awaiting predictions whose `targetDate` has passed.
+
+For each expired prediction:
+1. Checks `price_cache` for existing price (avoids re-fetch)
+2. Detects market: EU suffix → Yahoo Finance; US → Twelve Data
+3. Fetches closing price on `targetDate`
+4. Saves to `price_cache`
+5. Calculates verdict (exceeded / hit / close / wrong_way / miss)
+6. Updates `batches.results` with verdict and `priceOnDate`
+7. Recalculates `hit_rate` and `hit_rate_ext` for all affected batches
+
+**EU market support (added v7.4.10):**
+- Tickers with `.DE`, `.AS`, `.PA`, `.L`, `.MC` suffix → Yahoo Finance
+- Uses ±3 day window to find nearest trading day
+- US tickers → Twelve Data `/eod` (unchanged)
+
+**Hit margins by horizon:**
+| Horizon | Hit margin | Close ratio | Close threshold |
+|---|---|---|---|
+| 1M | ±3% | 2.0 | ±6% |
+| 3M | ±5% | 2.0 | ±10% |
+| 6M | ±7% | 1.8 | ±12.6% |
+| 12M | ±10% | 1.6 | ±16% |
+
+**⚠️ Critical note on variable naming (Bug #3 fix):**
+All variables use `v_` prefix (e.g., `v_ticker`, `v_target_date`). This prevents
+PostgreSQL column/variable name collision which caused silent failures.
 
 ---
 
 ### `fetch_weekly_prices()`
 
-**Cron:** Job 2 — Saturdays at 10:00 UTC  
+**Cron:** Job 2 — Saturdays 10:00 UTC  
 **Purpose:** Fetches the most recent Friday closing price for all active tickers.
 
 For each ticker in each batch:
-1. Calculates current week number from base date
-2. Checks if week already exists in `weekly_prices`
-3. If not → calls Twelve Data `/eod` API for last Friday
-4. Saves to `weekly_prices`
+1. Calculates week number from base date: `(friday - base_date) / 7`
+2. Skips if week ≤ 0 or > 52
+3. Skips if week already in `weekly_prices`
+4. Detects market: EU suffix → Yahoo Finance; US → Twelve Data
+5. Saves to `weekly_prices`
 
-**Rate limit:** `pg_sleep(8)` between calls.
+**EU market support (added v7.4.7):**
+- `.DE`, `.AS`, `.PA`, `.L`, `.MC` → Yahoo Finance `/v8/finance/chart/TICKER?interval=1wk&range=1wk`
+- US tickers → Twelve Data `/eod` (strips `.US` suffix before call)
 
----
-
-### `backfill_weekly_prices()`
-
-**Purpose:** Populates historical weekly prices for batches saved after
-the weekly prices system was implemented.
-
-Processes 1 record per execution. Self-terminating when all weeks are filled.
-
-```sql
--- Check if backfill is complete:
-select count(*) from (
-  select distinct r.value->>'ticker', b.id, w.week_num
-  from batches b,
-       jsonb_array_elements(b.results) as r(value),
-       generate_series(1, 52) as w(week_num)
-  where r.value->>'horizon' = '1M'
-    and (date_trunc('week',
-          (make_date(split_part(b.date,'/',3)::int,
-                     split_part(b.date,'/',2)::int,
-                     split_part(b.date,'/',1)::int)
-           + (w.week_num * 7))::timestamp)::date + 4) < current_date
-    and not exists (
-      select 1 from weekly_prices wp
-      where wp.ticker   = r.value->>'ticker'
-        and wp.batch_id = b.id
-        and wp.week     = w.week_num
-    )
-) x;
--- When 0 → unschedule: select cron.unschedule('backfill-weekly-prices');
-```
+**Rate limit:** `pg_sleep(8)` between calls — safe for Twelve Data free plan (8 req/min).
 
 ---
 
 ### `backup_to_github()`
 
-**Cron:** Job 6 — Sundays at 23:00 UTC  
+**Cron:** Job 6 — Sundays 23:00 UTC  
 **Purpose:** Full database backup to GitHub repository.
 
 Backs up: `batches`, `weekly_prices`, `price_cache`, `fundamentals_cache`  
-Current version: `1.1` (added `fundamentals_cache` in June 2026)
+GitHub repo: `alpyengine/openbank-price-data`  
+Requires: `github_pat` secret in Vault
 
-Uses `row_to_json()` — **automatically includes all columns** including
-newly added ones (`hit_rate_ext`, `direction`, etc.). No manual update needed
-when new columns are added to tables.
-
----
-
-### `handle_new_user()`
-
-**Trigger:** fires after INSERT on `auth.users`  
-**Purpose:** Auto-creates a `profiles` row for every new user.
-
-```sql
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-```
-
----
-
-### `get_my_role()`
-
-**Purpose:** Returns the current user's role from `profiles`.
-Used by RLS policies to avoid recursive queries.
-
-**Why this exists:** The naive RLS approach queries `profiles` inside a
-`profiles` policy — a recursive query that always returns 0 rows silently,
-causing role to always appear as `readonly`. `get_my_role()` with
-`security definer` breaks the recursion.
+Each table is exported as JSON and committed to the repo via GitHub API.
+Existing files are updated (not duplicated) using the SHA from the GET response.
 
 ---
 
@@ -332,40 +295,33 @@ causing role to always appear as `readonly`. `get_my_role()` with
 
 All jobs managed by `pg_cron` (built into Supabase).
 
-| Job ID | Name | Schedule | Function | Purpose |
+| Job | Name | Schedule | Function | Purpose |
 |---|---|---|---|---|
 | 1 | `fetch-expired-horizons-daily` | `0 2 * * 2-6` | `fetch_expired_horizons()` | Evaluate expired predictions Tue–Sat 02:00 UTC |
 | 2 | `fetch-weekly-prices-saturday` | `0 10 * * 6` | `fetch_weekly_prices()` | Weekly close prices every Saturday 10:00 UTC |
 | 6 | `weekly-github-backup` | `0 23 * * 0` | `backup_to_github()` | Full backup to GitHub every Sunday 23:00 UTC |
 
-**⚠️ Schedule rationale — Job 1:**  
+**Why Tue–Sat for Job 1?**  
 The market closes at ~21:00 UTC Mon–Fri. The cron runs at 02:00 UTC —
-giving Twelve Data 5 hours to have EOD prices available.  
-Since 02:00 UTC is technically the **next calendar day**, the schedule
-uses **Tue–Sat (2-6)** to cover Mon–Fri market closes.
+that's early Tuesday through early Saturday, catching Monday–Friday closes.
 
-| Market close | Day | Cron executes |
-|---|---|---|
-| Monday close | Mon | Tuesday 02:00 UTC |
-| Tuesday close | Tue | Wednesday 02:00 UTC |
-| Wednesday close | Wed | Thursday 02:00 UTC |
-| Thursday close | Thu | Friday 02:00 UTC |
-| Friday close | Fri | Saturday 02:00 UTC |
-
-**Management commands:**
+**Check job status:**
 ```sql
--- View all jobs
 select jobid, jobname, schedule, active from cron.job order by jobid;
 
--- View recent execution history
-select jobid, status, return_message, start_time, end_time
+-- Recent run history:
+select jobname, status, start_time, end_time
 from cron.job_run_details
 order by start_time desc limit 20;
+```
 
--- Change schedule
+**Modify schedule:**
+```sql
 select cron.alter_job(job_id := 1, schedule := '0 2 * * 2-6');
+```
 
--- Unschedule a job
+**Unschedule:**
+```sql
 select cron.unschedule('job-name');
 ```
 
@@ -375,122 +331,78 @@ select cron.unschedule('job-name');
 
 | Secret name | Used by | Notes |
 |---|---|---|
-| `twelve_data_key` | All price-fetching functions | Free plan: 8 req/min |
-| `github_pat` | `backup_to_github()` | Requires `repo` scope |
+| `twelve_data_key` | `fetch_expired_horizons()`, `fetch_weekly_prices()` | Free plan: 8 req/min, 800/day |
+| `github_pat` | `backup_to_github()` | Token scope: `repo` |
 
+**Add/view secrets:**
 ```sql
--- Verify secrets exist
-select name, length(decrypted_secret) as len
+-- Add (Dashboard → Vault is easier):
+insert into vault.secrets (name, secret)
+values ('twelve_data_key', 'your_key_here');
+
+-- Verify (shows decrypted value):
+select name, decrypted_secret
 from vault.decrypted_secrets
 where name in ('twelve_data_key', 'github_pat');
-
--- Update a secret
-select vault.update_secret(id, 'new_value')
-from vault.secrets where name = 'secret_name';
 ```
 
 ---
 
 ## 5. Row Level Security
 
-### `profiles`
+All tables have RLS enabled. Summary:
+
+| Table | Policy | Rule |
+|---|---|---|
+| `batches` | `batches_read` + `batches_write` | All authenticated users |
+| `price_cache` | `price_cache_read` | All authenticated users (read only) |
+| `weekly_prices` | `weekly_prices_read` | All authenticated users (read only) |
+| `profiles` | `profiles_own` | Each user owns their row |
+| `fundamentals_cache` | `fundamentals_read` + `fundamentals_write` | All authenticated users |
+| `watchlist` | `watchlist_select` + `watchlist_insert` + `watchlist_delete` | Each user owns their rows |
+| `alert_config` | `alert_config_own` | Each user owns their row |
+| `alert_log` | `alert_log_own` | Each user owns their rows |
+
+**⚠️ INSERT vs SELECT RLS:**  
+INSERT policies require `with check` (not `using`). Using `for all using (...)` 
+does NOT cover INSERT — this caused 403 errors on watchlist inserts (Bug v7.4.2).
+Always create separate policies for SELECT, INSERT, DELETE.
+
+**Verify all policies:**
 ```sql
--- Read own profile
-create policy "read own profile" on public.profiles for select
-  using (auth.uid() = id);
-
--- Admin reads all profiles
-create policy "admin reads all profiles" on public.profiles for select
-  using (auth.uid() = id or public.get_my_role() = 'admin');
-
--- Update own profile
-create policy "users can update own profile" on public.profiles for update
-  using (auth.uid() = id);
-
--- Admin updates any profile
-create policy "admin can update any profile" on public.profiles for update
-  using (public.get_my_role() = 'admin');
-```
-
-### `batches`
-```sql
--- All authenticated users can read
-create policy "authenticated users can read batches"
-  on public.batches for select using (auth.role() = 'authenticated');
-
--- Only admin can write
-create policy "admin can insert batches" on public.batches for insert
-  with check (public.get_my_role() = 'admin');
-create policy "admin can update batches" on public.batches for update
-  using (public.get_my_role() = 'admin');
-create policy "admin can delete batches" on public.batches for delete
-  using (public.get_my_role() = 'admin');
-```
-
-### `weekly_prices`
-```sql
--- All authenticated users can read
-create policy "authenticated users can read weekly prices"
-  on public.weekly_prices for select using (auth.role() = 'authenticated');
--- Write via security definer functions only (cron jobs)
-```
-
-### `watchlist`
-```sql
--- Each user only sees and manages their own watchlist
-create policy "watchlist_own" on watchlist
-  for all using (auth.uid() = user_id);
+select tablename, policyname, cmd
+from pg_policies
+where schemaname = 'public'
+order by tablename, cmd;
 ```
 
 ---
 
 ## 6. Backup system
 
-### What is backed up
+Weekly backup runs every Sunday at 23:00 UTC via `backup_to_github()`.
 
-| Table | Backed up | Notes |
-|---|---|---|
-| `batches` | ✅ | Full rows including all columns via `row_to_json()` |
-| `weekly_prices` | ✅ | All weekly close prices |
-| `price_cache` | ✅ | All historical EOD prices |
-| `fundamentals_cache` | ✅ | Added June 2026 (backup v1.1) |
-| `profiles` | ❌ | Managed by Supabase Auth — restore manually |
-| `watchlist` | ❌ | User-specific — restore manually if needed |
+**GitHub repo:** `alpyengine/openbank-price-data`  
+**Files backed up:**
+- `batches.json`
+- `weekly_prices.json`
+- `price_cache.json`
+- `fundamentals_cache.json`
 
-### Schedule
+Each file is a JSON array of all rows in the table. The function uses the
+GitHub Contents API with PUT — reads SHA first to update existing files.
 
-| Day | Time (UTC) | Job | What happens |
-|---|---|---|---|
-| Tue–Sat | 02:00 | fetch-expired-horizons-daily | Evaluate expired predictions |
-| Saturday | 10:00 | fetch-weekly-prices-saturday | Save weekly prices |
-| Sunday | 23:00 | weekly-github-backup | Full backup to GitHub |
-
-This order ensures the Sunday backup always contains the most recent
-weekly prices (Saturday) and the latest verdict evaluations.
-
-### Backup file format
-```json
-{
-  "metadata": {
-    "backup_date": "2026-06-08T23:00:00Z",
-    "supabase_project": "yyenwzljojxbqtzcbchk",
-    "version": "1.1",
-    "tables": ["batches", "weekly_prices", "price_cache", "fundamentals_cache"]
-  },
-  "batches": [...],
-  "weekly_prices": [...],
-  "price_cache": [...],
-  "fundamentals_cache": [...]
-}
+**Trigger manual backup:**
+```sql
+select backup_to_github();
 ```
 
-### How to restore from backup
-```bash
-git clone https://github.com/alpyengine/openbank-price-data.git
-cat data/history.json  # latest backup
-# For a specific date:
-git log --oneline
-git show COMMIT_SHA:data/history.json > restore.json
+**Verify last backup:**
+```sql
+select jobname, status, start_time
+from cron.job_run_details
+where jobname = 'weekly-github-backup'
+order by start_time desc limit 5;
 ```
 
 ---
@@ -499,269 +411,216 @@ git show COMMIT_SHA:data/history.json > restore.json
 
 ### `invite-user`
 
-Allows admin to invite new users without exposing the Service Role Key
-in frontend code.
+Allows admins to invite new users via the Supabase Admin API.
+Located at: `supabase/functions/invite-user/index.ts`
 
-```bash
-# Deploy
-supabase link --project-ref yyenwzljojxbqtzcbchk
-supabase functions deploy invite-user
-supabase secrets set SERVICE_ROLE_KEY=your_service_role_key_here
-```
-
-**Flow:** Admin click → JWT verify → role check → `auth.admin.inviteUserByEmail()`
+Called from `ManageUsers.jsx` when an admin invites a new user.
+Sets initial role to `readonly` in `profiles`.
 
 ---
 
-## 8. Known issues & fixes
+## 8. EU market support
 
-### Bug #1 — `Sept` vs `Sep` in targetDate (critical, fixed v7.0.4)
+Added in v7.4.7 (weekly prices) and v7.4.10 (expired horizons).
 
-**Symptom:** `fetch_expired_horizons()` silently fails for September predictions.  
-`to_date('15 Sept 2026', 'DD Mon YYYY')` throws `ERROR 22007`.
+### Supported EU suffixes
 
-**Cause:** `toLocaleDateString('en-GB', { month: 'short' })` on macOS returns
-`Sept` instead of `Sep` for September.
+| Suffix | Market | API used |
+|---|---|---|
+| `.DE` | Frankfurt / Xetra | Yahoo Finance |
+| `.AS` | Amsterdam (Euronext) | Yahoo Finance |
+| `.PA` | Paris (Euronext) | Yahoo Finance |
+| `.L` | London Stock Exchange | Yahoo Finance |
+| `.MC` | Madrid (BME) | Yahoo Finance |
 
-**Fix in DB (one-time):**
-```sql
-update batches
-set results = (
-  select jsonb_agg(
-    case
-      when r.value->>'targetDate' like '%Sept%'
-      then r.value || jsonb_build_object(
-        'targetDate', replace(r.value->>'targetDate', 'Sept', 'Sep')
-      )
-      else r.value
-    end
-  )
-  from jsonb_array_elements(results) as r(value)
-)
-where results::text like '%Sept%';
+### Why Yahoo Finance for EU?
+
+Twelve Data's `/eod` endpoint does not return data for European market tickers
+(tested with `NEM.DE`, `IFX.DE`, `AIXA.DE`, `EVT.DE` — all returned 404).
+Yahoo Finance supports EU tickers natively with `.DE` notation and no API key.
+
+### Yahoo Finance endpoints used
+
+**Weekly prices (fetch_weekly_prices):**
+```
+GET https://query1.finance.yahoo.com/v8/finance/chart/NEM.DE?interval=1wk&range=1wk
+→ .chart.result[0].indicators.quote[0].close[-1]
 ```
 
-**Fix in code (permanent):** `formatDate()` in `src/utils/dates.js` now uses
-a fixed `MONTHS` array. Applied in v7.0.4.
-
----
-
-### Bug #2 — Vault API key with spurious `T` prefix (fixed May 2026)
-
-**Symptom:** API calls return no data. URLs contain `apikey=T5a34f4...`.
-
-**Fix:**
-```sql
-select vault.update_secret(id, '5a34f4a233824fa69ea731e20caff452')
-from vault.secrets where name = 'twelve_data_key';
+**Historical EOD price (fetch_expired_horizons):**
+```
+GET https://query1.finance.yahoo.com/v8/finance/chart/NEM.DE?interval=1d&period1=UNIX&period2=UNIX
+→ .chart.result[0].indicators.quote[0].close[-1]
+period1 = targetDate - 3 days (to find nearest trading day)
+period2 = targetDate + 1 day
 ```
 
-**Prevention:** Always verify vault secrets after creation:
-```sql
-select name, decrypted_secret from vault.decrypted_secrets
-where name = 'twelve_data_key';
+### Frontend EU support (usePriceFetch.js)
+
+```js
+const EU_SUFFIXES = ['DE', 'AS', 'PA', 'L', 'MC']
+function detectProvider(tickers) {
+  const hasEU = tickers.some(t => EU_SUFFIXES.includes(getSuffix(t)))
+  return hasEU ? 'alphavantage' : 'twelvedata'
+}
 ```
 
----
+- Live prices (`fetchCurrentBatch`): EU → Alpha Vantage (25 req/day free tier)
+- Historical prices (`fetchHistoricalForHorizon`): EU → Alpha Vantage
 
-### Bug #3 — Variable/column name collision in PL/pgSQL (critical, fixed June 2026)
+**Alpha Vantage rate limit:** 25 requests/day on free tier.
+When exceeded, the app shows: `⚠️ Alpha Vantage daily limit reached (25 req/day). Try again tomorrow.`
 
-**Symptom:** `fetch_expired_horizons()` runs successfully (cron shows `succeeded`)
-but no verdicts are ever updated — all rows remain `awaiting` indefinitely.
-Even with prices available in `price_cache`, the function appears to do nothing.
+### Manual backfill for EU batches
 
-**Root cause:** PostgreSQL PL/pgSQL variable name ambiguity.
+If a new EU batch is imported and historical weekly prices need to be populated:
 
-When a local variable has the same name as a table column, PostgreSQL resolves
-the name in WHERE clauses and CASE expressions as the **column**, not the variable.
-
-In the original function:
 ```sql
+do $$
 declare
-  ticker text := rec.result_row->>'ticker';  -- local variable
-  ...
+  v_batch_id   text := '2026-03-19';  -- change to your batch id
+  v_base_date  date := '2026-03-19';  -- change to your batch base date
+  v_url        text;
+  v_response   text;
+  v_closes     jsonb;
+  v_timestamps jsonb;
+  v_close      numeric;
+  v_ts         bigint;
+  v_week_date  date;
+  v_week_num   integer;
+  tickers      text[] := array['NEM.DE','IFX.DE','AIXA.DE','EVT.DE']; -- your tickers
+  v_ticker     text;
+  i            integer;
 begin
-  -- PostgreSQL interprets this as: pc.ticker = pc.ticker → ALWAYS TRUE
-  -- Returns the first row in price_cache regardless of ticker
-  select pc.close_price into cached_price
-  from price_cache pc
-  where pc.ticker = ticker        -- ← BUG: ticker resolves to pc.ticker
-    and pc.target_date = target_date;  -- ← BUG: same issue
-
-  -- The CASE in UPDATE also fails silently:
-  -- elem->>'ticker' = ticker  → compared against column, not variable
+  foreach v_ticker in array tickers loop
+    v_url := format(
+      'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1wk&range=6mo',
+      v_ticker
+    );
+    select content into v_response from http_get(v_url);
+    v_closes     := (v_response::jsonb)->'chart'->'result'->0->'indicators'->'quote'->0->'close';
+    v_timestamps := (v_response::jsonb)->'chart'->'result'->0->'timestamp';
+    for i in 0..jsonb_array_length(v_timestamps)-1 loop
+      v_ts        := (v_timestamps->i)::bigint;
+      v_week_date := to_timestamp(v_ts)::date;
+      v_close     := (v_closes->i)::numeric;
+      if v_close is null then continue; end if;
+      v_week_num  := (v_week_date - v_base_date) / 7;
+      if v_week_num < 1 or v_week_num > 52 then continue; end if;
+      insert into weekly_prices(ticker, batch_id, week, week_date, close_price)
+      values (v_ticker, v_batch_id, v_week_num, v_week_date, round(v_close::numeric, 4))
+      on conflict (ticker, batch_id, week) do nothing;
+    end loop;
+    perform pg_sleep(2);
+  end loop;
+  raise notice 'Backfill complete.';
+end;
+$$;
 ```
 
-The result: the cache lookup returns wrong data or nothing, the UPDATE
-matches no rows, and the `exception when others then null` silences everything.
-The cron shows `succeeded` but nothing changes in the database.
+---
 
-**This is a silent, catastrophic failure with no error messages.**
+## 9. Known issues & fixes
 
-**Fix:** Rename ALL local variables with `v_` prefix:
+### Bug #1 — fetch_expired_horizons silent failure (Sept 2025)
+
+**Symptom:** Function ran successfully but no verdicts were updated.  
+**Cause:** Twelve Data returned empty response for tickers outside US market.  
+**Fix:** Added EU detection — Yahoo Finance for `.DE`/`.AS`/`.PA`/`.L`/`.MC` tickers.
+
+### Bug #2 — price_cache always returns first row (RLS)
+
+**Symptom:** `fetch_expired_horizons()` reused the same cached price for all tickers.  
+**Cause:** Missing `WHERE` clause in the SELECT — returned first row regardless of ticker.
+
 ```sql
-declare
-  v_ticker       text    := rec.result_row->>'ticker';
-  v_target_date  date    := to_date(rec.result_row->>'targetDate', 'DD Mon YYYY');
-  v_target_price numeric := (rec.result_row->>'targetPrice')::numeric;
-  v_base_price   numeric := (rec.result_row->>'basePrice')::numeric;
-  v_horizon      text    := rec.result_row->>'horizon';
-  v_cached_price numeric;
-
--- Now unambiguous:
+-- Wrong:
+select pc.close_price into v_cached_price from price_cache pc;
+-- Fixed:
 select pc.close_price into v_cached_price
 from price_cache pc
-where pc.ticker      = v_ticker        -- ← v_ticker is clearly the variable
-  and pc.target_date = v_target_date;  -- ← no ambiguity
+where pc.ticker = v_ticker and pc.target_date = v_target_date;
 ```
 
-**Rule (enforced from v7.4.1):**  
-**ALL local variables in PL/pgSQL functions MUST use the `v_` prefix.**  
-This applies to: `fetch_expired_horizons()`, `fetch_weekly_prices()`,
-`backfill_weekly_prices()`, and any future functions.
+### Bug #3 — variable/column name collision (Critical)
 
-**How it was diagnosed:**
-1. Manual simulation of the UPDATE query worked correctly
-2. Direct SQL UPDATE bypassing the function worked correctly
-3. `price_cache` was populated but the function ignored it
-4. Removing `exception when others then null` revealed no explicit error
-5. Conclusion: silent name collision — the most insidious type of SQL bug
+**Symptom:** `fetch_expired_horizons()` ran successfully but nothing changed.  
+**Root cause:** PostgreSQL treats ambiguous names (same name for column and variable)
+as column references — the WHERE clause matched nothing.
 
-**Timeline of investigation (June 2026):**
-- Cron showed `succeeded, 1 row` but duration was only 39ms (should be ~64s)
-- Manual `select fetch_expired_horizons()` returned immediately
-- `price_cache` empty → manually inserted all 8 ticker prices
-- Function still produced no results
-- Simulated UPDATE in plain SQL → worked perfectly
-- Identified `v_` prefix fix → function now works correctly
+**Fix:** All variables use `v_` prefix:
+```sql
+-- Wrong: ticker, target_date, target_price, etc.
+-- Fixed: v_ticker, v_target_date, v_target_price, etc.
+```
+
+This applies to all security definer functions.
+
+### Bug #4 — watchlist INSERT 403 (RLS)
+
+**Symptom:** `addToWatchlist()` returned 403 Forbidden.  
+**Cause 1:** `for all using (...)` does not cover INSERT — needs `with check`.  
+**Cause 2:** INSERT body missing `user_id` field — RLS `with check (auth.uid() = user_id)` 
+  requires the field to be present in the row.
+
+**Fix:** 3 separate policies (select/insert/delete) + `getUserId()` in frontend
+to include `user_id` in the INSERT body.
+
+### Bug #5 — Alpha Vantage rate limit silent failure
+
+**Symptom:** EU ticker prices showed as Failed with no explanation.  
+**Cause:** Alpha Vantage returns `{ "Information": "..." }` when daily limit exceeded.
+  The app treated this as a missing price (null) without explanation.  
+**Fix (v7.4.9):** `fetchCurrentPrices_AV()` detects the Information/Note fields
+  and shows: `⚠️ Alpha Vantage daily limit reached (25 req/day). Try again tomorrow.`
 
 ---
 
-### Bug #4 — Cron schedule wrong timezone (fixed June 2026)
+## 10. Verification queries
 
-**Symptom:** `fetch_expired_horizons()` ran at 23:00 UTC but Twelve Data
-didn't have EOD prices ready — US market closes at ~21:00 UTC and EOD
-data can take 1-2 hours to propagate.
-
-**Original schedule:** `0 23 * * 1-5` (Mon–Fri at 23:00 UTC)  
-**Problem:** Only 2 hours after market close — sometimes too early for EOD data.
-
-**Fix:** Move to 02:00 UTC (5 hours after close) and adjust days:
 ```sql
-select cron.alter_job(job_id := 1, schedule := '0 2 * * 2-6');
-```
+-- All tables created:
+select tablename from pg_tables
+where schemaname = 'public'
+order by tablename;
 
-**Why Tue–Sat (2-6) and not Mon–Fri (1-5):**  
-02:00 UTC is technically the **next calendar day** after the market close.
-Monday's close (21:00 UTC Mon) → cron fires at 02:00 UTC **Tuesday**.
-Therefore the schedule must be Tue–Sat to cover Mon–Fri closes.
+-- RLS enabled on all tables:
+select tablename, rowsecurity
+from pg_tables
+where schemaname = 'public';
 
----
+-- All functions present:
+select proname from pg_proc
+where proname in (
+  'fetch_expired_horizons', 'fetch_weekly_prices',
+  'backup_to_github', 'handle_new_user'
+);
 
-## 9. Verification queries
+-- EU support confirmed on both functions:
+select proname,
+       prosrc like '%yahoo%'   as has_yahoo,
+       prosrc like '%v_is_eu%' as has_eu_detection
+from pg_proc
+where proname in ('fetch_expired_horizons', 'fetch_weekly_prices');
 
-Run these in Supabase SQL Editor to verify the system is healthy.
-
-### Check all cron jobs are active
-```sql
+-- Cron jobs active:
 select jobid, jobname, schedule, active
 from cron.job
 order by jobid;
--- Expected: jobs 1, 2, 6 all active=true
--- Job 1: 0 2 * * 2-6
--- Job 2: 0 10 * * 6
--- Job 6: 0 23 * * 0
-```
 
-### Check recent cron execution history
-```sql
-select jobid, status, return_message,
-       start_time, end_time,
-       extract(epoch from (end_time - start_time)) as duration_sec
+-- Weekly prices count per batch:
+select batch_id, count(*) as rows, min(week) as first_week, max(week) as last_week
+from weekly_prices
+group by batch_id
+order by batch_id;
+
+-- Recent cron run history:
+select jobname, status, start_time, end_time
 from cron.job_run_details
 order by start_time desc
-limit 10;
--- Job 1 should take ~64s when processing 8 tickers
--- Job 1 taking <1s means no expired rows were found (normal if all awaiting)
--- Any status != 'succeeded' needs investigation
-```
+limit 20;
 
-### Check for pending expired horizons (should be 0)
-```sql
-select
-  b.id as batch_id,
-  r.value->>'ticker'     as ticker,
-  r.value->>'horizon'    as horizon,
-  r.value->>'targetDate' as target_date
-from batches b,
-     jsonb_array_elements(b.results) as r(value)
-where r.value->>'verdict' = 'awaiting'
-  and to_date(r.value->>'targetDate', 'DD Mon YYYY') <= current_date
-order by b.id, r.value->>'ticker';
--- Should return 0 rows if cron ran correctly
+-- Vault secrets present:
+select name from vault.decrypted_secrets
+where name in ('twelve_data_key', 'github_pat');
 ```
-
-### Verify hit rates match formula
-```sql
-with counts as (
-  select
-    b.id, b.date, b.hit_rate, b.hit_rate_ext,
-    count(*) filter (where r->>'verdict' = 'hit')      as hits,
-    count(*) filter (where r->>'verdict' = 'exceeded') as exceeded,
-    count(*) filter (where r->>'verdict' != 'awaiting') as evaluated
-  from batches b,
-    jsonb_array_elements(results) as r
-  group by b.id, b.date, b.hit_rate, b.hit_rate_ext
-)
-select
-  id, date,
-  hit_rate                                                        as stored_pure,
-  round(hits::numeric / nullif(evaluated,0) * 100)               as calc_pure,
-  hit_rate_ext                                                    as stored_ext,
-  round((hits+exceeded)::numeric / nullif(evaluated,0) * 100)    as calc_ext,
-  case when hit_rate = round(hits::numeric / nullif(evaluated,0) * 100)
-       and hit_rate_ext = round((hits+exceeded)::numeric / nullif(evaluated,0) * 100)
-    then '✓ OK' else '✗ MISMATCH' end                           as check
-from counts
-order by date desc;
-```
-
-### Check price_cache for a specific date
-```sql
-select ticker, target_date, close_price
-from price_cache
-where target_date = '2026-06-05'  -- replace with target date
-order by ticker;
-```
-
-### Verify backup function includes fundamentals_cache
-```sql
-select prosrc like '%fundamentals_cache%' as includes_fundamentals
-from pg_proc
-where proname = 'backup_to_github';
--- Should return true
-```
-
-### Check fetch_expired_horizons uses v_ prefix (Bug #3 prevention)
-```sql
-select prosrc like '%v_ticker%' as uses_v_prefix
-from pg_proc
-where proname = 'fetch_expired_horizons';
--- Should return true
--- If false → the function has the variable collision bug
-```
-
-### Full batch status overview
-```sql
-select
-  id, date, stocks, direction,
-  hit_rate, hit_rate_ext,
-  (select count(*) filter (where r->>'verdict' = 'awaiting')
-   from jsonb_array_elements(results) r) as awaiting,
-  (select count(*) filter (where r->>'verdict' != 'awaiting')
-   from jsonb_array_elements(results) r) as evaluated,
-  updated_at
-from batches
-order by date desc;
-```
-

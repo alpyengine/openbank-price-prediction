@@ -161,13 +161,23 @@ async function fetchCurrentPrices_AV(tickers, onProgress) {
     const url    = `${AV_URL}?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(ticker)}&apikey=${AV_KEY}`
     try {
       const data  = await fetchJSON(url)
+
+      // Detect rate limit exceeded — AV returns { Information: "..." } or { Note: "..." }
+      if (data['Information'] || data['Note']) {
+        const msg = data['Information'] || data['Note']
+        // Mark all remaining tickers as null and throw so caller can surface the error
+        for (let j = i; j < tickers.length; j++) result[tickers[j]] = null
+        throw new Error('AV_RATE_LIMIT: ' + msg)
+      }
+
       const quote = data['Global Quote']
       result[ticker] = (quote && quote['05. price']) ? parseFloat(quote['05. price']) : null
-    } catch {
+    } catch (err) {
       result[ticker] = null
+      // Re-throw rate limit errors so fetchCurrentBatch can surface them
+      if (err.message?.startsWith('AV_RATE_LIMIT')) throw err
     }
     if (onProgress) onProgress({ total: tickers.length, done: i + 1, waiting: false, waitSecs: 0, waitTotal: 0 })
-    // 1.2s pause between requests to respect 1 req/s limit
     if (i < tickers.length - 1) await sleep(1200)
   }
   return result
@@ -298,8 +308,12 @@ export function usePriceFetch() {
       setChunkProgress(null)
 
     } catch (err) {
-      setLog('Fetch error: ' + classifyError(err))
       setChunkProgress(null)
+      if (err.message?.startsWith('AV_RATE_LIMIT')) {
+        setLog('⚠️ Alpha Vantage daily limit reached (25 req/day). Try again tomorrow.')
+      } else {
+        setLog('Fetch error: ' + classifyError(err))
+      }
     } finally {
       setFetching(false)
     }
