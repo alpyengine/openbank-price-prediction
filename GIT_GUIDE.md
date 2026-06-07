@@ -2711,3 +2711,57 @@ Tests: 164/164 passing"
 git tag -a v7.5.0 -m "v7.5.0: market filter + AV cache + UML"
 git push origin main && git push origin v7.5.0
 
+
+
+# ===========================================================================
+# STEP 146 — v7.5.1  Bug fixes: WatchlistPage JSX + AuthContext + ManageUsers
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# BUGS FIXED:
+#
+#   Bug A — WatchlistPage.jsx: JSX parse error (v7.5.0)
+#     Extra </div> in header after market badges section.
+#     Fix: removed orphan closing tag.
+#
+#   Bug B — WatchlistPage.jsx: Sparkline 'row' not defined (v7.5.0)
+#     Sparkline component referenced row?.currSym out of scope.
+#     Fix: currSym passed as explicit prop — <Sparkline currSym={row.currSym} />
+#
+#   Bug C — AuthContext.jsx: full_name removed incorrectly (v7.5.0/v7.5.1)
+#     profiles table has full_name column. Was changed to select('role') only.
+#     Fix: restored select('role, full_name') in fetchRole.
+#
+#   Bug D — ManageUsers.jsx: column profiles.email does not exist (400 error)
+#     ManageUsers queried select('id, email, role, created_at') but profiles
+#     has full_name not email.
+#     Fix: select('id, full_name, role, created_at') + updated render.
+#
+# BEFORE INSTALLING — clear localStorage role cache in browser console:
+#   localStorage.removeItem('app-user-role')
+#   localStorage.removeItem('app-profile-name')
+#   location.reload()
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.1/. .
+
+git add .
+git commit -m "fix: WatchlistPage JSX + AuthContext + ManageUsers (v7.5.1)
+
+WatchlistPage.jsx:
+  Removed extra </div> in header market badges section (JSX parse error).
+  Sparkline: currSym passed as explicit prop (was referencing out-of-scope row).
+
+AuthContext.jsx:
+  Restored select('role, full_name') — profiles.full_name exists and is needed.
+
+ManageUsers.jsx:
+  select('id, full_name, role, created_at') — profiles has full_name not email.
+  All u.email references updated to u.full_name in render.
+
+Tests: 164/164 passing"
+
+git tag -a v7.5.1 -m "v7.5.1: WatchlistPage JSX + AuthContext + ManageUsers fixes"
+git push origin main && git push origin v7.5.1

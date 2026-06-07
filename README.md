@@ -185,6 +185,7 @@ npm run test       # watch mode
 107 tests across 6 files — utils, hooks, services.
 
 ---
+| v7.5.1 | ManageUsers bug fix — full_name column does not exist in profiles · use email instead · loading freeze resolved |
 | v7.5.0 | Market filter badges (US/DE) in All Stocks + Watchlist · ticker display without suffix · default sort ticker A→Z · AV 24h price cache · UML diagram · README changelog note |
 
 ## Changelog

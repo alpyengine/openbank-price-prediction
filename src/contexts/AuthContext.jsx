@@ -87,7 +87,7 @@ export function AuthProvider({ children }) {
   // ── fetchRole ─────────────────────────────────────────────────────────────
 
   /**
-   * fetchRole — reads role AND full_name from profiles table.
+   * fetchRole — reads role and full_name from profiles table.
    * Caches both in localStorage for instant display on next reload.
    * Always resolves — errors default to role='readonly', name=null.
    */

@@ -67,7 +67,7 @@ export default function ManageUsers() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, role, full_name, created_at')
+        .select('id, full_name, role, created_at')
         .order('created_at', { ascending: true })
 
       if (error) throw error
@@ -166,7 +166,7 @@ export default function ManageUsers() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole, updated_at: new Date().toISOString() })
+        .update({ role: newRole })
         .eq('id', userId)
 
       if (error) throw error
@@ -333,7 +333,7 @@ export default function ManageUsers() {
                         </div>
                         <div>
                           <div className="text-[13px] font-medium">
-                            {u.full_name || 'Invited user'}
+                            {u.full_name || 'Unknown user'}
                             {isCurrentUser && (
                               <span className="ml-1.5 text-[10px] text-muted-foreground">(you)</span>
                             )}
