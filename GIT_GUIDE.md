@@ -2714,7 +2714,7 @@ git push origin main && git push origin v7.5.0
 
 
 # ===========================================================================
-# STEP 146 — v7.5.1  Bug fixes: WatchlistPage JSX + AuthContext + ManageUsers
+# STEP 146 — v7.5.2  Bug fixes: WatchlistPage JSX + AuthContext + ManageUsers
 # ===========================================================================
 #
 # NO SUPABASE CHANGES.
@@ -2744,8 +2744,13 @@ git push origin main && git push origin v7.5.0
 #   localStorage.removeItem('app-profile-name')
 #   location.reload()
 #
+# IMPORTANT — extract the ZIP to ~/Downloads BEFORE running these commands:
+#   cd ~/Downloads
+#   unzip openbank-price-prediction_v7.5.2.zip
+#   This creates: ~/Downloads/openbank-price-prediction_v7.5.2/
+#
 find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
-cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.1/. .
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.2/. .
 
 git add .
 git commit -m "fix: WatchlistPage JSX + AuthContext + ManageUsers (v7.5.1)
@@ -2763,5 +2768,5 @@ ManageUsers.jsx:
 
 Tests: 164/164 passing"
 
-git tag -a v7.5.1 -m "v7.5.1: WatchlistPage JSX + AuthContext + ManageUsers fixes"
-git push origin main && git push origin v7.5.1
+git tag -a v7.5.2 -m "v7.5.2: WatchlistPage JSX + AuthContext + ManageUsers fixes"
+git push origin main && git push origin v7.5.2

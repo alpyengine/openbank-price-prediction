@@ -65,17 +65,11 @@ export default function ManageUsers() {
     setLoading(true)
     setError('')
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, created_at')
-        .order('created_at', { ascending: true })
-
+      // Use security definer RPC to read all profiles without RLS restriction.
+      // Direct query to profiles is limited by RLS (profiles_own) — only returns
+      // the current user's own profile. get_all_profiles() bypasses RLS safely.
+      const { data, error } = await supabase.rpc('get_all_profiles')
       if (error) throw error
-
-      // Fetch emails from auth.users via the admin API
-      // Note: requires service role key — using anon key means we get
-      // emails only for users who have logged in (session available)
-      // For full email list, the admin must use Supabase Dashboard
       setUsers(data ?? [])
     } catch (err) {
       setError('Could not load users: ' + err.message)
@@ -329,14 +323,17 @@ export default function ManageUsers() {
                       <div className="flex items-center gap-2.5">
                         {/* Avatar */}
                         <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
-                          {(u.full_name || u.id)?.[0]?.toUpperCase() ?? '?'}
+                          {(u.email || u.id)?.[0]?.toUpperCase() ?? '?'}
                         </div>
                         <div>
                           <div className="text-[13px] font-medium">
-                            {u.full_name || 'Unknown user'}
+                            {u.email || u.full_name || 'Unknown user'}
                             {isCurrentUser && (
                               <span className="ml-1.5 text-[10px] text-muted-foreground">(you)</span>
                             )}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {u.full_name && u.full_name !== u.email ? u.full_name : ''}
                           </div>
                           <div className="text-[11px] text-muted-foreground font-mono">
                             {u.id.slice(0, 8)}…
