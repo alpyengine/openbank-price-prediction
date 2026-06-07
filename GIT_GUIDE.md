@@ -2629,3 +2629,85 @@ Tests: 164/164 passing"
 git tag -a v7.4.10 -m "v7.4.10: final release — EU support + SUPABASE.md"
 git push origin main && git push origin v7.4.10
 
+
+# ===========================================================================
+# STEP 145 — v7.5.0  Market filter + display fixes + AV cache + UML
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/components/AllStocksPage.jsx:
+#     getMarket(rawTicker) helper — extracts market suffix: US/DE/AS/PA/L/MC
+#     displayTicker(rawTicker) helper — strips suffix for display (NEM.DE → NEM)
+#     Stock object: added tDisplay (display ticker) + market fields
+#     Default sort: changed from 'upside' desc to 'ticker' asc (A→Z default)
+#     filterMkt state — '' | 'US' | 'DE' | 'AS' | 'PA' | 'L' | 'MC'
+#     markets useMemo — unique markets with counts from loaded stocks
+#     Market filter badges — shown only when >1 market detected
+#       Flags: 🇺🇸 US  🇩🇪 DE  🇳🇱 AS  🇫🇷 PA  🇬🇧 L  🇪🇸 MC
+#       Toggle: click badge to filter, click again to deselect
+#     Ticker column: shows tDisplay (no suffix) + market badge below company name
+#       Market badge only shown when >1 market in current stocks
+#     Avatar initials: uses tDisplay.slice(0,3) instead of tNorm.slice(0,3)
+#
+#   src/components/WatchlistPage.jsx:
+#     market field added to buildStockRows — extracted from ticker suffix
+#     filterMkt state + markets useMemo (same logic as AllStocksPage)
+#     filteredRows = rows filtered by market (or all if filterMkt === '')
+#     Market filter badges added in header — below "Check alerts" button
+#     Table now renders filteredRows instead of rows
+#
+#   src/hooks/usePriceFetch.js:
+#     AV_CACHE_KEY / AV_CACHE_TTL constants (24h = 86400000ms)
+#     avCacheGet(ticker) — reads from localStorage, respects TTL
+#     avCacheSet(ticker, price) — writes to localStorage with timestamp
+#     fetchCurrentPrices_AV(): checks cache before API call
+#       Cache hit → skip API call, use cached price
+#       Cache miss → fetch from AV, save to cache on success
+#     Effect: 4 EU tickers = 4 AV requests on first fetch,
+#       then 0 requests for the next 24 hours (reuses cached prices)
+#
+#   docs/openbank-forecast-uml.md — NEW FILE:
+#     Mermaid diagrams: ER diagram, system architecture, cron schedule,
+#     fetch_expired_horizons() sequence, fetch_weekly_prices() sequence,
+#     RLS access matrix, verdict evaluation flowchart
+#     Reference: docs/supabase_setup.sql
+#
+#   README.md:
+#     Link to openbank-forecast-uml.md added in docs section
+#     Changelog: note added for versions before v6.9.0 (131 git tags)
+#       "git log --oneline --tags --simplify-by-decoration" to browse
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.0/. .
+
+git add .
+git commit -m "feat: market filter + display fixes + AV cache + UML (v7.5.0)
+
+AllStocksPage.jsx:
+  getMarket() + displayTicker() helpers.
+  Stock object: tDisplay (no suffix) + market fields.
+  Default sort: ticker ascending (A→Z).
+  Market filter badges (🇺🇸 US / 🇩🇪 DE etc.) — shown when >1 market.
+  Ticker column: shows tDisplay + market badge below company name.
+
+WatchlistPage.jsx:
+  market field in buildStockRows.
+  Market filter badges in header.
+  Table uses filteredRows (market-filtered subset).
+
+usePriceFetch.js:
+  AV 24h localStorage cache (avCacheGet/avCacheSet).
+  fetchCurrentPrices_AV: cache-first, API only on miss.
+
+docs/openbank-forecast-uml.md: new — full Mermaid UML diagram set.
+README.md: UML link + old versions note in changelog.
+
+Tests: 164/164 passing"
+
+git tag -a v7.5.0 -m "v7.5.0: market filter + AV cache + UML"
+git push origin main && git push origin v7.5.0
+

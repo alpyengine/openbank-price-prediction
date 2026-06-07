@@ -25,6 +25,28 @@ import { cn } from '@/lib/utils'
 import { loadAllWeeklyPrices, loadFundamentalsCache } from '@/services/storage'
 import TradingViewModal from './TradingViewModal.jsx'
 
+// ── Market helpers ────────────────────────────────────────────────────────────
+
+/**
+ * getMarket — extracts the market suffix from a raw ticker string.
+ * Returns 'DE', 'AS', 'PA', 'L', 'MC' for EU markets, 'US' for everything else.
+ */
+function getMarket(rawTicker) {
+  const m = rawTicker.match(/\.([A-Z]+)$/i)
+  if (!m) return 'US'
+  const suffix = m[1].toUpperCase()
+  return ['DE', 'AS', 'PA', 'L', 'MC'].includes(suffix) ? suffix : 'US'
+}
+
+/**
+ * displayTicker — strips market suffix for on-screen display only.
+ * NEM.DE → NEM  |  TER.US → TER  |  MU → MU
+ * The full ticker (with suffix) is always retained internally for API calls.
+ */
+function displayTicker(rawTicker) {
+  return rawTicker.replace(/\.(DE|AS|PA|L|MC|US)$/i, '')
+}
+
 // ── Investment Score calculation ──────────────────────────────────────────────
 
 const WEIGHTS = { upside: 0.40, peg: 0.45, margin: 0.15 }
@@ -138,8 +160,10 @@ function deduplicateStocks(batches) {
       const base = r0?.basePrice || r0?.b || 0
 
       map.set(normTicker, {
-        t:         raw,         // original ticker as stored (e.g. "MU")
-        tNorm:     normTicker,  // normalised ticker for lookups (e.g. "MU")
+        t:         raw,              // original ticker as stored (e.g. "NEM.DE")
+        tNorm:     normTicker,       // normalised ticker for lookups (e.g. "NEM.DE")
+        tDisplay:  displayTicker(raw), // display ticker without suffix (e.g. "NEM")
+        market:    getMarket(raw),   // market identifier: 'US' | 'DE' | 'AS' | 'PA' | 'L' | 'MC'
         co:        r0?.company || r0?.co || normTicker,
         b:         base,
         t1:        getTarget('1M'),
@@ -424,10 +448,11 @@ function exportCSV(rows, horizon) {
 
 export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, weeklyPrices: weeklyPricesProps = {}, onNav, onLoadBatch, watchlist = new Set(), onToggleWatchlist }) {
   const [horizon,      setHorizon]      = useState('12M')
-  const [sortCol,      setSortCol]      = useState('upside')
-  const [sortDir,      setSortDir]      = useState(-1) // -1 = desc
+  const [sortCol,      setSortCol]      = useState('ticker')
+  const [sortDir,      setSortDir]      = useState(1)  // 1 = asc (default: A→Z by ticker)
   const [filterSec,    setFilterSec]    = useState('')
   const [filterPeg,    setFilterPeg]    = useState('')
+  const [filterMkt,    setFilterMkt]    = useState('')  // '' | 'US' | 'DE' | 'AS' | 'PA' | 'L' | 'MC'
   const [minScore,     setMinScore]     = useState(0)
   const [legendOpen,   setLegendOpen]   = useState(false)
   // weeklyPrices passed from App.jsx (loaded once, shared with WatchlistPage)
@@ -489,24 +514,32 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     }
   }), [baseStocks, allFundamentals])
 
-  // Unique sectors for filter
+  // Unique sectors for filter dropdown
   const sectors = useMemo(() => {
     const s = new Set(stocks.map(x => x.sector).filter(x => x && x !== '—'))
     return Array.from(s).sort()
   }, [stocks])
 
+  // Unique markets for filter badges — with counts
+  const markets = useMemo(() => {
+    const counts = {}
+    stocks.forEach(s => { counts[s.market] = (counts[s.market] || 0) + 1 })
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])
+  }, [stocks])
+
   // Map horizon label to stock field: '1M'→'u1', '3M'→'u3', '6M'→'u6', '12M'→'u12'
   const hKey = { '1M': 'u1', '3M': 'u3', '6M': 'u6', '12M': 'u12' }[horizon] ?? 'u12'
 
-  // Filter
+  // Apply all filters: sector, PEG, market, score
   const filtered = useMemo(() => stocks.filter(s => {
     if (filterSec && s.sector !== filterSec) return false
+    if (filterMkt && s.market !== filterMkt) return false
     if (filterPeg === 'low'  && !(s.peg != null && s.peg > 0 && s.peg < 1))  return false
     if (filterPeg === 'mid'  && !(s.peg != null && s.peg >= 1 && s.peg <= 2)) return false
     if (filterPeg === 'high' && !(s.peg != null && s.peg > 2))                return false
     if (minScore > 0 && (s.score == null || s.score < minScore)) return false
     return true
-  }), [stocks, filterSec, filterPeg, minScore])
+  }), [stocks, filterSec, filterMkt, filterPeg, minScore])
 
   // Sort — supports ticker (alphabetical), upside, score, vsTarget (numeric)
   const sorted = useMemo(() => [...filtered].sort((a, b) => {
@@ -579,6 +612,45 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
 
       {/* ── Filters ────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 flex-wrap">
+
+        {/* Market filter — badge buttons, shown only when >1 market detected */}
+        {markets.length > 1 && (
+          <div className="flex items-center gap-1.5 mr-1">
+            <span className="text-[10px] text-muted-foreground font-medium">Market:</span>
+            <button
+              onClick={() => setFilterMkt('')}
+              className={cn(
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors',
+                filterMkt === ''
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+              )}
+            >
+              All
+              <span className="opacity-60 text-[10px]">({stocks.length})</span>
+            </button>
+            {markets.map(([mkt, count]) => {
+              const FLAG = { US:'🇺🇸', DE:'🇩🇪', AS:'🇳🇱', PA:'🇫🇷', L:'🇬🇧', MC:'🇪🇸' }
+              return (
+                <button
+                  key={mkt}
+                  onClick={() => setFilterMkt(f => f === mkt ? '' : mkt)}
+                  className={cn(
+                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors',
+                    filterMkt === mkt
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+                  )}
+                >
+                  {FLAG[mkt] ?? ''} {mkt}
+                  <span className="opacity-60 text-[10px]">({count})</span>
+                </button>
+              )
+            })}
+            <div className="w-px h-3.5 bg-border mx-1" />
+          </div>
+        )}
+
         <select
           value={filterSec}
           onChange={e => setFilterSec(e.target.value)}
@@ -787,7 +859,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-[9px] font-black shrink-0">
-                        {s.tNorm.slice(0, 3)}
+                        {s.tDisplay.slice(0, 3)}
                       </div>
                       <div>
                         {/* Click ticker → load batch and navigate to batch-detail */}
@@ -795,7 +867,6 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                           className="font-bold text-foreground hover:text-primary hover:underline underline-offset-2 bg-transparent border-none cursor-pointer p-0 text-left text-[11.5px]"
                           onClick={() => {
                             if (!onLoadBatch || !onNav) return
-                            // Find the most recent batch containing this ticker
                             const batch = [...(batches ?? [])]
                               .sort((a, b) => (b.id > a.id ? 1 : -1))
                               .find(b => b.results?.some(r => r.ticker === s.tNorm || r.ticker === s.t))
@@ -804,11 +875,22 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                               onNav('batch-detail')
                             }
                           }}
-                          title={`Open ${s.tNorm} in Batch Overview Details`}
+                          title={`Open ${s.tDisplay} in Batch Overview Details`}
                         >
-                          {s.tNorm}
+                          {s.tDisplay}
                         </button>
-                        <div className="text-[10px] text-muted-foreground">{s.co}</div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <div className="text-[10px] text-muted-foreground">{s.co}</div>
+                          {/* Market badge — only shown when multiple markets exist */}
+                          {markets.length > 1 && (
+                            <span className={cn(
+                              'text-[9px] font-semibold px-1 py-0 rounded',
+                              s.market === 'US'
+                                ? 'bg-green-50 text-green-700'
+                                : 'bg-blue-50 text-blue-700'
+                            )}>{s.market}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>

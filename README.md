@@ -24,8 +24,14 @@ All persistence, automation and price fetching runs on Supabase.
 
 📄 **[SUPABASE.md](./docs/SUPABASE.md)** — complete reference including:
 - Tables, functions, cron jobs, vault secrets
-- RLS policies, known issues
+- RLS policies, known issues, EU market support
 - GitHub backup system (section 7)
+
+📊 **[openbank-forecast-uml.md](./docs/openbank-forecast-uml.md)** — Mermaid UML diagrams (v7.5.0+):
+- Entity relationship diagram (all 8 tables)
+- System architecture and data flow
+- Cron job schedule, sequence diagrams for all functions
+- RLS access matrix and verdict evaluation flowchart
 
 📄 **[SPEC_FUNDAMENTALS.md](./docs/SPEC_FUNDAMENTALS.md)** — Investment Score & fundamentals specification:
 - Metrics catalogue (valuation, growth, quality, sentiment)
@@ -179,8 +185,12 @@ npm run test       # watch mode
 107 tests across 6 files — utils, hooks, services.
 
 ---
+| v7.5.0 | Market filter badges (US/DE) in All Stocks + Watchlist · ticker display without suffix · default sort ticker A→Z · AV 24h price cache · UML diagram · README changelog note |
 
 ## Changelog
+
+> **Versions before v6.9.0** (v0.2.0 → v6.8.x, 131 tags total) are not documented here.
+> To browse the full history: `git log --oneline --tags --simplify-by-decoration`
 
 | Version | What |
 |---|---|

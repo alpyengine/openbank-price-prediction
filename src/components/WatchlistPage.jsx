@@ -113,6 +113,7 @@ function buildStockRows(watchlist, batches, weeklyPrices, autoPrices) {
         batchId:   batch.id,
         batchDate: batch.date,
         direction: batch.direction ?? 'bullish',
+        market:    ticker.match(/\.(DE|AS|PA|L|MC)$/i) ? ticker.match(/\.([A-Z]+)$/i)[1].toUpperCase() : 'US',
         currSym,
         u12, vt, verdict, lastPrice,
         basePrice: r12?.basePrice ?? null,
@@ -155,7 +156,7 @@ function VerdictBadge({ verdict }) {
  * Sparkline — small line chart using Recharts.
  * Green if last price >= first price, red otherwise.
  */
-function Sparkline({ prices }) {
+function Sparkline({ prices, currSym = '$' }) {
   if (!prices?.length) {
     return (
       <div className="flex items-center justify-center h-[70px] text-[11px] text-muted-foreground">
@@ -182,7 +183,7 @@ function Sparkline({ prices }) {
           />
           <RTooltip
             contentStyle={{ fontSize: 11, padding: '2px 6px' }}
-            formatter={(v) => [`${row?.currSym ?? '$'}${v.toFixed(2)}`, 'Price']}
+            formatter={(v) => [`${currSym}${v.toFixed(2)}`, 'Price']}
             labelFormatter={(l) => `Week ${l}`}
           />
         </LineChart>
@@ -254,7 +255,7 @@ function DetailPanel({ row, fundamentals, onClose, onOpenBatch, onRemove }) {
               {fmtPct(chgPct)} from base {row.currSym ?? '$'}{row.basePrice?.toFixed(2)}
             </div>
           )}
-          <Sparkline prices={row.prices} />
+          <Sparkline prices={row.prices} currSym={row.currSym ?? '$'} />
         </div>
 
         {/* Horizon targets */}
@@ -352,12 +353,25 @@ export default function WatchlistPage({
   autoPrices = {}, watchlist, onToggle, onNav, onLoadBatch, onCheckAlerts,
 }) {
   const [selectedTicker, setSelectedTicker] = useState(null)
+  const [filterMkt,      setFilterMkt]      = useState('')  // '' | 'US' | 'DE' | ...
 
-  // Build display rows from watchlist + batches + prices
+  // Build display rows from watchlist + batches + prices — must be first
   const rows = useMemo(
     () => buildStockRows(watchlist, batches, weeklyPrices, autoPrices),
     [watchlist, batches, weeklyPrices, autoPrices]
   )
+
+  // Unique markets in watchlist rows — for filter badges
+  const markets = useMemo(() => {
+    const counts = {}
+    rows.forEach(r => { counts[r.market ?? 'US'] = (counts[r.market ?? 'US'] || 0) + 1 })
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])
+  }, [rows])
+
+  // Apply market filter to rows
+  const filteredRows = useMemo(() =>
+    filterMkt ? rows.filter(r => (r.market ?? 'US') === filterMkt) : rows
+  , [rows, filterMkt])
 
   const selectedRow = rows.find(r => `${r.ticker}__${r.batchId ?? 'none'}` === selectedTicker) ?? null
 
@@ -413,6 +427,40 @@ export default function WatchlistPage({
               </Button>
             )}
           </div>
+          {/* Market filter badges — only shown when >1 market detected */}
+          {markets.length > 1 && (
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+              <span className="text-[10px] text-muted-foreground font-medium">Market:</span>
+              <button
+                onClick={() => setFilterMkt('')}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors',
+                  filterMkt === ''
+                    ? 'bg-foreground text-background border-foreground'
+                    : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+                )}
+              >
+                All <span className="opacity-60">({rows.length})</span>
+              </button>
+              {markets.map(([mkt, count]) => {
+                const FLAG = { US:'🇺🇸', DE:'🇩🇪', AS:'🇳🇱', PA:'🇫🇷', L:'🇬🇧', MC:'🇪🇸' }
+                return (
+                  <button
+                    key={mkt}
+                    onClick={() => setFilterMkt(f => f === mkt ? '' : mkt)}
+                    className={cn(
+                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors',
+                      filterMkt === mkt
+                        ? 'bg-foreground text-background border-foreground'
+                        : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+                    )}
+                  >
+                    {FLAG[mkt] ?? ''} {mkt} <span className="opacity-60">({count})</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Summary cards */}
@@ -443,7 +491,7 @@ export default function WatchlistPage({
               </tr>
             </thead>
             <tbody>
-              {rows.map(row => {
+              {filteredRows.map(row => {
                 const rowKey = `${row.ticker}__${row.batchId ?? 'none'}`
                 return (
                 <tr
