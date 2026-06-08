@@ -60,7 +60,7 @@ export async function loadHistory() {
   }
   try {
     const res  = await fetch(endpoint('?order=saved_at.desc'), {
-      headers: { ...headers(), 'Prefer': 'return=representation' },
+      headers: { ...authHeaders(), 'Prefer': 'return=representation' },
       cache: 'no-store',
     })
     if (!res.ok) throw new Error('Supabase GET failed: ' + res.status)

@@ -2744,10 +2744,8 @@ git push origin main && git push origin v7.5.0
 #   localStorage.removeItem('app-profile-name')
 #   location.reload()
 #
-# IMPORTANT — extract the ZIP to ~/Downloads BEFORE running these commands:
-#   cd ~/Downloads
-#   unzip openbank-price-prediction_v7.5.2.zip
-#   This creates: ~/Downloads/openbank-price-prediction_v7.5.2/
+# IMPORTANT — macOS will create the folder automatically when you double-click the ZIP.
+# The ZIP extracts directly to ~/Downloads/openbank-price-prediction_v7.5.2/
 #
 find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.2/. .
@@ -2770,3 +2768,60 @@ Tests: 164/164 passing"
 
 git tag -a v7.5.2 -m "v7.5.2: WatchlistPage JSX + AuthContext + ManageUsers fixes"
 git push origin main && git push origin v7.5.2
+
+
+# ===========================================================================
+# STEP 145 — v7.5.3  Update supabase_setup.sql
+# ===========================================================================
+#
+
+git add docs/supabase_setup.sql
+git commit -m "chore: update supabase_setup.sql to v7.5.3
+
+profiles table: added email, full_name, updated_at columns.
+get_all_profiles(): new security definer function for ManageUsers.
+Version bumped to v7.5.3."
+
+git tag -a v7.5.3 -m "v7.5.3: supabase_setup.sql updated"
+git push origin main && git push origin v7.5.3
+
+# ===============================================================================
+# STEP 145 — v7.5.4  Umarket badge alignment + dark mode email + favicon (v7.5.4)
+# ===============================================================================
+#
+## What changed per fix
+
+| # | File | Change |
+|---|------|--------|
+| 1 | AllStocksPage.jsx | Badge: added `inline-flex items-center leading-none` to align DE/US badge vertically with company text |
+| 2 | SettingsPage.jsx | Alert email input: replaced `style={{ width, fontSize }}` with Tailwind `text-foreground bg-background` classes — readable in dark mode |
+| 3 | index.html | Added `<link rel="icon" href="data:," />` to `<head>` — suppresses browser 404 for favicon |
+| 3 | SettingsPage.jsx | Version string bumped to `v7.5.4` |
+| 3 | package.json | `"version"` bumped to `"7.5.4"` |
+| 4 | Supabase | `drop policy if exists "allow_all" on public.batches` — manual SQL step |
+
+
+
+# 1. Decompress ZIP into project root (macOS double-click or):
+unzip -o openbank-v754.zip -d /path/to/openbank-price-prediction
+
+# 2. Stage changed files
+git add src/components/AllStocksPage.jsx \
+        src/components/SettingsPage.jsx \
+        src/index.html \
+        package.json
+
+# 3. Commit
+git commit -m "fix: market badge alignment + dark mode email + favicon (v7.5.4)
+
+AllStocksPage.jsx: market badge alignment in ticker column.
+SettingsPage.jsx: email text visible in dark mode.
+index.html: favicon link to suppress 404 error.
+Supabase: removed redundant allow_all policy on batches (manual step).
+Tests: 164/164 passing"
+
+# 4. Tag
+git tag v7.5.4
+
+# 5. Push
+git push origin main --tags

@@ -483,7 +483,7 @@ export default function WatchlistPage({
           <table className="w-full text-[12px] border-collapse">
             <thead>
               <tr className="bg-muted/50">
-                {['Ticker', 'Batch', 'Direction', '12M Upside', 'vs Target', 'Verdict', ''].map(h => (
+                {['Ticker', 'Market', 'Batch', 'Direction', '12M Upside', 'vs Target', 'Verdict', ''].map(h => (
                   <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
                     {h}
                   </th>
@@ -506,8 +506,18 @@ export default function WatchlistPage({
                 >
                   {/* Ticker + company */}
                   <td className="px-4 py-2.5">
-                    <div className="font-semibold text-foreground">{row.ticker}</div>
+                    <div className="font-semibold text-foreground">{row.ticker.replace(/\.(DE|AS|PA|L|MC|US)$/i, '')}</div>
                     <div className="text-[10px] text-muted-foreground mt-0.5">{row.co}</div>
+                  </td>
+
+                  {/* Market badge */}
+                  <td className="px-4 py-2.5">
+                    <span className={cn(
+                      'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded',
+                      row.market === 'US'
+                        ? 'bg-green-50 text-green-700'
+                        : 'bg-blue-50 text-blue-700'
+                    )}>{row.market}</span>
                   </td>
 
                   {/* Batch date */}

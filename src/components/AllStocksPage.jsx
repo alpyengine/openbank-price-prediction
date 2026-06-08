@@ -705,6 +705,9 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   Ticker {sortIcon('ticker')}
                 </button>
               </th>
+              {markets.length > 1 && (
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Market</th>
+              )}
               <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sector</th>
               <th className="px-2 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide">⭐</th>
 
@@ -880,20 +883,23 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                           {s.tDisplay}
                         </button>
                         <div className="flex items-center gap-1 mt-0.5">
-                          <div className="text-[10px] text-muted-foreground">{s.co}</div>
-                          {/* Market badge — only shown when multiple markets exist */}
-                          {markets.length > 1 && (
-                            <span className={cn(
-                              'text-[9px] font-semibold px-1 py-0 rounded',
-                              s.market === 'US'
-                                ? 'bg-green-50 text-green-700'
-                                : 'bg-blue-50 text-blue-700'
-                            )}>{s.market}</span>
-                          )}
+                          <div className="text-[10px] text-muted-foreground leading-none">{s.co}</div>
                         </div>
                       </div>
                     </div>
                   </td>
+
+                  {/* Market badge column */}
+                  {markets.length > 1 && (
+                    <td className="px-3 py-2.5">
+                      <span className={cn(
+                        'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded',
+                        s.market === 'US'
+                          ? 'bg-green-50 text-green-700'
+                          : 'bg-blue-50 text-blue-700'
+                      )}>{s.market}</span>
+                    </td>
+                  )}
 
                   {/* Sector */}
                   <td className="px-3 py-2.5 text-muted-foreground">{s.sector}</td>

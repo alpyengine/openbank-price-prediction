@@ -77,6 +77,15 @@ Two roles: **admin** (full access) and **read-only** (view only).
 - React architecture
 - **Known issues & troubleshooting log** (8 issues documented)
 
+📄 **[AUTH_FLOW.md](./docs/AUTH_FLOW.md)** — end-to-end authentication & security flow (v7.5.4+):
+- JWT explained — what it is, what it contains, how it expires
+- RLS explained — how Row Level Security filters data per user
+- Anon key vs session JWT — differences and when each is used
+- Role system — how admin/readonly is implemented across frontend and DB
+- Full Mermaid sequence diagram — login → profile load → batch fetch → RLS evaluation
+- Security layers diagram — Frontend · HTTPS · Supabase Auth · RLS
+- The `loadHistory` bug and fix — why `allow_all` was not redundant
+
 ### Key architecture decisions
 
 **Zero spinner on reload:** user, role and display name are all read from

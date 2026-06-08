@@ -268,7 +268,7 @@ export default function SettingsPage({ hitMargin, closeRatio, onHitMarginChange,
               value={alertConfig.email ?? ''}
               onChange={e => onSaveAlertConfig({ email: e.target.value })}
               placeholder="you@email.com"
-              style={{ width: 200, fontSize: 12 }}
+              className="text-foreground bg-background border border-input rounded px-2 py-1 text-[12px] w-[200px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </Row>
 
@@ -371,7 +371,7 @@ export default function SettingsPage({ hitMargin, closeRatio, onHitMarginChange,
       <Section title="About">
         <Row label="Version" sub="Openbank Price Prediction">
           <Badge variant="secondary" className="text-[11px] font-mono">
-            v7.5.2
+            v7.5.4
           </Badge>
         </Row>
         <Row label="Documentation" sub="Full README on GitHub">
