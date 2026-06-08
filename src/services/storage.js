@@ -120,7 +120,7 @@ export async function saveHistory(history, batchMeta) {
     // Upsert — insert if new, update if same id
     const res = await fetch(endpoint(), {
       method:  'POST',
-      headers: { ...headers(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      headers: { ...authHeaders(), 'Prefer': 'resolution=merge-duplicates,return=representation' },
       body:    JSON.stringify(row),
     })
 
@@ -142,7 +142,7 @@ export async function deleteHistoryBatch(batchId) {
   try {
     const res = await fetch(endpoint(`?id=eq.${encodeURIComponent(batchId)}`), {
       method:  'DELETE',
-      headers: { ...headers(), 'Prefer': 'return=representation' },
+      headers: { ...authHeaders(), 'Prefer': 'return=representation' },
     })
     if (!res.ok) throw new Error('Supabase DELETE failed: ' + res.status)
     return true
