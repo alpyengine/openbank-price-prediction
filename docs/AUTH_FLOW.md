@@ -99,7 +99,7 @@ sequenceDiagram
     participant SB as Supabase Auth
     participant LS as localStorage
     participant ST as storage.js
-    participant DB as Supabase DB<br/>(tabla batches)
+    participant DB as Supabase DB (batches)
     participant RLS as RLS Policy
     participant APP as App.jsx / UI
 
@@ -109,39 +109,39 @@ sequenceDiagram
         LP->>SB: supabase.auth.signInWithPassword({ email, password })
         SB->>SB: Verifica credenciales en auth.users
         SB-->>LP: { session: { access_token: "eyJ..." }, user: { id, email } }
-        LP->>LS: Guarda JWT en localStorage<br/>key: "sb-yyenwz...-auth-token"
+        LP->>LS: Guarda JWT en localStorage (sb-yyenwz...-auth-token)
         LP->>AC: onAuthStateChange dispara → sesión activa
     end
 
     rect rgb(240, 255, 240)
         Note over AC,APP: FASE 2 — CARGA DE PERFIL Y ROL
-        AC->>DB: supabase.from('profiles').select('role,full_name')<br/>WHERE id = auth.uid()
+        AC->>DB: supabase.from('profiles').select('role,full_name') WHERE id = auth.uid()
         DB-->>AC: { role: 'admin', full_name: 'Alex' }
         AC->>APP: Expone { user, role, session } via React Context
-        APP->>APP: ProtectedRoute permite acceso<br/>Sidebar muestra opciones según role
+        APP->>APP: ProtectedRoute permite acceso — Sidebar según role
     end
 
     rect rgb(255, 248, 240)
         Note over APP,RLS: FASE 3 — CARGA DE BATCHES
         APP->>ST: useHistory → load() → loadHistory()
-        ST->>LS: authHeaders() lee JWT del localStorage<br/>key que contiene 'auth-token'
+        ST->>LS: authHeaders() lee JWT del localStorage
         LS-->>ST: access_token = "eyJhbGci..."
-        ST->>ST: Construye headers:<br/>apikey: ANON_KEY<br/>Authorization: Bearer <JWT>
+        ST->>ST: Construye headers: apikey + Authorization Bearer JWT
         ST->>DB: GET /rest/v1/batches?order=saved_at.desc
-        DB->>RLS: Evalúa política:<br/>auth.role() = 'authenticated'?
+        DB->>RLS: Evalúa política auth.role() = 'authenticated'?
         RLS->>RLS: Decodifica JWT → role: 'authenticated' ✅
         RLS-->>DB: Permite SELECT — todas las filas
         DB-->>ST: [ { id, date, results, ... }, ... ] — 9 batches
         ST-->>APP: { batches: [...] }
-        APP->>APP: setHistory(data)<br/>computed(history) → stats
+        APP->>APP: setHistory(data) — computed(history) → stats
         APP->>U: Renderiza tabla de batches, gráficos, All Stocks
     end
 
     rect rgb(255, 240, 240)
         Note over U,RLS: FASE 4 — QUÉ PASA SIN JWT VÁLIDO
         U->>ST: loadHistory() sin sesión (anon key solo)
-        ST->>DB: GET /rest/v1/batches<br/>Authorization: Bearer <ANON_KEY>
-        DB->>RLS: Evalúa política:<br/>auth.role() = 'authenticated'?
+        ST->>DB: GET /rest/v1/batches — Authorization: Bearer ANON_KEY
+        DB->>RLS: Evalúa política auth.role() = 'authenticated'?
         RLS->>RLS: Decodifica ANON_KEY → role: 'anon' ❌
         RLS-->>DB: Bloquea SELECT
         DB-->>ST: [] — array vacío
