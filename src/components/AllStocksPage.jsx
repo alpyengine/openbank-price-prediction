@@ -18,7 +18,7 @@
  * @param {Object} fundamentals — active-batch fundamentals from useFundamentals (merged as override)
  * @param {Object} weeklyPrices — { [ticker_batchId]: [{ week, close_price }] }
  */
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Download, ChevronDown, ChevronUp, Info, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -547,41 +547,71 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     return true
   }), [stocks, filterSec, filterMkt, filterPeg, minScore])
 
-  // Apply bestOnly filter on top of existing filters:
-  // upside > 0 for selected horizon is mandatory.
-  // Score >= 60 applied only when the stock has fundamentals loaded —
-  // avoids hiding high-upside tickers that haven't been refreshed yet.
+  // Apply bestOnly filter on top of existing filters.
+  // Uses upsideHoy (today's price → target) not upsideBase (batch price → target)
+  // so the filter reflects actual current opportunity, not stale batch data.
+  // Score >= 60 only when fundamentals loaded — never hides tickers without score.
   const filteredFinal = useMemo(() => {
     if (!bestOnly) return filtered
+    const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't6'
     return filtered.filter(s => {
-      const up = s[hKey]
-      if (up == null || up <= 0) return false
+      const uHoy = getUpsideHoy(s, tKey)
+      if (uHoy == null || uHoy <= 0) return false
       if (s.score != null && s.score < 60) return false
       return true
     })
-  }, [filtered, bestOnly, hKey])
+  }, [filtered, bestOnly, horizon, getUpsideHoy])
 
-  // Top 5 picks — always computed from ALL stocks (ignores active filters)
-  // so the user sees the best overall regardless of current filter state.
-  // Criterion: 'upside' (default) sorts by upside of selected horizon desc.
-  //            'score'           sorts by Investment Score desc (needs fundamentals).
-  // Ties broken by upside. Stocks with null upside/score are excluded.
+  // Top 5 picks — always computed from ALL stocks (ignores active filters).
+  // Uses upsideHoy = (target - refPrice) / refPrice where refPrice is:
+  //   latest weekly close → autoPrices → basePrice (cascade).
+  // This reflects real opportunity from today's price, not the stale batch price.
+  // Criterion: 'upside' sorts by upsideHoy desc.
+  //            'score'  sorts by Investment Score desc (needs fundamentals).
+  // Ties broken by upsideHoy. Stocks with upsideHoy <= 0 are excluded.
   const topPicks = useMemo(() => {
-    const candidates = stocks.filter(s => {
-      const up = s[hKey]
-      return up != null && up > 0
-    })
+    const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't6'
+    const candidates = stocks
+      .map(s => ({ s, uHoy: getUpsideHoy(s, tKey) }))
+      .filter(({ uHoy }) => uHoy != null && uHoy > 0)
     if (topPicksCriteria === 'score') {
-      return [...candidates]
-        .filter(s => s.score != null)
-        .sort((a, b) => (b.score - a.score) || ((b[hKey] ?? 0) - (a[hKey] ?? 0)))
+      return candidates
+        .filter(({ s }) => s.score != null)
+        .sort((a, b) => (b.s.score - a.s.score) || (b.uHoy - a.uHoy))
         .slice(0, 5)
+        .map(({ s, uHoy }) => ({ ...s, uHoy }))
     }
-    // default: upside
-    return [...candidates]
-      .sort((a, b) => ((b[hKey] ?? 0) - (a[hKey] ?? 0)))
+    // default: upsideHoy
+    return candidates
+      .sort((a, b) => b.uHoy - a.uHoy)
       .slice(0, 5)
-  }, [stocks, hKey, topPicksCriteria])
+      .map(({ s, uHoy }) => ({ ...s, uHoy }))
+  }, [stocks, horizon, topPicksCriteria, getUpsideHoy])
+
+  // getRefPrice — reference price for a stock, using the best available source.
+  // Cascade: latest weekly close (Supabase, updated Saturdays)
+  //          → autoPrices (live fetch from Twelve Data / AV)
+  //          → basePrice (batch snapshot — least accurate for old batches)
+  // Used by: topPicks upsideHoy, Left to target column, bestOnly filter.
+  const getRefPrice = useCallback((s) => {
+    const weekly = weeklyPrices[s.tNorm]?.[s.batchId]
+    if (weekly?.length) return weekly[weekly.length - 1]
+    if (autoPrices[s.tNorm] != null) return autoPrices[s.tNorm]
+    if (autoPrices[s.t]     != null) return autoPrices[s.t]
+    return s.b  // fallback to batch base price
+  }, [weeklyPrices, autoPrices])
+
+  // upsideHoy — real upside from today's price to target.
+  // upsideHoy = (target - refPrice) / refPrice × 100
+  // Positive = still has room to reach target.
+  // Negative = already above target (or reference price exceeds target).
+  const getUpsideHoy = useCallback((s, tKey) => {
+    const target = s[tKey]
+    if (!target) return null
+    const ref = getRefPrice(s)
+    if (!ref) return null
+    return (target - ref) / ref * 100
+  }, [getRefPrice])
 
   // Sort — supports ticker (alphabetical), upside, score, vsTarget (numeric)
   const sorted = useMemo(() => [...filteredFinal].sort((a, b) => {
@@ -590,14 +620,9 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     }
     if (sortCol === 'vsTarget') {
       const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
-      const getVsTarget = s => {
-        const prices = weeklyPrices[s.tNorm]?.[s.batchId]
-        const price  = prices?.length ? prices[prices.length - 1] : null
-        const target = s[tKey]
-        if (!price || !target) return -999
-        return (price - target) / target * 100
-      }
-      return sortDir * (getVsTarget(b) - getVsTarget(a))
+      const va = getUpsideHoy(a, tKey) ?? -999
+      const vb = getUpsideHoy(b, tKey) ?? -999
+      return sortDir * (vb - va)
     }
     const va = sortCol === 'upside' ? (a[hKey] ?? -999) : (a.score ?? -1)
     const vb = sortCol === 'upside' ? (b[hKey] ?? -999) : (b.score ?? -1)
@@ -694,7 +719,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           {/* Pick cards grid */}
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${topPicks.length}, minmax(0,1fr))` }}>
             {topPicks.map((s, i) => {
-              const up = s[hKey]
+              const uHoy = s.uHoy  // pre-computed in topPicks useMemo
               return (
                 <div
                   key={s.t}
@@ -719,11 +744,12 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   </div>
                   <div className="text-[15px] font-bold leading-none">{s.tDisplay ?? s.t}</div>
                   <div className="text-[11px] text-muted-foreground truncate leading-tight">{s.co}</div>
+                  {/* uHoy = (target - refPrice) / refPrice — real upside from today */}
                   <div className={cn(
                     'text-[12px] font-semibold',
-                    up >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'
+                    uHoy >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'
                   )}>
-                    {up != null ? fmtPct(up) : '—'}
+                    {uHoy != null ? fmtPct(uHoy) : '—'}
                   </div>
                   <div className="text-[10px] text-muted-foreground truncate">{s.sector !== '—' ? s.sector : ''}</div>
                 </div>
@@ -877,7 +903,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 </div>
               </th>
 
-              {/* vs Target column — distance of current price to target */}
+              {/* Left to target — how much upside remains from today's price */}
               <th className="px-3 py-2.5 text-right">
                 <div className="flex flex-col items-end gap-0.5">
                   <div className="flex items-center gap-0.5">
@@ -888,9 +914,9 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                       )}
                       style={{ fontFamily: 'inherit' }}
                     >
-                      vs Target {sortIcon('vsTarget')}
+                      Left to target {sortIcon('vsTarget')}
                     </button>
-                    <ColTooltip text="Distance of the most recent weekly closing price to the Openbank AI target for the selected horizon. Updated every Saturday by the weekly price cron. Positive = already above target. Negative = how far still to go.">
+                    <ColTooltip text="How much upside remains from today's price to the Openbank AI target. Formula: (target − refPrice) / refPrice. refPrice = latest weekly close (Sat cron) → live fetch → batch base price. Green = target still reachable. Red = price already above target.">
                       <div className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-foreground">Formula: (lastWeeklyPrice − target) / target × 100</span>
                         <span className="text-[10px] text-blue-700">🔵 Positive = above target</span>
@@ -1066,22 +1092,18 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                     {fmtPct(u)}
                   </td>
 
-                  {/* vs Target — distance of most recent weekly price to target.
-                      Uses the last entry in weeklyPrices[ticker][batchId] —
-                      updated every Saturday by the fetch_weekly_prices cron.
-                      Blue if above target (exceeded), red if below. */}
+                  {/* Left to target — (target − refPrice) / refPrice.
+                      refPrice cascade: latest weekly close → autoPrices → basePrice.
+                      Green = positive (target still reachable from today's price).
+                      Red   = negative (price already exceeded target). */}
                   {(() => {
-                    const tKey   = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
-                    const target = s[tKey]
-                    // Get the most recent weekly close price for this ticker
-                    const prices = weeklyPrices[s.tNorm]?.[s.batchId]
-                    const price  = prices?.length ? prices[prices.length - 1] : null
-                    const vt     = (price && target) ? (price - target) / target * 100 : null
+                    const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
+                    const vt   = getUpsideHoy(s, tKey)
                     return (
                       <td className={cn('px-3 py-2.5 text-right font-bold',
                         vt == null ? 'text-muted-foreground'
-                        : vt >= 0  ? 'text-blue-600'
-                        : 'text-red-600'
+                        : vt >= 0  ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-500'
                       )}>
                         {vt != null ? `${vt >= 0 ? '+' : ''}${vt.toFixed(1)}%` : '—'}
                       </td>
@@ -1142,7 +1164,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       </div>
 
       <div className="text-[10px] text-muted-foreground text-right">
-        Sorted by {sortCol === 'upside' ? `Upside ${horizon}` : sortCol === 'score' ? 'Score' : sortCol === 'vsTarget' ? `vs Target ${horizon}` : 'Ticker'} {sortDir === -1 ? 'desc' : 'asc'} · Click column headers to re-sort
+        Sorted by {sortCol === 'upside' ? `Upside ${horizon}` : sortCol === 'score' ? 'Score' : sortCol === 'vsTarget' ? `Left to target ${horizon}` : 'Ticker'} {sortDir === -1 ? 'desc' : 'asc'} · Click column headers to re-sort
       </div>
 
       {/* TradingView modal — opens when TV icon clicked */}

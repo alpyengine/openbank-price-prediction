@@ -2903,3 +2903,71 @@ Tests: 164/164 passing"
 
 git tag v7.5.6
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 150 — v7.5.7  All Stocks — real upside from today's price
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/components/AllStocksPage.jsx:
+#
+#   getRefPrice(s) useCallback:
+#     Returns the best available reference price for a stock.
+#     Cascade: latest weekly close (Supabase, updated every Saturday)
+#              → autoPrices (live Twelve Data / Alpha Vantage fetch)
+#              → basePrice (batch snapshot — fallback only)
+#
+#   getUpsideHoy(s, tKey) useCallback:
+#     upsideHoy = (target − refPrice) / refPrice × 100
+#     Positive = target still reachable from today's price.
+#     Negative = price already exceeded target.
+#
+#   topPicks useMemo updated:
+#     Now ranks by upsideHoy instead of upsideBase.
+#     Stale batch prices no longer inflate the ranking for old batches.
+#     Cards show real upside from today.
+#
+#   filteredFinal useMemo updated:
+#     bestOnly filter now uses upsideHoy > 0 instead of upsideBase > 0.
+#     Hides stocks that have already reached or exceeded their target.
+#
+#   "vs Target" column renamed to "Left to target":
+#     Formula inverted: was (price − target) / target
+#                       now (target − price) / price  [= upsideHoy]
+#     Color: green if positive (recorrido pendiente), red if negative
+#            (precio ya superó el target).
+#     Was blue/red — now green/red to match upside color convention.
+#     Tooltip updated to explain refPrice cascade and new formula.
+#     Footer sort label updated: "vs Target" → "Left to target".
+#
+#   useCallback added to React import.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.7/. .
+
+git add .
+git commit -m "feat: Left to target column + real upside from today's price (v7.5.7)
+
+AllStocksPage.jsx:
+  getRefPrice(s): weekly close → autoPrices → basePrice cascade.
+  getUpsideHoy(s, tKey): (target - refPrice) / refPrice × 100.
+
+  topPicks: ranks by upsideHoy — no longer inflated by stale batch prices.
+  filteredFinal/bestOnly: uses upsideHoy > 0 to filter.
+
+  'vs Target' renamed to 'Left to target':
+    Formula inverted to (target - refPrice) / refPrice.
+    Green if positive (recorrido pendiente), red if exceeded.
+    Tooltip updated with refPrice cascade explanation.
+
+  useCallback added to React import.
+
+Tests: 164/164 passing"
+
+git tag v7.5.7
+git push origin main --tags
