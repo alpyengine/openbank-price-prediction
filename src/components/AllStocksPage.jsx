@@ -547,7 +547,32 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     return true
   }), [stocks, filterSec, filterMkt, filterPeg, minScore])
 
-  // Apply bestOnly filter on top of existing filters.
+  // getRefPrice — reference price for a stock, using the best available source.
+  // Cascade: latest weekly close (Supabase, updated Saturdays)
+  //          → autoPrices (live fetch from Twelve Data / AV)
+  //          → basePrice (batch snapshot — least accurate for old batches)
+  // Used by: topPicks upsideHoy, Left to target column, bestOnly filter.
+  const getRefPrice = useCallback((s) => {
+    const weekly = weeklyPrices[s.tNorm]?.[s.batchId]
+    if (weekly?.length) return weekly[weekly.length - 1]
+    if (autoPrices[s.tNorm] != null) return autoPrices[s.tNorm]
+    if (autoPrices[s.t]     != null) return autoPrices[s.t]
+    return s.b  // fallback to batch base price
+  }, [weeklyPrices, autoPrices])
+
+  // upsideHoy — real upside from today's price to target.
+  // upsideHoy = (target - refPrice) / refPrice × 100
+  // Positive = still has room to reach target.
+  // Negative = already above target (or reference price exceeds target).
+  const getUpsideHoy = useCallback((s, tKey) => {
+    const target = s[tKey]
+    if (!target) return null
+    const ref = getRefPrice(s)
+    if (!ref) return null
+    return (target - ref) / ref * 100
+  }, [getRefPrice])
+
+    // Apply bestOnly filter on top of existing filters.
   // Uses upsideHoy (today's price → target) not upsideBase (batch price → target)
   // so the filter reflects actual current opportunity, not stale batch data.
   // Score >= 60 only when fundamentals loaded — never hides tickers without score.
@@ -593,26 +618,6 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   //          → autoPrices (live fetch from Twelve Data / AV)
   //          → basePrice (batch snapshot — least accurate for old batches)
   // Used by: topPicks upsideHoy, Left to target column, bestOnly filter.
-  const getRefPrice = useCallback((s) => {
-    const weekly = weeklyPrices[s.tNorm]?.[s.batchId]
-    if (weekly?.length) return weekly[weekly.length - 1]
-    if (autoPrices[s.tNorm] != null) return autoPrices[s.tNorm]
-    if (autoPrices[s.t]     != null) return autoPrices[s.t]
-    return s.b  // fallback to batch base price
-  }, [weeklyPrices, autoPrices])
-
-  // upsideHoy — real upside from today's price to target.
-  // upsideHoy = (target - refPrice) / refPrice × 100
-  // Positive = still has room to reach target.
-  // Negative = already above target (or reference price exceeds target).
-  const getUpsideHoy = useCallback((s, tKey) => {
-    const target = s[tKey]
-    if (!target) return null
-    const ref = getRefPrice(s)
-    if (!ref) return null
-    return (target - ref) / ref * 100
-  }, [getRefPrice])
-
   // Sort — supports ticker (alphabetical), upside, score, vsTarget (numeric)
   const sorted = useMemo(() => [...filteredFinal].sort((a, b) => {
     if (sortCol === 'ticker') {

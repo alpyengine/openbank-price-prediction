@@ -2950,7 +2950,7 @@ git push origin main --tags
 find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.7/. .
 
-git add .
+git add src/components/AllStocksPage.jsx
 git commit -m "feat: Left to target column + real upside from today's price (v7.5.7)
 
 AllStocksPage.jsx:
@@ -2970,4 +2970,45 @@ AllStocksPage.jsx:
 Tests: 164/164 passing"
 
 git tag v7.5.7
+git push origin main --tags
+
+
+# ===========================================================================
+# STEP 151 — v7.5.8  Fix: getRefPrice/getUpsideHoy declaration order
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# BUG FIXED:
+#   ReferenceError: Cannot access 'ge' before initialization
+#   Root cause: getRefPrice and getUpsideHoy were declared (useCallback)
+#   AFTER filteredFinal and topPicks (useMemo) that consume them.
+#   Unlike regular function declarations, useCallback expressions are NOT
+#   hoisted — they must appear before any useMemo that references them.
+#
+# FIX:
+#   Moved getRefPrice and getUpsideHoy declarations to BEFORE filteredFinal.
+#   Correct order in component body:
+#     1. getRefPrice    (useCallback)
+#     2. getUpsideHoy   (useCallback — depends on getRefPrice)
+#     3. filteredFinal  (useMemo    — depends on getUpsideHoy)
+#     4. topPicks       (useMemo    — depends on getUpsideHoy)
+#     5. sorted         (useMemo    — depends on filteredFinal)
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.8/. .
+
+git add .
+git commit -m "fix: getRefPrice/getUpsideHoy declaration order (v7.5.8)
+
+ReferenceError: Cannot access before initialization on AllStocksPage load.
+useCallback expressions are not hoisted — must be declared before the
+useMemo hooks that consume them.
+
+Correct order: getRefPrice → getUpsideHoy → filteredFinal → topPicks → sorted.
+
+Tests: 164/164 passing"
+
+git tag v7.5.8
 git push origin main --tags
