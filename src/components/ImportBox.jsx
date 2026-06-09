@@ -69,15 +69,23 @@ function parseCSV(text, onImport, setError, setCsv, setMsg, setPreview) {
     const p = line.split(',').map(x => x.trim())
     if (p.length < 8) { bad.push(`Row ${i + 1}: needs at least 8 fields`); return }
     const base = p[8] ? parseDate(p[8]) : TODAY
+    // parseHorizon — returns null if the value is missing, '--', or 0.
+    // A null horizon is skipped entirely when saving to Supabase (no junk rows).
+    const parseHorizon = (raw) => {
+      if (!raw || raw.trim() === '--' || raw.trim() === '') return null
+      const n = +raw
+      return n > 0 ? n : null
+    }
+
     stocks.push({
       t:   normalizeTicker(p[0]),  // .US stripped, .DE/.AS etc. preserved
       co:  p[1],
       cu:  p[2],
       b:   +p[3] || 0,
-      t1:  +p[4] || 0,
-      t3:  +p[5] || 0,
-      t6:  +p[6] || 0,
-      t12: +p[7] || 0,
+      t1:  parseHorizon(p[4]),
+      t3:  parseHorizon(p[5]),
+      t6:  parseHorizon(p[6]),
+      t12: parseHorizon(p[7]),   // null for new batches that omit 12M
       base: base || TODAY,
     })
   })
@@ -210,10 +218,10 @@ export default function ImportBox({ onImport }) {
                     <TableCell className="py-1.5 px-2 max-w-[140px] truncate">{s.co}</TableCell>
                     <TableCell className="py-1.5 px-2 text-muted-foreground">{s.cu}</TableCell>
                     <TableCell className="py-1.5 px-2">{s.b.toFixed(2)}</TableCell>
-                    <TableCell className="py-1.5 px-2 text-success">{s.t1.toFixed(2)}</TableCell>
-                    <TableCell className="py-1.5 px-2 text-success">{s.t3.toFixed(2)}</TableCell>
-                    <TableCell className="py-1.5 px-2 text-success">{s.t6.toFixed(2)}</TableCell>
-                    <TableCell className="py-1.5 px-2 text-success">{s.t12.toFixed(2)}</TableCell>
+                    <TableCell className="py-1.5 px-2 text-success">{s.t1  != null ? s.t1.toFixed(2)  : <span className="text-muted-foreground">--</span>}</TableCell>
+                    <TableCell className="py-1.5 px-2 text-success">{s.t3  != null ? s.t3.toFixed(2)  : <span className="text-muted-foreground">--</span>}</TableCell>
+                    <TableCell className="py-1.5 px-2 text-success">{s.t6  != null ? s.t6.toFixed(2)  : <span className="text-muted-foreground">--</span>}</TableCell>
+                    <TableCell className="py-1.5 px-2 text-success">{s.t12 != null ? s.t12.toFixed(2) : <span className="text-muted-foreground">--</span>}</TableCell>
                     <TableCell className="py-1.5 px-2 text-muted-foreground font-mono text-[11px]">
                       {s.base
                         ? `${String(s.base.getDate()).padStart(2, '0')}/${String(s.base.getMonth() + 1).padStart(2, '0')}/${s.base.getFullYear()}`

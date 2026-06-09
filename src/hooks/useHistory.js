@@ -153,6 +153,12 @@ export function useHistory(margin = 5) {
     for (const stock of stocks) {
       for (const h of HORIZONS) {
         const tgt     = getTarget(stock, h)
+
+        // Skip this horizon entirely if there is no target price.
+        // This happens when the CSV had '--' or empty for this column
+        // (e.g. new batches without 12M). Skipping avoids junk rows in Supabase.
+        if (!tgt || tgt <= 0) continue
+
         const tgtDate = getTargetDate(stock, h)
 
         // A horizon is only evaluable if its target date has passed

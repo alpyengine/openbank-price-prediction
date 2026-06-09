@@ -503,7 +503,10 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   // Merge fundamentals + score
   const stocks = useMemo(() => baseStocks.map(s => {
     const f = allFundamentals[s.t] || allFundamentals[s.tNorm]
-    const score = calcScore(s.u12, f)
+    // Use u12 as primary upside for score; fall back to u6, then u3 for
+    // batches that don't include a 12M horizon (new format from v7.5.5+).
+    const scoreUpside = s.u12 ?? s.u6 ?? s.u3
+    const score = calcScore(scoreUpside, f)
     return {
       ...s,
       sector:    f?.sector        || '—',

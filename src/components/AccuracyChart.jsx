@@ -398,11 +398,20 @@ export default function AccuracyChart({
             {stats.byHorizon.map((h, i) => {
               const pct    = h.hitRate    ?? 0
               const pctExt = h.hitRateExt ?? 0
+              const isLegacy = h.horizon === '12M'
+              const noData   = h.total === 0
               return (
-                <Card key={h.horizon} className="p-4">
+                <Card key={h.horizon} className={cn('p-4', isLegacy && noData && 'opacity-60')}>
                   <div className="flex justify-between items-center mb-2">
                     <div>
-                      <span className="text-xs text-muted-foreground font-medium">{h.horizon} horizon</span>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {h.horizon} horizon
+                        {isLegacy && (
+                          <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            legacy
+                          </span>
+                        )}
+                      </span>
                       <div className="text-[10px] text-muted-foreground">
                         H=±{h.H}% · close&lt;{+(h.H * h.R).toFixed(1)}%
                       </div>
@@ -430,9 +439,14 @@ export default function AccuracyChart({
                       style={{ width: `${pctExt}%`, background: '#8b5cf6' }}
                     />
                   </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {h.hit} hit · {h.exceeded} exc · {h.miss} miss · {h.total} total
-                  </div>
+                  {noData
+                    ? <div className="text-[11px] text-muted-foreground italic">
+                        {isLegacy ? 'legacy batches only' : 'no data yet'}
+                      </div>
+                    : <div className="text-[11px] text-muted-foreground">
+                        {h.hit} hit · {h.exceeded} exc · {h.miss} miss · {h.total} total
+                      </div>
+                  }
                 </Card>
               )
             })}

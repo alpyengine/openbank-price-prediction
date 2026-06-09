@@ -2825,3 +2825,39 @@ git tag v7.5.4
 
 # 5. Push
 git push origin main --tags
+
+# ===============================================================================
+# STEP 148 — v7.5.5  Drop 12M horizon from new batches
+# ===============================================================================
+#
+
+## Step 148
+
+### Changes
+
+- `src/components/ImportBox.jsx` — `parseHorizon()` helper: returns null if value is `--`, empty or 0. Horizons with null are not sent to Supabase. Preview table shows `--` instead of `0.00` for missing horizons.
+- `src/hooks/useHistory.js` — `saveBatch()`: skips `results.push()` for any horizon where `targetPrice` is null or 0. Prevents junk rows in Supabase for new 3-horizon batches.
+- `src/pages/AllStocksPage.jsx` — `calcScore()` call: uses `u12 ?? u6 ?? u3` fallback so Investment Score is not penalised when 12M horizon is absent.
+- `src/components/AccuracyChart.jsx` — 12M horizon card gets a `legacy` badge and reduced opacity when `total === 0`. All cards show "no data yet" / "legacy batches only" instead of `0 hit · 0 exc · 0 miss · 0 total` when empty.
+
+### Manual Supabase steps
+
+None required. No schema changes.
+
+### Commit
+
+
+
+git add .
+git commit -m "feat: v7.5.5 — drop 12M horizon from new batches
+
+- ImportBox: parseHorizon() skips -- / empty / 0 values (returns null)
+- ImportBox: preview table shows -- for null horizons
+- useHistory/saveBatch: skip results row if targetPrice null or 0
+- AllStocksPage: calcScore fallback u12 ?? u6 ?? u3
+- AccuracyChart: 12M card shows legacy badge + opacity-60 when no data
+- AccuracyChart: empty horizon cards show 'no data yet' instead of zeros"
+
+
+git tag v7.5.5
+git push origin main --tags
