@@ -8,7 +8,8 @@
  *   2. How to use — step by step workflow with screenshot
  *   3. Verdict system — explanation of hit/exceeded/close/miss/wrong_way
  *   4. Snapshot thresholds — the fixed params used for Supabase storage
- *   5. Verify your data — SQL queries to check Supabase is storing correctly
+ *   5. All Stocks — Top picks, Best only filter, Investment Score
+ *   6. Verify your data — SQL queries to check Supabase is storing correctly
  */
 import { SNAPSHOT_PARAMS } from '@/utils/stocks.js'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -286,7 +287,98 @@ export default function HelpPage() {
         </p>
       </Section>
 
-      {/* ── 5. Verify your data in Supabase ──────────────────────────── */}
+      {/* ── 5. All Stocks — Top picks & filters ───────────────────────── */}
+      <Section title="All Stocks — Top picks &amp; Best only filter">
+        <p className="text-sm text-muted-foreground mb-4">
+          The <strong>All Stocks</strong> page consolidates every unique ticker across all your batches into a single ranked view.
+          The most recent batch wins when the same ticker appears in multiple batches.
+        </p>
+
+        <div className="text-[13px] font-semibold mb-2">Top 5 picks</div>
+        <p className="text-sm text-muted-foreground mb-3">
+          The five cards at the top always show the best candidates from your entire stock universe —
+          independent of any active filters. Two ranking criteria are available via the toggle:
+        </p>
+        <ul className="text-sm text-muted-foreground space-y-1.5 mb-4 list-none pl-0">
+          <li className="flex gap-2">
+            <span className="font-semibold text-foreground min-w-[56px]">Upside</span>
+            <span>
+              Default. Ranks by expected % gain from batch base price to Openbank target for the selected horizon (1M/3M/6M).
+              Works for all tickers — no fundamentals required. Only tickers with upside &gt; 0 qualify.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="font-semibold text-foreground min-w-[56px]">Score</span>
+            <span>
+              Ranks by Investment Score (0–100). Only tickers with fundamentals loaded via <em>Refresh Fundamentals</em> appear.
+              Use this when you want to weight valuation quality alongside upside.
+            </span>
+          </li>
+        </ul>
+        <p className="text-sm text-muted-foreground mb-4">
+          Clicking a pick card navigates directly to that ticker's batch in Batch Overview.
+          The Investment Score badge is shown on each card when available — even when sorting by upside.
+        </p>
+
+        <div className="text-[13px] font-semibold mb-2">Investment Score (0–100)</div>
+        <p className="text-sm text-muted-foreground mb-2">
+          Combines three factors into a single number to help prioritise tickers:
+        </p>
+        <div className="overflow-x-auto mb-3">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-muted">
+                <th className="px-3 py-2 text-left font-semibold border border-border">Factor</th>
+                <th className="px-3 py-2 text-left font-semibold border border-border">Weight</th>
+                <th className="px-3 py-2 text-left font-semibold border border-border">What it measures</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="px-3 py-2 border border-border font-medium">Upside</td>
+                <td className="px-3 py-2 border border-border">40%</td>
+                <td className="px-3 py-2 border border-border">% gain from base price to Openbank target (u12 → u6 → u3 fallback)</td>
+              </tr>
+              <tr className="bg-muted/30">
+                <td className="px-3 py-2 border border-border font-medium">PEG ratio</td>
+                <td className="px-3 py-2 border border-border">45%</td>
+                <td className="px-3 py-2 border border-border">Price/earnings-to-growth — lower means better value. Requires Finnhub data.</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 border border-border font-medium">Net Margin</td>
+                <td className="px-3 py-2 border border-border">15%</td>
+                <td className="px-3 py-2 border border-border">Profitability quality factor. Requires Finnhub data.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="text-sm text-muted-foreground mb-1">
+          A <span className="font-semibold">−20 penalty</span> is applied if EPS growth is negative (value trap signal).
+          Upside uses 12M as primary horizon with automatic fallback to 6M then 3M — so batches without 12M are scored correctly.
+        </p>
+        <p className="text-sm text-muted-foreground mb-4">
+          Score badges: <span className="font-bold text-violet-600">80+</span> purple ·{' '}
+          <span className="font-bold text-blue-600">60+</span> blue ·{' '}
+          <span className="font-bold text-amber-600">40+</span> amber ·{' '}
+          below 40 grey. A <span className="font-semibold">null score (—)</span> means fundamentals
+          have not been loaded for that ticker — run <em>Refresh Fundamentals</em> in Batch Overview.
+        </p>
+
+        <div className="text-[13px] font-semibold mb-2">Best only filter</div>
+        <p className="text-sm text-muted-foreground mb-2">
+          The <strong>⚡ Best only</strong> button in the filter bar applies two conditions at once to cut through the noise:
+        </p>
+        <ul className="text-sm text-muted-foreground space-y-1 mb-3 pl-4 list-disc">
+          <li><strong>Upside &gt; 0</strong> for the selected horizon — always applied. Hides tickers where the forecast is negative.</li>
+          <li><strong>Score ≥ 60</strong> — applied only when the ticker has fundamentals loaded. Tickers without a score are kept so high-upside stocks without fundamentals are never hidden.</li>
+        </ul>
+        <p className="text-sm text-muted-foreground">
+          Best only can be combined with the market, sector and PEG filters for more targeted views.
+          Toggle it off to return to the full list.
+        </p>
+      </Section>
+
+      {/* ── 6. Verify your data in Supabase ──────────────────────────── */}
       <Section title="Verify your data in Supabase">
         <p className="text-[12px] text-muted-foreground mb-3">
           Run these SQL queries in the <strong>Supabase Dashboard → SQL Editor</strong>

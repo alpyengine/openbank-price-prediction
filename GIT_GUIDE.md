@@ -2826,38 +2826,80 @@ git tag v7.5.4
 # 5. Push
 git push origin main --tags
 
-# ===============================================================================
-# STEP 148 — v7.5.5  Drop 12M horizon from new batches
-# ===============================================================================
+# ===========================================================================
+# STEP 149 — v7.5.6  All Stocks — Top 5 picks + Best only filter
+# ===========================================================================
 #
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/components/AllStocksPage.jsx:
+#     topPicksCriteria state — 'upside' (default) | 'score'
+#       'upside': ranks Top 5 by upside of selected horizon — works without
+#                 fundamentals. Only tickers with upside > 0 qualify.
+#       'score':  ranks Top 5 by Investment Score — requires Refresh Fundamentals.
+#       Toggle control rendered in the Top picks header row.
+#
+#     topPicks useMemo — computes Top 5 from ALL stocks (ignores active filters)
+#       so the ranking is always the full universe, not the filtered subset.
+#
+#     TopPicks section — 5 cards between KPIs and filter bar:
+#       #1 card has violet border accent.
+#       Each card: rank, ticker (display), company, upside %, sector, Score badge.
+#       Clicking a card navigates to that ticker's batch in Batch Overview.
+#       Grid is responsive: always fills 5 equal columns.
+#
+#     bestOnly state + filteredFinal useMemo:
+#       When bestOnly=true, applies upside > 0 (mandatory) and score >= 60
+#       only when score is available — never hides tickers without fundamentals.
+#       filteredFinal replaces filtered as the input to sorted useMemo.
+#
+#     Best only button — in filter bar, before stock count:
+#       Zap icon (lucide-react). Green when active.
+#       Inline hint text: "upside > 0 · score ≥ 60 if available"
+#       Can be combined with all existing filters (market/sector/PEG/score min).
+#
+#     Zap imported from lucide-react.
+#
+#   src/components/HelpPage.jsx:
+#     New section 5: "All Stocks — Top picks & Best only filter"
+#       Explains Top 5: upside vs score criteria, how cards work, click behaviour.
+#       Investment Score table: Upside 40% / PEG 45% / Net Margin 15%.
+#       Documents u12 → u6 → u3 fallback for batches without 12M.
+#       Score badge colour guide (purple/blue/amber/grey).
+#       Best only: exact filter conditions documented.
+#     Previous section 5 (Verify your data) renumbered to 6.
+#     JSDoc updated: 6 sections listed.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.6/. .
 
-## Step 148
+git add src/components/AllStocksPage.jsx src/components/HelpPage.jsx
+git commit -m "feat: All Stocks Top 5 picks + Best only filter (v7.5.6)
 
-### Changes
+AllStocksPage.jsx:
+  topPicksCriteria state: 'upside' (default) | 'score' toggle.
+  topPicks useMemo: Top 5 from full stock universe, independent of filters.
+  TopPicks section: 5 cards between KPIs and filter bar.
+    Rank, ticker, company, upside %, sector, Score badge per card.
+    #1 card highlighted with violet border.
+    Click navigates to ticker batch in Batch Overview.
+  bestOnly state + filteredFinal useMemo:
+    upside > 0 mandatory. score >= 60 only when fundamentals loaded.
+    Never hides tickers without fundamentals (high upside but no score).
+  Best only button: Zap icon, green when active, in filter bar.
+  Zap added to lucide-react import.
 
-- `src/components/ImportBox.jsx` — `parseHorizon()` helper: returns null if value is `--`, empty or 0. Horizons with null are not sent to Supabase. Preview table shows `--` instead of `0.00` for missing horizons.
-- `src/hooks/useHistory.js` — `saveBatch()`: skips `results.push()` for any horizon where `targetPrice` is null or 0. Prevents junk rows in Supabase for new 3-horizon batches.
-- `src/pages/AllStocksPage.jsx` — `calcScore()` call: uses `u12 ?? u6 ?? u3` fallback so Investment Score is not penalised when 12M horizon is absent.
-- `src/components/AccuracyChart.jsx` — 12M horizon card gets a `legacy` badge and reduced opacity when `total === 0`. All cards show "no data yet" / "legacy batches only" instead of `0 hit · 0 exc · 0 miss · 0 total` when empty.
+HelpPage.jsx:
+  New section 5: All Stocks — Top picks & Best only filter.
+  Investment Score table (Upside 40% / PEG 45% / Margin 15%).
+  u12 → u6 → u3 fallback documented.
+  Best only filter conditions documented.
+  Verify section renumbered to 6.
 
-### Manual Supabase steps
+Tests: 164/164 passing"
 
-None required. No schema changes.
-
-### Commit
-
-
-
-git add .
-git commit -m "feat: v7.5.5 — drop 12M horizon from new batches
-
-- ImportBox: parseHorizon() skips -- / empty / 0 values (returns null)
-- ImportBox: preview table shows -- for null horizons
-- useHistory/saveBatch: skip results row if targetPrice null or 0
-- AllStocksPage: calcScore fallback u12 ?? u6 ?? u3
-- AccuracyChart: 12M card shows legacy badge + opacity-60 when no data
-- AccuracyChart: empty horizon cards show 'no data yet' instead of zeros"
-
-
-git tag v7.5.5
+git tag v7.5.6
 git push origin main --tags

@@ -19,7 +19,7 @@
  * @param {Object} weeklyPrices — { [ticker_batchId]: [{ week, close_price }] }
  */
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { TrendingUp, TrendingDown, Download, ChevronDown, ChevronUp, Info } from 'lucide-react'
+import { TrendingUp, TrendingDown, Download, ChevronDown, ChevronUp, Info, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { loadAllWeeklyPrices, loadFundamentalsCache } from '@/services/storage'
@@ -455,6 +455,12 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   const [filterMkt,    setFilterMkt]    = useState('')  // '' | 'US' | 'DE' | 'AS' | 'PA' | 'L' | 'MC'
   const [minScore,     setMinScore]     = useState(0)
   const [legendOpen,   setLegendOpen]   = useState(false)
+  // topPicksCriteria — 'upside' (default) | 'score'
+  // 'upside': rank by upside of selected horizon (works without fundamentals)
+  // 'score':  rank by Investment Score (requires Refresh Fundamentals)
+  const [topPicksCriteria, setTopPicksCriteria] = useState('upside')
+  // bestOnly — when true, filters table to upside > 0 (+ score >= 60 if available)
+  const [bestOnly, setBestOnly] = useState(false)
   // weeklyPrices passed from App.jsx (loaded once, shared with WatchlistPage)
   const weeklyPrices = weeklyPricesProps
   // tvTicker — ticker currently open in TradingView modal (null = closed)
@@ -503,10 +509,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   // Merge fundamentals + score
   const stocks = useMemo(() => baseStocks.map(s => {
     const f = allFundamentals[s.t] || allFundamentals[s.tNorm]
-    // Use u12 as primary upside for score; fall back to u6, then u3 for
-    // batches that don't include a 12M horizon (new format from v7.5.5+).
-    const scoreUpside = s.u12 ?? s.u6 ?? s.u3
-    const score = calcScore(scoreUpside, f)
+    const score = calcScore(s.u12, f)
     return {
       ...s,
       sector:    f?.sector        || '—',
@@ -544,8 +547,44 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     return true
   }), [stocks, filterSec, filterMkt, filterPeg, minScore])
 
+  // Apply bestOnly filter on top of existing filters:
+  // upside > 0 for selected horizon is mandatory.
+  // Score >= 60 applied only when the stock has fundamentals loaded —
+  // avoids hiding high-upside tickers that haven't been refreshed yet.
+  const filteredFinal = useMemo(() => {
+    if (!bestOnly) return filtered
+    return filtered.filter(s => {
+      const up = s[hKey]
+      if (up == null || up <= 0) return false
+      if (s.score != null && s.score < 60) return false
+      return true
+    })
+  }, [filtered, bestOnly, hKey])
+
+  // Top 5 picks — always computed from ALL stocks (ignores active filters)
+  // so the user sees the best overall regardless of current filter state.
+  // Criterion: 'upside' (default) sorts by upside of selected horizon desc.
+  //            'score'           sorts by Investment Score desc (needs fundamentals).
+  // Ties broken by upside. Stocks with null upside/score are excluded.
+  const topPicks = useMemo(() => {
+    const candidates = stocks.filter(s => {
+      const up = s[hKey]
+      return up != null && up > 0
+    })
+    if (topPicksCriteria === 'score') {
+      return [...candidates]
+        .filter(s => s.score != null)
+        .sort((a, b) => (b.score - a.score) || ((b[hKey] ?? 0) - (a[hKey] ?? 0)))
+        .slice(0, 5)
+    }
+    // default: upside
+    return [...candidates]
+      .sort((a, b) => ((b[hKey] ?? 0) - (a[hKey] ?? 0)))
+      .slice(0, 5)
+  }, [stocks, hKey, topPicksCriteria])
+
   // Sort — supports ticker (alphabetical), upside, score, vsTarget (numeric)
-  const sorted = useMemo(() => [...filtered].sort((a, b) => {
+  const sorted = useMemo(() => [...filteredFinal].sort((a, b) => {
     if (sortCol === 'ticker') {
       return sortDir * a.t.localeCompare(b.t)
     }
@@ -612,6 +651,87 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           </div>
         ))}
       </div>
+
+      {/* ── Top 5 picks ────────────────────────────────────────────────────── */}
+      {topPicks.length > 0 && (
+        <div>
+          {/* Header row: label + criteria toggle */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                Top picks
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                · {horizon} horizon · sorted by {topPicksCriteria === 'upside' ? 'upside' : 'score'}
+              </span>
+            </div>
+            {/* Criteria toggle — upside (default) vs score */}
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+              <button
+                onClick={() => setTopPicksCriteria('upside')}
+                className={cn(
+                  'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
+                  topPicksCriteria === 'upside'
+                    ? 'bg-card text-foreground shadow-sm border border-border'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Upside
+              </button>
+              <button
+                onClick={() => setTopPicksCriteria('score')}
+                className={cn(
+                  'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
+                  topPicksCriteria === 'score'
+                    ? 'bg-card text-foreground shadow-sm border border-border'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                Score
+              </button>
+            </div>
+          </div>
+          {/* Pick cards grid */}
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${topPicks.length}, minmax(0,1fr))` }}>
+            {topPicks.map((s, i) => {
+              const up = s[hKey]
+              return (
+                <div
+                  key={s.t}
+                  className={cn(
+                    'bg-card border rounded-xl p-3 flex flex-col gap-1.5 cursor-pointer hover:bg-muted/30 transition-colors',
+                    i === 0 ? 'border-violet-400 dark:border-violet-600' : 'border-border'
+                  )}
+                  onClick={() => {
+                    if (!onLoadBatch || !onNav) return
+                    const batch = [...(batches ?? [])]
+                      .sort((a, b) => new Date(b.id) - new Date(a.id))
+                      .find(b => b.results?.some(r => r.ticker === s.tNorm || r.ticker === s.t))
+                    if (batch) { onLoadBatch(batch); onNav('batch-detail') }
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground font-medium">#{i + 1}</span>
+                    {s.score != null
+                      ? <ScoreBadge score={s.score} />
+                      : <span className="text-[10px] text-muted-foreground">—</span>
+                    }
+                  </div>
+                  <div className="text-[15px] font-bold leading-none">{s.tDisplay ?? s.t}</div>
+                  <div className="text-[11px] text-muted-foreground truncate leading-tight">{s.co}</div>
+                  <div className={cn(
+                    'text-[12px] font-semibold',
+                    up >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'
+                  )}>
+                    {up != null ? fmtPct(up) : '—'}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate">{s.sector !== '—' ? s.sector : ''}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Filters ────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -683,6 +803,26 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           />
           <span className="font-bold text-foreground min-w-[20px]">{minScore}</span>
         </div>
+
+        {/* Best only toggle — upside > 0 mandatory, score >= 60 if available */}
+        <div className="w-px h-3.5 bg-border" />
+        <button
+          onClick={() => setBestOnly(b => !b)}
+          className={cn(
+            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors',
+            bestOnly
+              ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-400'
+              : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+          )}
+        >
+          <Zap size={11} />
+          Best only
+        </button>
+        {bestOnly && (
+          <span className="text-[10px] text-muted-foreground">
+            upside &gt; 0{stocks.some(s => s.score != null) ? ' · score ≥ 60 if available' : ''}
+          </span>
+        )}
 
         <span className="ml-auto text-[11px] text-muted-foreground">
           {sorted.length} stock{sorted.length !== 1 ? 's' : ''}
