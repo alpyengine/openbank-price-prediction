@@ -2999,7 +2999,7 @@ git push origin main --tags
 find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
 cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.8/. .
 
-git add .
+git add src/components/AllStocksPage.jsx
 git commit -m "fix: getRefPrice/getUpsideHoy declaration order (v7.5.8)
 
 ReferenceError: Cannot access before initialization on AllStocksPage load.
@@ -3011,4 +3011,82 @@ Correct order: getRefPrice → getUpsideHoy → filteredFinal → topPicks → s
 Tests: 164/164 passing"
 
 git tag v7.5.8
+git push origin main --tags
+
+
+# ===========================================================================
+# STEP 152 — v7.5.9  Supabase price functions overhaul
+# ===========================================================================
+#
+# NO React app changes — documentation and SQL only.
+# NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   docs/supabase_setup.sql (v7.5.2 → v7.5.9):
+#     New tables: fetch_log, fetch_log_summary (Section 1)
+#     fetch_expired_horizons(): 5-day lookback window for US (time_series)
+#       and EU (Yahoo Finance period1/period2). Replaces /eod exact date.
+#       Picks closest trading day <= targetDate. Fixes weekend/holiday expiry.
+#     fetch_weekly_prices(): unique-ticker architecture. ~30 API calls (was ~200).
+#       pg_sleep 8s → 2s. Persistent logging to fetch_log + fetch_log_summary.
+#       Fixes 2-minute Supabase cron timeout.
+#     fetch_weekly_prices_recovery(): new function (Section 6b).
+#       Retries missing weekly_prices rows for last Friday. Safety net for
+#       rate limit drops and transient failures.
+#     Section 8 crons: Job 8 added — recovery-weekly-prices Mon 06:00 UTC.
+#
+#   docs/SUPABASE.md (v7.4.10 → v7.5.9):
+#     Section 1: fetch_log and fetch_log_summary table schemas added.
+#     Section 2: fetch_expired_horizons docs updated (lookback window).
+#       fetch_weekly_prices docs updated (unique-ticker architecture).
+#       fetch_weekly_prices_recovery() new section.
+#     Section 3: Job 8 added to cron table.
+#     Section 9: Bug #6 (weekend expiry), Bug #7 (timeout), Bug #8 (silent
+#       rate limit drops) added to Known issues.
+#     Section 10: New verification queries — pending weekly prices, failed
+#       tickers, fetch_log_summary, awaiting past targetDate.
+#
+#   docs/openbank-forecast-uml.md:
+#     ERD: fetch_log and fetch_log_summary entities added.
+#     Cron gantt: Job 8 (Monday recovery) added.
+#     fetch_weekly_prices sequence diagram: updated to unique-ticker
+#       architecture with fetch_log fan-out.
+#     fetch_weekly_prices_recovery(): new sequence diagram added.
+#
+#   README.md:
+#     Changelog: v7.5.4 through v7.5.9 entries added.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.9/. .
+
+git add docs/supabase_setup.sql docs/SUPABASE.md docs/openbank-forecast-uml.md README.md
+git commit -m "docs: Supabase price functions overhaul (v7.5.9)
+
+supabase_setup.sql:
+  New tables: fetch_log, fetch_log_summary.
+  fetch_expired_horizons: 5-day lookback window (fixes weekend/holiday expiry).
+  fetch_weekly_prices: unique-ticker architecture (fixes 2-min timeout).
+    pg_sleep 8s→2s. Persistent logging.
+  fetch_weekly_prices_recovery: new function — retries missing rows.
+  Job 8: recovery-weekly-prices cron Mon 06:00 UTC.
+
+SUPABASE.md:
+  fetch_log + fetch_log_summary schemas.
+  fetch_expired_horizons: lookback window documented.
+  fetch_weekly_prices: unique-ticker architecture documented.
+  fetch_weekly_prices_recovery: new section.
+  Job 8 in cron table.
+  Bug #6 (weekend expiry), #7 (timeout), #8 (silent rate limit).
+  New verification queries.
+
+openbank-forecast-uml.md:
+  ERD: fetch_log, fetch_log_summary entities.
+  Gantt: Job 8 added.
+  fetch_weekly_prices sequence diagram updated.
+  fetch_weekly_prices_recovery sequence diagram new.
+
+README.md: changelog v7.5.4 → v7.5.9."
+
+git tag v7.5.9
 git push origin main --tags

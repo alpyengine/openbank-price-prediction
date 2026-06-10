@@ -194,6 +194,12 @@ npm run test       # watch mode
 107 tests across 6 files — utils, hooks, services.
 
 ---
+| v7.5.9 | Supabase price functions overhaul — fetch_expired_horizons 5-day lookback window (fixes weekend/holiday expiry) · fetch_weekly_prices unique-ticker architecture (fixes 2-min timeout) · fetch_weekly_prices_recovery() new function (Job 8, Mon 06:00 UTC) · fetch_log + fetch_log_summary tables · SUPABASE.md + UML updated |
+| v7.5.8 | Fix: getRefPrice/getUpsideHoy declaration order in AllStocksPage (ReferenceError before initialization) |
+| v7.5.7 | All Stocks — Left to target column (real upside from today's price) · getRefPrice cascade: weekly close → autoPrices → basePrice · topPicks and bestOnly use upsideHoy |
+| v7.5.6 | All Stocks — Top 5 picks cards + Best only filter (⚡) · upside/score toggle · HelpPage new section |
+| v7.5.5 | Drop 12M horizon from new batches — ImportBox parseHorizon() skips -- /empty/0 · useHistory/saveBatch skips null targetPrice · calcScore fallback u12→u6→u3 · AccuracyChart 12M legacy badge |
+| v7.5.4 | Auth bug fix — storage.js loadHistory/saveHistory/deleteHistoryBatch use authHeaders() (JWT) instead of headers() (anon key) |
 | v7.5.1 | ManageUsers bug fix — full_name column does not exist in profiles · use email instead · loading freeze resolved |
 | v7.5.0 | Market filter badges (US/DE) in All Stocks + Watchlist · ticker display without suffix · default sort ticker A→Z · AV 24h price cache · UML diagram · README changelog note |
 

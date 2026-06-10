@@ -204,6 +204,46 @@ create table public.alert_log (
 
 ---
 
+### `fetch_log`
+
+Persistent log of individual ticker fetch attempts. Written by `fetch_weekly_prices()`
+and `fetch_weekly_prices_recovery()`. Not included in the GitHub backup (operational
+data, not business data).
+
+```sql
+create table public.fetch_log (
+  id         bigserial   primary key,
+  run_date   date        not null,
+  function   text        not null,  -- 'fetch_weekly_prices' | 'fetch_weekly_prices_recovery'
+  ticker     text        not null,
+  status     text        not null,  -- 'inserted' | 'skipped' | 'failed'
+  detail     text,                  -- price inserted, error message, or skip reason
+  created_at timestamptz not null default now()
+);
+```
+
+---
+
+### `fetch_log_summary`
+
+One row per function execution — inserted/skipped/failed counts and duration in seconds.
+Written at the end of each `fetch_weekly_prices*` run.
+
+```sql
+create table public.fetch_log_summary (
+  id         bigserial   primary key,
+  run_date   date        not null,
+  function   text        not null,
+  inserted   integer     not null default 0,
+  skipped    integer     not null default 0,
+  failed     integer     not null default 0,
+  duration_s numeric,               -- execution time in seconds
+  created_at timestamptz not null default now()
+);
+```
+
+---
+
 ## 2. Functions
 
 ### `handle_new_user()` — trigger
@@ -232,16 +272,21 @@ $$;
 For each expired prediction:
 1. Checks `price_cache` for existing price (avoids re-fetch)
 2. Detects market: EU suffix → Yahoo Finance; US → Twelve Data
-3. Fetches closing price on `targetDate`
+3. Fetches closing price using a **5-day lookback window** (picks nearest trading day ≤ targetDate)
 4. Saves to `price_cache`
 5. Calculates verdict (exceeded / hit / close / wrong_way / miss)
 6. Updates `batches.results` with verdict and `priceOnDate`
 7. Recalculates `hit_rate` and `hit_rate_ext` for all affected batches
 
-**EU market support (added v7.4.10):**
-- Tickers with `.DE`, `.AS`, `.PA`, `.L`, `.MC` suffix → Yahoo Finance
-- Uses ±3 day window to find nearest trading day
-- US tickers → Twelve Data `/eod` (unchanged)
+**Lookback window (updated v7.5.9):**
+- US tickers: `time_series?start_date=(targetDate-5)&end_date=targetDate` — picks closest day ≤ targetDate
+- EU tickers: Yahoo Finance `period1=(targetDate-5d)&period2=targetDate` — takes last element (most recent)
+- Covers: weekend expiries (Sun→Fri, Sat→Fri), bank holidays, and holiday+weekend combinations
+- Never uses a date after `targetDate` (no look-ahead bias)
+
+**Previously (v7.5.2 and earlier):**
+- US: `/eod?date=targetDate` — failed for weekend/holiday dates (Twelve Data returns no data)
+- EU: ±3 day window — insufficient for some holiday combinations
 
 **Hit margins by horizon:**
 | Horizon | Hit margin | Close ratio | Close threshold |
@@ -262,18 +307,48 @@ PostgreSQL column/variable name collision which caused silent failures.
 **Cron:** Job 2 — Saturdays 10:00 UTC  
 **Purpose:** Fetches the most recent Friday closing price for all active tickers.
 
-For each ticker in each batch:
-1. Calculates week number from base date: `(friday - base_date) / 7`
-2. Skips if week ≤ 0 or > 52
-3. Skips if week already in `weekly_prices`
-4. Detects market: EU suffix → Yahoo Finance; US → Twelve Data
-5. Saves to `weekly_prices`
+**Architecture (updated v7.5.9 — unique ticker loop):**
+1. Gets list of **unique tickers** across all batches (~30 instead of ~200 combinations)
+2. Makes **one API call per ticker**
+3. Inserts the price into **all matching batch combinations** in a nested loop
+4. Logs every insert/skip/fail to `fetch_log`
+5. Writes execution summary to `fetch_log_summary`
 
-**EU market support (added v7.4.7):**
-- `.DE`, `.AS`, `.PA`, `.L`, `.MC` → Yahoo Finance `/v8/finance/chart/TICKER?interval=1wk&range=1wk`
-- US tickers → Twelve Data `/eod` (strips `.US` suffix before call)
+**Why the change?** Previous architecture iterated all `ticker × batch_id` combinations
+(~200 rows × 8s sleep = ~560s) which exceeded Supabase's 2-minute cron timeout.
+New architecture: ~30 unique tickers × 2s = ~60s. ✅
 
-**Rate limit:** `pg_sleep(8)` between calls — safe for Twelve Data free plan (8 req/min).
+**Lookback window:**
+- US tickers: `time_series?start_date=(friday-7)&end_date=friday` — closest day ≤ friday
+- EU tickers: Yahoo Finance `period1=(friday-5d)&period2=(friday+1d)` — closest day ≤ friday
+- Handles Friday holidays, long weekend combinations
+
+**Rate limit:** `pg_sleep(2)` between unique tickers (reduced from 8s — safe with new architecture).
+
+---
+
+### `fetch_weekly_prices_recovery()`
+
+**Cron:** Job 8 — Mondays 06:00 UTC  
+**Purpose:** Safety net — retries any tickers missed by the Saturday `fetch_weekly_prices()` run.
+
+**When does it trigger?**  
+Any ticker that should have a `weekly_prices` row for last Friday (batch old enough, week_num > 0)
+but doesn't have one. This catches: API timeouts, rate limit silences, transient network errors.
+
+**Flow:**
+1. Calculates `friday = last week's Friday` (the one Saturday's run targeted)
+2. Finds all unique tickers missing a `week_date = friday` row for any eligible batch
+3. Re-fetches using identical API logic to `fetch_weekly_prices()`
+4. Inserts recovered rows tagged `RECOVERED` in `fetch_log.detail`
+5. Writes summary to `fetch_log_summary`
+
+**Full weekly schedule:**
+```
+Saturday  10:00 UTC → fetch_weekly_prices()          main run
+Sunday    23:00 UTC → backup_to_github()             data backup
+Monday    06:00 UTC → fetch_weekly_prices_recovery() retry missed tickers
+```
 
 ---
 
@@ -300,6 +375,7 @@ All jobs managed by `pg_cron` (built into Supabase).
 | 1 | `fetch-expired-horizons-daily` | `0 2 * * 2-6` | `fetch_expired_horizons()` | Evaluate expired predictions Tue–Sat 02:00 UTC |
 | 2 | `fetch-weekly-prices-saturday` | `0 10 * * 6` | `fetch_weekly_prices()` | Weekly close prices every Saturday 10:00 UTC |
 | 6 | `weekly-github-backup` | `0 23 * * 0` | `backup_to_github()` | Full backup to GitHub every Sunday 23:00 UTC |
+| 8 | `recovery-weekly-prices` | `0 6 * * 1` | `fetch_weekly_prices_recovery()` | Retry missed weekly prices every Monday 06:00 UTC |
 
 **Why Tue–Sat for Job 1?**  
 The market closes at ~21:00 UTC Mon–Fri. The cron runs at 02:00 UTC —
@@ -574,6 +650,39 @@ to include `user_id` in the INSERT body.
 **Fix (v7.4.9):** `fetchCurrentPrices_AV()` detects the Information/Note fields
   and shows: `⚠️ Alpha Vantage daily limit reached (25 req/day). Try again tomorrow.`
 
+### Bug #6 — fetch_expired_horizons fails on weekend/holiday expiry dates (v7.5.9)
+
+**Symptom:** 8 tickers from batch 08/05/2026 stayed `awaiting` after their 1M horizon
+expired on 07 Jun 2026 (Sunday). Twelve Data `/eod` returns no data for non-trading days.
+
+**Affected tickers:** AXP, AMD, URI, MCD, ON, AMZN, CAT, WDC
+
+**Fix:** Replaced `/eod?date=targetDate` with `time_series` + 5-day lookback window.
+Picks the nearest trading day ≤ targetDate. Covers weekends, bank holidays, and
+holiday+weekend combinations. EU tickers: Yahoo Finance window extended from 3 to 5 days.
+
+### Bug #7 — fetch_weekly_prices timeout (v7.5.9)
+
+**Symptom:** Cron job 06 Jun 2026 failed with:
+```
+ERROR: canceling statement due to statement timeout
+CONTEXT: SQL statement "SELECT pg_sleep(8)"
+```
+
+**Cause:** ~200 `ticker × batch_id` combinations × 8s sleep = ~560s → Supabase cancels at 2 min.
+
+**Fix:** New unique-ticker architecture — ~30 unique tickers × 2s = ~60s.
+One API call per ticker, price inserted into all matching batches in a nested loop.
+
+### Bug #8 — Silent rate limit drops in fetch_weekly_prices (v7.5.9)
+
+**Symptom:** Some tickers not inserted without any error logged — Twelve Data occasionally
+returns empty responses under load without an explicit error code.
+
+**Fix:** Added persistent logging to `fetch_log` and `fetch_log_summary`.
+`fetch_weekly_prices_recovery()` (Job 8, Monday 06:00 UTC) acts as safety net —
+retries any combination missing a row for last Friday.
+
 ---
 
 ## 10. Verification queries
@@ -623,4 +732,46 @@ limit 20;
 -- Vault secrets present:
 select name from vault.decrypted_secrets
 where name in ('twelve_data_key', 'github_pat');
+
+-- Verify pending weekly prices (missing rows for last Friday):
+select count(*) as pendientes
+from batches b,
+     jsonb_array_elements(b.results) as r(value)
+where r.value->>'horizon' = '1M'
+  and (current_date - make_date(
+    split_part(b.date,'/',3)::int,
+    split_part(b.date,'/',2)::int,
+    split_part(b.date,'/',1)::int
+  )) / 7 > 0
+  and not exists (
+    select 1 from weekly_prices wp
+    where wp.ticker   = r.value->>'ticker'
+      and wp.batch_id = b.id
+      and wp.week_date = date_trunc('week', current_date)::date + 4 - 7
+  );
+
+-- Verify awaiting horizons past targetDate (should have been evaluated):
+select
+  r.value->>'ticker'     as ticker,
+  r.value->>'horizon'    as horizon,
+  r.value->>'targetDate' as target_date,
+  r.value->>'verdict'    as verdict
+from batches b,
+     jsonb_array_elements(b.results) as r(value)
+where r.value->>'verdict' = 'awaiting'
+  and to_date(r.value->>'targetDate', 'DD Mon YYYY') <= current_date
+order by r.value->>'targetDate';
+
+-- Verify recent fetch execution summaries:
+select run_date, function, inserted, skipped, failed, duration_s
+from fetch_log_summary
+order by created_at desc
+limit 10;
+
+-- Verify failed tickers from recent runs:
+select run_date, function, ticker, status, detail
+from fetch_log
+where status = 'failed'
+order by created_at desc
+limit 20;
 ```

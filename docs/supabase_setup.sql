@@ -3,7 +3,7 @@
 -- =============================================================================
 -- Project : Openbank Price Prediction
 -- Supabase : yyenwzljojxbqtzcbchk
--- Version  : v7.5.2
+-- Version  : v7.5.9
 -- Updated  : June 2026
 --
 -- PURPOSE:
@@ -152,6 +152,39 @@ create table if not exists public.alert_log (
 );
 
 
+-- -----------------------------------------------------------------------------
+-- fetch_log
+-- Persistent log of individual ticker fetch attempts.
+-- Written by fetch_weekly_prices() and fetch_weekly_prices_recovery().
+-- Not included in GitHub backup (operational data, not business data).
+-- -----------------------------------------------------------------------------
+create table if not exists public.fetch_log (
+  id         bigserial   primary key,
+  run_date   date        not null,
+  function   text        not null,  -- 'fetch_weekly_prices' | 'fetch_weekly_prices_recovery'
+  ticker     text        not null,
+  status     text        not null,  -- 'inserted' | 'skipped' | 'failed'
+  detail     text,                  -- price inserted, error message, or skip reason
+  created_at timestamptz not null default now()
+);
+
+-- -----------------------------------------------------------------------------
+-- fetch_log_summary
+-- One row per function execution — inserted/skipped/failed counts + duration.
+-- Written at the end of each fetch_weekly_prices* run.
+-- -----------------------------------------------------------------------------
+create table if not exists public.fetch_log_summary (
+  id         bigserial   primary key,
+  run_date   date        not null,
+  function   text        not null,
+  inserted   integer     not null default 0,
+  skipped    integer     not null default 0,
+  failed     integer     not null default 0,
+  duration_s numeric,               -- execution time in seconds
+  created_at timestamptz not null default now()
+);
+
+
 -- =============================================================================
 -- SECTION 2 — ROW LEVEL SECURITY
 -- =============================================================================
@@ -270,6 +303,15 @@ grant  execute on function public.get_all_profiles() to authenticated;
 -- =============================================================================
 -- SECTION 5 — FUNCTION: fetch_expired_horizons()
 -- =============================================================================
+-- Evaluates all awaiting predictions whose targetDate has passed.
+-- Runs daily Tue–Sat at 02:00 UTC (Job 1).
+--
+-- Changes vs v7.5.2:
+--   • US tickers: now uses time_series endpoint with a 5-day lookback window
+--     instead of /eod with exact date — handles weekends and bank holidays.
+--   • EU tickers: lookback window extended from 3 to 5 days for same reason.
+--   • Both paths pick the closest trading day <= targetDate (never future dates).
+-- =============================================================================
 
 create or replace function public.fetch_expired_horizons()
 returns void
@@ -291,6 +333,11 @@ declare
   v_is_eu        boolean;
   v_period1      bigint;
   v_period2      bigint;
+  v_start_date   date;
+  v_best_date    text;
+  v_best_diff    integer;
+  v_curr_diff    integer;
+  v_elem         jsonb;
 begin
   select decrypted_secret into v_api_key
   from vault.decrypted_secrets
@@ -324,6 +371,7 @@ begin
       end case;
       v_close_thresh := v_h_margin * v_r_ratio;
 
+      -- Check price_cache first (avoids redundant API calls)
       select pc.close_price into v_cached_price
       from price_cache pc
       where pc.ticker      = v_ticker
@@ -331,24 +379,47 @@ begin
 
       if v_cached_price is null then
         v_is_eu := v_ticker ~* '\.(DE|AS|PA|L|MC)$';
+
         if v_is_eu then
-          v_period1 := extract(epoch from v_target_date - interval '3 days')::bigint;
-          v_period2 := extract(epoch from v_target_date + interval '1 day')::bigint;
+          -- Yahoo Finance — 5-day lookback window before targetDate.
+          -- Returns closest trading day <= targetDate (covers weekends + holidays).
+          v_period1 := extract(epoch from v_target_date - interval '5 days')::bigint;
+          v_period2 := extract(epoch from v_target_date)::bigint;
           v_url := format(
             'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&period1=%s&period2=%s',
             v_ticker, v_period1, v_period2
           );
           select content into v_response from http_get(v_url);
+          -- Last element = most recent close <= targetDate
           v_close_price := (
-            (v_response::jsonb)->'chart'->'result'->0->'indicators'->'quote'->0->'close'->-1
+            (v_response::jsonb)
+            ->'chart'->'result'->0
+            ->'indicators'->'quote'->0
+            ->'close'->-1
           )::numeric;
+
         else
+          -- Twelve Data — time_series with 5-day lookback window.
+          -- Picks the trading day with smallest diff to targetDate, never future dates.
+          v_start_date := v_target_date - 5;
           v_url := format(
-            'https://api.twelvedata.com/eod?symbol=%s&date=%s&apikey=%s',
-            v_ticker, v_target_date::text, v_api_key
+            'https://api.twelvedata.com/time_series?symbol=%s&interval=1day&start_date=%s&end_date=%s&outputsize=5&apikey=%s',
+            v_ticker, v_start_date::text, v_target_date::text, v_api_key
           );
           select content into v_response from http_get(v_url);
-          v_close_price := (v_response::jsonb->>'close')::numeric;
+
+          v_close_price := null;
+          v_best_diff   := 999;
+          for v_elem in
+            select jsonb_array_elements((v_response::jsonb)->'values')
+          loop
+            v_curr_diff := abs(v_target_date - (v_elem->>'datetime')::date);
+            if (v_elem->>'datetime')::date <= v_target_date
+               and v_curr_diff < v_best_diff then
+              v_best_diff   := v_curr_diff;
+              v_close_price := (v_elem->>'close')::numeric;
+            end if;
+          end loop;
         end if;
 
         if v_close_price is not null and v_close_price > 0 then
@@ -360,6 +431,7 @@ begin
         v_close_price := v_cached_price;
       end if;
 
+      -- Evaluate verdict
       if v_close_price is not null and v_close_price > 0 and v_target_price > 0 then
         v_signed_dist := (v_close_price - v_target_price) / v_target_price * 100;
         v_dist_abs    := abs(v_signed_dist);
@@ -407,6 +479,7 @@ begin
     perform pg_sleep(8);
   end loop;
 
+  -- Recalculate hit rates for all batches with evaluated predictions
   update batches b
   set
     hit_rate = (
@@ -439,8 +512,18 @@ end;
 $$;
 
 
--- =============================================================================
 -- SECTION 6 — FUNCTION: fetch_weekly_prices()
+-- =============================================================================
+-- Fetches the most recent Friday closing price for all active tickers.
+-- Runs every Saturday at 10:00 UTC (Job 2).
+--
+-- Changes vs v7.5.2:
+--   • Iterates UNIQUE tickers (~30) instead of all ticker×batch combinations
+--     (~200). One API call per ticker, then inserts into all matching batches.
+--     Reduces execution time from ~560s (timeout) to ~60s.
+--   • Both US and EU paths use a 7-day lookback window — handles Friday holidays.
+--   • Persistent logging to fetch_log (per ticker) and fetch_log_summary (run total).
+--   • pg_sleep reduced from 8s to 2s (safe with unique-ticker architecture).
 -- =============================================================================
 
 create or replace function public.fetch_weekly_prices()
@@ -449,89 +532,373 @@ language plpgsql
 security definer
 as $$
 declare
-  v_api_key      text;
-  rec            record;
-  v_url          text;
-  v_response     varchar;
-  v_close_price  numeric;
-  v_week_num     integer;
-  v_friday       date;
-  v_base_date    date;
-  v_clean_ticker text;
-  v_is_eu        boolean;
+  api_key      text;
+  rec          record;
+  url          text;
+  response     varchar;
+  close_price  numeric;
+  friday       date;
+  base_date    date;
+  is_eu        boolean;
+  v_elem       jsonb;
+  v_best_diff  integer;
+  v_curr_diff  integer;
+  v_week_num   integer;
+  v_batch_rec  record;
+  v_inserted   integer     := 0;
+  v_skipped    integer     := 0;
+  v_failed     integer     := 0;
+  v_start_ts   timestamptz := clock_timestamp();
 begin
-  select decrypted_secret into v_api_key
+  select decrypted_secret into api_key
   from vault.decrypted_secrets
   where name = 'twelve_data_key';
-  if v_api_key is null then return; end if;
-
-  v_friday := date_trunc('week', current_date)::date + 4;
-  if v_friday > current_date then
-    v_friday := v_friday - 7;
+  if api_key is null then
+    insert into fetch_log(run_date, function, ticker, status, detail)
+    values (current_date, 'fetch_weekly_prices', 'SYSTEM', 'failed', 'twelve_data_key not found in vault');
+    return;
   end if;
 
+  -- Calculate last Friday (the week's reference date)
+  friday := date_trunc('week', current_date)::date + 4;
+  if friday > current_date then
+    friday := friday - 7;
+  end if;
+
+  -- Iterate UNIQUE tickers only — one API call per ticker regardless of batch count
   for rec in
-    select distinct
-      r.value->>'ticker' as ticker,
-      b.id               as batch_id,
-      b.date             as batch_date
+    select distinct r.value->>'ticker' as ticker
     from batches b,
          jsonb_array_elements(b.results) as r(value)
     where r.value->>'horizon' = '1M'
+    order by 1
   loop
     begin
-      v_base_date := make_date(
-        split_part(rec.batch_date, '/', 3)::int,
-        split_part(rec.batch_date, '/', 2)::int,
-        split_part(rec.batch_date, '/', 1)::int
-      );
-      v_week_num := (v_friday - v_base_date) / 7;
-      if v_week_num <= 0 or v_week_num > 52 then continue; end if;
+      is_eu := rec.ticker ~* '\.(DE|AS|PA|L|MC)$';
+      close_price := null;
 
-      if exists (
-        select 1 from weekly_prices wp
-        where wp.ticker   = rec.ticker
-          and wp.batch_id = rec.batch_id
-          and wp.week     = v_week_num
-      ) then continue; end if;
-
-      v_is_eu := rec.ticker ~* '\.(DE|AS|PA|L|MC)$';
-
-      if v_is_eu then
-        v_url := format(
-          'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1wk&range=1wk',
-          rec.ticker
+      if is_eu then
+        -- Yahoo Finance — 7-day lookback, pick closest trading day <= friday
+        url := format(
+          'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&period1=%s&period2=%s',
+          rec.ticker,
+          extract(epoch from friday - interval '5 days')::bigint,
+          extract(epoch from friday + interval '1 day')::bigint
         );
-        select content into v_response from http_get(v_url);
-        v_close_price := (
-          (v_response::jsonb)->'chart'->'result'->0->'indicators'->'quote'->0->'close'->-1
-        )::numeric;
+        select content into response from http_get(url);
+        declare
+          v_timestamps jsonb;
+          v_closes     jsonb;
+          v_ts         bigint;
+          v_dt         date;
+          v_best_ts    bigint := 0;
+          v_cl         numeric;
+          i            integer;
+        begin
+          v_timestamps := (response::jsonb)->'chart'->'result'->0->'timestamp';
+          v_closes     := (response::jsonb)->'chart'->'result'->0->'indicators'->'quote'->0->'close';
+          if v_timestamps is not null then
+            for i in 0..jsonb_array_length(v_timestamps)-1 loop
+              v_ts := (v_timestamps->i)::bigint;
+              v_dt := to_timestamp(v_ts)::date;
+              v_cl := (v_closes->i)::numeric;
+              if v_dt <= friday and v_ts > v_best_ts and v_cl is not null then
+                v_best_ts   := v_ts;
+                close_price := v_cl;
+              end if;
+            end loop;
+          end if;
+        end;
+
       else
-        v_clean_ticker := regexp_replace(rec.ticker, '\.(US)$', '', 'i');
-        v_url := format(
-          'https://api.twelvedata.com/eod?symbol=%s&date=%s&apikey=%s',
-          v_clean_ticker, v_friday::text, v_api_key
+        -- Twelve Data — time_series 7-day window, pick closest day <= friday
+        url := format(
+          'https://api.twelvedata.com/time_series?symbol=%s&interval=1day&start_date=%s&end_date=%s&outputsize=10&apikey=%s',
+          rec.ticker,
+          (friday - 7)::text,
+          friday::text,
+          api_key
         );
-        select content into v_response from http_get(v_url);
-        v_close_price := (v_response::jsonb->>'close')::numeric;
+        select content into response from http_get(url);
+        v_best_diff := 999;
+        for v_elem in
+          select jsonb_array_elements((response::jsonb)->'values')
+        loop
+          v_curr_diff := abs(friday - (v_elem->>'datetime')::date);
+          if (v_elem->>'datetime')::date <= friday
+             and v_curr_diff < v_best_diff then
+            v_best_diff := v_curr_diff;
+            close_price := (v_elem->>'close')::numeric;
+          end if;
+        end loop;
       end if;
 
-      if v_close_price is not null and v_close_price > 0 then
-        insert into weekly_prices(ticker, batch_id, week, week_date, close_price)
-        values (rec.ticker, rec.batch_id, v_week_num, v_friday, v_close_price)
-        on conflict (ticker, batch_id, week) do nothing;
+      if close_price is not null and close_price > 0 then
+        -- Insert price into ALL ticker×batch_id combinations at once
+        for v_batch_rec in
+          select distinct b.id as batch_id, b.date as batch_date
+          from batches b,
+               jsonb_array_elements(b.results) as r(value)
+          where r.value->>'ticker'  = rec.ticker
+            and r.value->>'horizon' = '1M'
+        loop
+          base_date  := make_date(
+            split_part(v_batch_rec.batch_date, '/', 3)::int,
+            split_part(v_batch_rec.batch_date, '/', 2)::int,
+            split_part(v_batch_rec.batch_date, '/', 1)::int
+          );
+          v_week_num := (friday - base_date) / 7;
+
+          if v_week_num > 0 and v_week_num <= 52
+             and not exists (
+               select 1 from weekly_prices wp
+               where wp.ticker   = rec.ticker
+                 and wp.batch_id = v_batch_rec.batch_id
+                 and wp.week     = v_week_num
+             )
+          then
+            insert into weekly_prices(ticker, batch_id, week, week_date, close_price)
+            values (rec.ticker, v_batch_rec.batch_id, v_week_num, friday, close_price)
+            on conflict (ticker, batch_id, week) do nothing;
+
+            insert into fetch_log(run_date, function, ticker, status, detail)
+            values (current_date, 'fetch_weekly_prices', rec.ticker, 'inserted',
+              format('batch=%s week=%s price=%s friday=%s',
+                v_batch_rec.batch_id, v_week_num, close_price, friday));
+            v_inserted := v_inserted + 1;
+          else
+            v_skipped := v_skipped + 1;
+          end if;
+        end loop;
+
+      else
+        insert into fetch_log(run_date, function, ticker, status, detail)
+        values (current_date, 'fetch_weekly_prices', rec.ticker, 'failed',
+          format('no price obtained — friday=%s url=%s', friday, url));
+        v_failed := v_failed + 1;
       end if;
 
-      perform pg_sleep(8);
+      perform pg_sleep(2);
+
     exception when others then
-      null;
+      insert into fetch_log(run_date, function, ticker, status, detail)
+      values (current_date, 'fetch_weekly_prices', rec.ticker, 'failed',
+        format('exception: %s', sqlerrm));
+      v_failed := v_failed + 1;
     end;
   end loop;
+
+  -- Save execution summary
+  insert into fetch_log_summary(run_date, function, inserted, skipped, failed, duration_s)
+  values (
+    current_date, 'fetch_weekly_prices',
+    v_inserted, v_skipped, v_failed,
+    round(extract(epoch from clock_timestamp() - v_start_ts)::numeric, 1)
+  );
 end;
 $$;
 
 
 -- =============================================================================
+-- SECTION 6b — FUNCTION: fetch_weekly_prices_recovery()
+-- =============================================================================
+-- Recovery function — retries any tickers that failed or were missed during
+-- the Saturday fetch_weekly_prices() run.
+-- Runs every Monday at 06:00 UTC (Job 8) — the day after Sunday's backup.
+--
+-- Logic:
+--   1. Finds all unique tickers that are MISSING a weekly_prices row for
+--      last Friday (week_date = friday) but SHOULD have one (batch is old enough).
+--   2. Re-fetches price using the same API logic as fetch_weekly_prices().
+--   3. Inserts recovered rows tagged with 'RECOVERED' in fetch_log detail.
+--   4. Writes summary to fetch_log_summary.
+-- =============================================================================
+
+create or replace function public.fetch_weekly_prices_recovery()
+returns void
+language plpgsql
+security definer
+as $$
+declare
+  api_key      text;
+  rec          record;
+  url          text;
+  response     varchar;
+  close_price  numeric;
+  friday       date;
+  base_date    date;
+  is_eu        boolean;
+  v_elem       jsonb;
+  v_best_diff  integer;
+  v_curr_diff  integer;
+  v_week_num   integer;
+  v_batch_rec  record;
+  v_inserted   integer     := 0;
+  v_skipped    integer     := 0;
+  v_failed     integer     := 0;
+  v_start_ts   timestamptz := clock_timestamp();
+begin
+  select decrypted_secret into api_key
+  from vault.decrypted_secrets
+  where name = 'twelve_data_key';
+  if api_key is null then
+    insert into fetch_log(run_date, function, ticker, status, detail)
+    values (current_date, 'fetch_weekly_prices_recovery', 'SYSTEM', 'failed',
+      'twelve_data_key not found in vault');
+    return;
+  end if;
+
+  -- Target: last Friday (the one fetch_weekly_prices should have covered)
+  friday := date_trunc('week', current_date)::date + 4 - 7;
+
+  -- Find tickers that are missing a row for last Friday
+  for rec in
+    select distinct r.value->>'ticker' as ticker
+    from batches b,
+         jsonb_array_elements(b.results) as r(value)
+    where r.value->>'horizon' = '1M'
+      and exists (
+        select 1
+        from batches b2,
+             jsonb_array_elements(b2.results) as r2(value)
+        where r2.value->>'ticker'  = r.value->>'ticker'
+          and r2.value->>'horizon' = '1M'
+          and (friday - make_date(
+                split_part(b2.date,'/',3)::int,
+                split_part(b2.date,'/',2)::int,
+                split_part(b2.date,'/',1)::int
+               )) / 7 > 0
+          and not exists (
+            select 1 from weekly_prices wp
+            where wp.ticker   = r2.value->>'ticker'
+              and wp.batch_id = b2.id
+              and wp.week_date = friday
+          )
+      )
+    order by 1
+  loop
+    begin
+      is_eu := rec.ticker ~* '\.(DE|AS|PA|L|MC)$';
+      close_price := null;
+
+      if is_eu then
+        url := format(
+          'https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&period1=%s&period2=%s',
+          rec.ticker,
+          extract(epoch from friday - interval '5 days')::bigint,
+          extract(epoch from friday + interval '1 day')::bigint
+        );
+        select content into response from http_get(url);
+        declare
+          v_timestamps jsonb;
+          v_closes     jsonb;
+          v_ts         bigint;
+          v_dt         date;
+          v_best_ts    bigint := 0;
+          v_cl         numeric;
+          i            integer;
+        begin
+          v_timestamps := (response::jsonb)->'chart'->'result'->0->'timestamp';
+          v_closes     := (response::jsonb)->'chart'->'result'->0->'indicators'->'quote'->0->'close';
+          if v_timestamps is not null then
+            for i in 0..jsonb_array_length(v_timestamps)-1 loop
+              v_ts := (v_timestamps->i)::bigint;
+              v_dt := to_timestamp(v_ts)::date;
+              v_cl := (v_closes->i)::numeric;
+              if v_dt <= friday and v_ts > v_best_ts and v_cl is not null then
+                v_best_ts   := v_ts;
+                close_price := v_cl;
+              end if;
+            end loop;
+          end if;
+        end;
+
+      else
+        url := format(
+          'https://api.twelvedata.com/time_series?symbol=%s&interval=1day&start_date=%s&end_date=%s&outputsize=10&apikey=%s',
+          rec.ticker,
+          (friday - 7)::text,
+          friday::text,
+          api_key
+        );
+        select content into response from http_get(url);
+        v_best_diff := 999;
+        for v_elem in
+          select jsonb_array_elements((response::jsonb)->'values')
+        loop
+          v_curr_diff := abs(friday - (v_elem->>'datetime')::date);
+          if (v_elem->>'datetime')::date <= friday
+             and v_curr_diff < v_best_diff then
+            v_best_diff := v_curr_diff;
+            close_price := (v_elem->>'close')::numeric;
+          end if;
+        end loop;
+      end if;
+
+      if close_price is not null and close_price > 0 then
+        for v_batch_rec in
+          select distinct b.id as batch_id, b.date as batch_date
+          from batches b,
+               jsonb_array_elements(b.results) as r(value)
+          where r.value->>'ticker'  = rec.ticker
+            and r.value->>'horizon' = '1M'
+        loop
+          base_date  := make_date(
+            split_part(v_batch_rec.batch_date, '/', 3)::int,
+            split_part(v_batch_rec.batch_date, '/', 2)::int,
+            split_part(v_batch_rec.batch_date, '/', 1)::int
+          );
+          v_week_num := (friday - base_date) / 7;
+
+          if v_week_num > 0 and v_week_num <= 52
+             and not exists (
+               select 1 from weekly_prices wp
+               where wp.ticker   = rec.ticker
+                 and wp.batch_id = v_batch_rec.batch_id
+                 and wp.week     = v_week_num
+             )
+          then
+            insert into weekly_prices(ticker, batch_id, week, week_date, close_price)
+            values (rec.ticker, v_batch_rec.batch_id, v_week_num, friday, close_price)
+            on conflict (ticker, batch_id, week) do nothing;
+
+            insert into fetch_log(run_date, function, ticker, status, detail)
+            values (current_date, 'fetch_weekly_prices_recovery', rec.ticker, 'inserted',
+              format('RECOVERED batch=%s week=%s price=%s friday=%s',
+                v_batch_rec.batch_id, v_week_num, close_price, friday));
+            v_inserted := v_inserted + 1;
+          else
+            v_skipped := v_skipped + 1;
+          end if;
+        end loop;
+
+      else
+        insert into fetch_log(run_date, function, ticker, status, detail)
+        values (current_date, 'fetch_weekly_prices_recovery', rec.ticker, 'failed',
+          format('no price obtained — friday=%s', friday));
+        v_failed := v_failed + 1;
+      end if;
+
+      perform pg_sleep(2);
+
+    exception when others then
+      insert into fetch_log(run_date, function, ticker, status, detail)
+      values (current_date, 'fetch_weekly_prices_recovery', rec.ticker, 'failed',
+        format('exception: %s', sqlerrm));
+      v_failed := v_failed + 1;
+    end;
+  end loop;
+
+  insert into fetch_log_summary(run_date, function, inserted, skipped, failed, duration_s)
+  values (
+    current_date, 'fetch_weekly_prices_recovery',
+    v_inserted, v_skipped, v_failed,
+    round(extract(epoch from clock_timestamp() - v_start_ts)::numeric, 1)
+  );
+end;
+$$;
+
+
 -- SECTION 7 — FUNCTION: backup_to_github()
 -- =============================================================================
 
@@ -616,6 +983,12 @@ $$;
 select cron.schedule('fetch-expired-horizons-daily',  '0 2 * * 2-6', 'select fetch_expired_horizons();');
 select cron.schedule('fetch-weekly-prices-saturday',  '0 10 * * 6',  'select fetch_weekly_prices();');
 select cron.schedule('weekly-github-backup',           '0 23 * * 0',  'select backup_to_github();');
+select cron.schedule('recovery-weekly-prices',         '0 6 * * 1',   'select fetch_weekly_prices_recovery();');
+-- Job schedule summary:
+--   Job 1 — fetch_expired_horizons()        Tue–Sat 02:00 UTC
+--   Job 2 — fetch_weekly_prices()           Sat    10:00 UTC
+--   Job 6 — backup_to_github()             Sun    23:00 UTC
+--   Job 8 — fetch_weekly_prices_recovery() Mon    06:00 UTC
 
 
 -- =============================================================================

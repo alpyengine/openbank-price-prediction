@@ -101,6 +101,27 @@ erDiagram
     auth_users ||--o| alert_config : "user_id"
     auth_users ||--o{ alert_log : "user_id"
     batches ||--o{ weekly_prices : "batch_id"
+
+    fetch_log {
+        bigint id PK
+        date run_date
+        text function
+        text ticker
+        text status
+        text detail
+        timestamptz created_at
+    }
+
+    fetch_log_summary {
+        bigint id PK
+        date run_date
+        text function
+        integer inserted
+        integer skipped
+        integer failed
+        numeric duration_s
+        timestamptz created_at
+    }
 ```
 
 ---
@@ -179,10 +200,13 @@ gantt
     fetch_expired_horizons() :crit, 02:00, 30m
 
     section Saturday
-    fetch_weekly_prices()    :active, 10:00, 60m
+    fetch_weekly_prices()             :active, 10:00, 60m
 
     section Sunday
-    backup_to_github()       :done, 23:00, 30m
+    backup_to_github()                :done, 23:00, 30m
+
+    section Monday
+    fetch_weekly_prices_recovery()    :crit, 06:00, 30m
 ```
 
 ---
@@ -230,30 +254,71 @@ sequenceDiagram
     participant FN as fetch_weekly_prices()
     participant DB as batches table
     participant WP as weekly_prices
+    participant LOG as fetch_log / fetch_log_summary
     participant TD as Twelve Data
     participant YF as Yahoo Finance
 
     CRON->>FN: execute every Saturday
     FN->>FN: calculate last Friday date
-    FN->>DB: SELECT distinct tickers from all batches (horizon=1M)
-    loop for each ticker × batch
-        FN->>FN: week_num = (friday - base_date) / 7
-        alt week_num <= 0 or > 52
-            FN->>FN: skip (out of range)
-        else already exists
-            FN->>WP: check if (ticker, batch_id, week) exists
-            WP-->>FN: exists → skip
-        else EU ticker (.DE/.AS/.PA/.L/.MC)
-            FN->>YF: GET /v8/finance/chart/TICKER?interval=1wk&range=1wk
-            YF-->>FN: return weekly close_price
-            FN->>WP: INSERT (ticker, batch_id, week, week_date, close_price)
+    FN->>DB: SELECT DISTINCT tickers (~30 unique)
+    note over FN: One API call per unique ticker<br/>then fan-out to all batches
+    loop for each UNIQUE ticker
+        alt EU ticker (.DE/.AS/.PA/.L/.MC)
+            FN->>YF: GET chart/TICKER?interval=1d&period1=(fri-5d)&period2=(fri+1d)
+            YF-->>FN: return time series — pick closest day <= friday
         else US ticker
-            FN->>TD: GET /eod?symbol=TICKER&date=friday
-            TD-->>FN: return close_price
-            FN->>WP: INSERT (ticker, batch_id, week, week_date, close_price)
+            FN->>TD: GET time_series?symbol=TICKER&start=(fri-7)&end=fri&outputsize=10
+            TD-->>FN: return values array — pick closest day <= friday
         end
-        FN->>FN: pg_sleep(8) — rate limit pause
+        alt price obtained
+            loop for each batch containing this ticker
+                FN->>FN: week_num = (friday - base_date) / 7
+                FN->>WP: INSERT if not exists (ticker, batch_id, week, week_date, close_price)
+                FN->>LOG: INSERT fetch_log status=inserted|skipped
+            end
+        else no price
+            FN->>LOG: INSERT fetch_log status=failed
+        end
+        FN->>FN: pg_sleep(2) — rate limit pause
     end
+    FN->>LOG: INSERT fetch_log_summary (inserted, skipped, failed, duration_s)
+```
+
+## Function Call Flow — fetch_weekly_prices_recovery()
+
+```mermaid
+sequenceDiagram
+    participant CRON as pg_cron (Mon 06:00 UTC)
+    participant FN as fetch_weekly_prices_recovery()
+    participant DB as batches table
+    participant WP as weekly_prices
+    participant LOG as fetch_log / fetch_log_summary
+    participant TD as Twelve Data
+    participant YF as Yahoo Finance
+
+    CRON->>FN: execute every Monday
+    FN->>FN: friday = last week's Friday (Saturday run target)
+    FN->>DB: SELECT distinct tickers WHERE missing weekly_prices row for friday
+    note over FN: Only tickers that SHOULD have a row<br/>(batch old enough) but DON'T
+    loop for each missing ticker
+        alt EU ticker
+            FN->>YF: GET chart/TICKER?interval=1d&period1=(fri-5d)&period2=(fri+1d)
+            YF-->>FN: closest day <= friday
+        else US ticker
+            FN->>TD: GET time_series?start=(fri-7)&end=fri&outputsize=10
+            TD-->>FN: closest day <= friday
+        end
+        alt price obtained
+            loop for each batch missing this ticker+friday
+                FN->>WP: INSERT recovered row
+                FN->>LOG: INSERT fetch_log status=inserted detail=RECOVERED...
+            end
+        else no price
+            FN->>LOG: INSERT fetch_log status=failed
+        end
+        FN->>FN: pg_sleep(2)
+    end
+    FN->>LOG: INSERT fetch_log_summary (inserted, skipped, failed, duration_s)
 ```
 
 ---
