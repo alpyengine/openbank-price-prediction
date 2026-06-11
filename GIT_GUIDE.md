@@ -3309,3 +3309,62 @@ Tests: 164/164 passing"
 
 git tag v7.5.13
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 157 — v7.5.14  WatchlistPage — fix provisional verdict line break
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# BUG FIXED:
+#   Provisional verdict badge (~Exceeded, ~Miss etc.) was wrapping to two
+#   lines making rows taller and the star/chevron columns appear misaligned.
+#   Fixed: whitespace-nowrap on provisional span and verdict td.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.14/. .
+
+git add src/components/WatchlistPage.jsx
+git commit -m "fix: provisional verdict badge whitespace-nowrap (v7.5.14)
+
+~ Exceeded / ~ Miss badges were wrapping to two lines causing
+row height inflation and misaligned star/chevron columns.
+Added whitespace-nowrap to provisional span and verdict td.
+
+Tests: 164/164 passing"
+
+git tag v7.5.14
+git push origin main --tags
+
+
+# ===========================================================================
+# STEP 157 — v7.5.14  WatchlistPage — remove redundant expand chevron
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# WHAT CHANGED:
+#   Expand chevron column removed entirely from WatchlistPage table.
+#   The expand behaviour is already available by clicking the "N batches"
+#   badge — the chevron was redundant and caused visual clutter next to
+#   the star button.
+#   Batches column tooltip updated to reflect badge-click behaviour.
+#   Expanded rows trailing empty cell count corrected (2 → 1).
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.14/. .
+
+git add src/components/WatchlistPage.jsx
+git commit -m "fix: remove redundant expand chevron from WatchlistPage (v7.5.14)
+
+Chevron column removed — expand already works via batches badge click.
+Batches tooltip updated: 'Click this badge to expand'.
+Expanded rows trailing cell count corrected.
+
+Tests: 164/164 passing"
+
+git tag v7.5.14
+git push origin main --tags

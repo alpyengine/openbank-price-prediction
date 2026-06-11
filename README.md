@@ -195,6 +195,8 @@ npm run test       # watch mode
 
 ---
 | v7.5.11 | Fix: WatchlistPage `rows is not defined` — stray `rows.length` reference in market filter badge updated to `filteredGroups.length` |
+| v7.5.14 | WatchlistPage — fix provisional verdict badge wrapping to two lines (whitespace-nowrap) |
+| v7.5.14 | WatchlistPage — remove redundant expand chevron (expand via batches badge only) |
 | v7.5.13 | WatchlistPage — fix sticky header (overflow-hidden blocking), fix batch expand (Set mutation), star and chevron in separate columns |
 | v7.5.12 | WatchlistPage — sticky column header on scroll + expand ticker history by clicking batches badge |
 | v7.5.11 | Fix: WatchlistPage crash — rows is not defined in market filter badge (rows.length → filteredGroups.length) |

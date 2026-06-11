@@ -664,13 +664,12 @@ export default function WatchlistPage({
                   { key: 'ticker',   label: 'Ticker',              tip: 'Stock symbol and company name. One row per ticker — expand to see all batches.' },
                   { key: 'market',   label: 'Market',              tip: 'Exchange: US = NYSE/NASDAQ. DE/AS/PA/L/MC = European markets.' },
                   { key: 'batch',    label: 'Latest batch',        tip: 'Date of the most recent Openbank forecast for this ticker.' },
-                  { key: 'batches',  label: 'Batches',             tip: 'Total number of forecast batches containing this ticker. Click the row chevron to expand.' },
+                  { key: 'batches',  label: 'Batches',             tip: 'Total number of forecast batches containing this ticker. Click this badge to expand and see all batches.' },
                   { key: 'upside',   label: `${horizon} Upside`,   tip: `Expected % gain from batch base price to Openbank ${horizon} target. Calculated at batch import date.` },
                   { key: 'avg',      label: 'Avg upside',          tip: `Mean ${horizon} upside across all batches for this ticker. Reflects historical forecast consistency.` },
                   { key: 'ltt',      label: 'Left to target',      tip: '(Target − last weekly close) / last weekly close. Real remaining upside from today. Green = reachable. Red = already exceeded.' },
                   { key: 'verdict',  label: 'Verdict',             tip: 'Result when horizon expired. If still open, ~ shows an estimated verdict using the current price vs target.' },
                   { key: 'star',     label: '',                    tip: '' },
-                  { key: 'expand',   label: '',                    tip: '' },
                 ].map(({ key, label, tip }) => (
                   <th key={key} className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border whitespace-nowrap sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                     {tip ? <ColTooltip label={label} text={tip} /> : label}
@@ -758,10 +757,10 @@ export default function WatchlistPage({
                   </td>
 
                   {/* Verdict — real or provisional (~) */}
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
                     {row.provisional
                       ? <span className={cn(
-                          'inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold opacity-70',
+                          'inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold opacity-70 whitespace-nowrap',
                           (VERDICT_CFG[row.verdict] ?? VERDICT_CFG.awaiting).cls
                         )}>~ {(VERDICT_CFG[row.verdict] ?? VERDICT_CFG.awaiting).label}</span>
                       : <VerdictBadge verdict={row.verdict} />
@@ -778,21 +777,7 @@ export default function WatchlistPage({
                       <Star size={14} fill="currentColor" />
                     </button>
                   </td>
-                  {/* Expand chevron column */}
-                  <td className="px-3 py-2.5 text-center">
-                    {batchCount > 1 && (
-                      <button
-                        onClick={e => { e.stopPropagation(); toggleExpand(ticker) }}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                        aria-label={isExpanded ? 'Collapse batches' : 'Expand batches'}
-                      >
-                        <ChevronDown
-                          size={14}
-                          className={cn('transition-transform duration-200', isExpanded && 'rotate-180')}
-                        />
-                      </button>
-                    )}
-                  </td>
+
                 </tr>
 
                 {/* ── Expanded batch history rows ────────────────────── */}
@@ -834,13 +819,12 @@ export default function WatchlistPage({
                       <td className="px-4 py-2">
                         {br.provisional
                           ? <span className={cn(
-                              'inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold opacity-60',
+                              'inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold opacity-60 whitespace-nowrap',
                               (VERDICT_CFG[br.verdict] ?? VERDICT_CFG.awaiting).cls
                             )}>~ {(VERDICT_CFG[br.verdict] ?? VERDICT_CFG.awaiting).label}</span>
                           : <VerdictBadge verdict={br.verdict} />
                         }
                       </td>
-                      <td className="px-3 py-2"></td>
                       <td className="px-3 py-2"></td>
                     </tr>
                   )
