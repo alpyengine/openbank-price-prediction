@@ -868,7 +868,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
         <table className="w-full border-collapse text-[11.5px]">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
-              <th className="px-3 py-2.5 text-left">
+              <th className="px-3 py-2.5 text-left sticky top-0 z-10 bg-card">
                 <button
                   onClick={() => toggleSort('ticker')}
                   className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
@@ -880,13 +880,13 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 </button>
               </th>
               {markets.length > 1 && (
-                <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Market</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide sticky top-0 z-10 bg-card">Market</th>
               )}
-              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sector</th>
-              <th className="px-2 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide">⭐</th>
+              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide sticky top-0 z-10 bg-card">Sector</th>
+              <th className="px-2 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide sticky top-0 z-10 bg-card">⭐</th>
 
               {/* Upside column — sort button above horizon dropdown */}
-              <th className="px-3 py-2.5 text-right">
+              <th className="px-3 py-2.5 text-right sticky top-0 z-10 bg-card">
                 <div className="flex flex-col items-end gap-0.5">
                   <div className="flex items-center gap-0.5">
                     <button
@@ -909,7 +909,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               </th>
 
               {/* Left to target — how much upside remains from today's price */}
-              <th className="px-3 py-2.5 text-right">
+              <th className="px-3 py-2.5 text-right sticky top-0 z-10 bg-card">
                 <div className="flex flex-col items-end gap-0.5">
                   <div className="flex items-center gap-0.5">
                     <button
@@ -936,7 +936,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               </th>
 
               {/* Score column + info tooltip */}
-              <th className="px-3 py-2.5 text-right">
+              <th className="px-3 py-2.5 text-right sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-end gap-0.5">
                   <button
                     onClick={() => toggleSort('score')}
@@ -959,7 +959,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               </th>
 
               {/* PEG column + info tooltip */}
-              <th className="px-3 py-2.5 text-right">
+              <th className="px-3 py-2.5 text-right sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-end gap-0.5">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">PEG</span>
                   <ColTooltip text="Price/Earnings to Growth ratio (Peter Lynch). Measures if the stock is cheap or expensive relative to its growth rate.">
@@ -974,7 +974,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               </th>
 
               {/* Margin column + info tooltip */}
-              <th className="px-3 py-2.5 text-right">
+              <th className="px-3 py-2.5 text-right sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-end gap-0.5">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Margin</span>
                   <ColTooltip text="Net profit margin TTM — % of revenue kept as profit in the last 12 months. Higher is better." />
@@ -982,7 +982,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               </th>
 
               {/* Sparkline column + info tooltip */}
-              <th className="px-3 py-2.5 text-center">
+              <th className="px-3 py-2.5 text-center sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-center gap-0.5">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sparkline</span>
                   <ColTooltip text="Weekly price evolution since the batch date. Colour shows position vs batch base price — not the direction of the line.">
@@ -1005,7 +1005,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               </th>
 
               {/* Batch column + info tooltip */}
-              <th className="px-3 py-2.5 text-center">
+              <th className="px-3 py-2.5 text-center sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-center gap-0.5">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Batch</span>
                   <ColTooltip text="Date of the most recent batch containing this ticker. · Nx means the ticker appears in N different batches — most recent data wins." />
@@ -1013,7 +1013,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               </th>
 
               {/* TradingView column — no header text, just icon */}
-              <th className="px-3 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+              <th className="px-3 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide sticky top-0 z-10 bg-card">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto opacity-40">
                   <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                 </svg>

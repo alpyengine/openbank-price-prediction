@@ -168,7 +168,7 @@ function ColHelpModal({ colKey, onClose }) {
 function Th({ w, date, colKey, onOpen, children }) {
   return (
     <th
-      className="text-left text-[11px] font-medium text-muted-foreground px-3.5 py-2.5 whitespace-nowrap"
+      className="text-left text-[11px] font-medium text-muted-foreground px-3.5 py-2.5 whitespace-nowrap sticky top-0 z-10 bg-card"
       style={{ width: w }}
     >
       <div className="flex items-center gap-1">

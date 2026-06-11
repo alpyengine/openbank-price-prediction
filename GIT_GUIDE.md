@@ -3428,3 +3428,48 @@ Tests: 164/164 passing"
 
 git tag v7.5.16
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 160 — v7.5.17  Sticky headers AllStocks + BatchOverviewDetail + Watchlist tooltip style
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/components/WatchlistPage.jsx:
+#     ColTooltip text: text-[11px] text-muted-foreground → text-sm text-foreground.
+#       Matches AllStocksPage tooltip visual style (larger, darker text).
+#     th: removed uppercase + tracking-wide, font-semibold → font-bold.
+#       bg-muted/80 backdrop-blur-sm → bg-card. Matches AllStocksPage style.
+#
+#   src/components/AllStocksPage.jsx:
+#     All th elements: added sticky top-0 z-10 bg-card.
+#     Container is overflow-visible so page scroll is used — sticky works.
+#
+#   src/components/StockTable.jsx:
+#     Th component: added sticky top-0 z-10 bg-card to th className.
+#     Container is overflow-x-auto only — vertical scroll is page scroll.
+#     Sticky works without any container changes.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.17/. .
+
+git add src/components/WatchlistPage.jsx src/components/AllStocksPage.jsx src/components/StockTable.jsx
+git commit -m "feat: sticky column headers AllStocks + BatchOverview + Watchlist tooltip style (v7.5.17)
+
+WatchlistPage.jsx:
+  ColTooltip: text-sm text-foreground (matches AllStocksPage style).
+  th: removed uppercase/tracking-wide, font-bold, bg-card.
+
+AllStocksPage.jsx:
+  All th: sticky top-0 z-10 bg-card.
+
+StockTable.jsx:
+  Th component: sticky top-0 z-10 bg-card.
+
+Tests: 164/164 passing"
+
+git tag v7.5.17
+git push origin main --tags

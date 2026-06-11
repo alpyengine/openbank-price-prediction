@@ -196,6 +196,7 @@ npm run test       # watch mode
 ---
 | v7.5.11 | Fix: WatchlistPage `rows is not defined` — stray `rows.length` reference in market filter badge updated to `filteredGroups.length` |
 | v7.5.14 | WatchlistPage — fix provisional verdict badge wrapping to two lines (whitespace-nowrap) |
+| v7.5.17 | Sticky column headers in AllStocks + BatchOverviewDetail + Watchlist tooltip text style (text-sm, text-foreground) |
 | v7.5.16 | WatchlistPage — fix ColTooltip using position:fixed (getBoundingClientRect) — definitive fix for tooltip clipping |
 | v7.5.15 | WatchlistPage — fix ColTooltip tooltip clipped by sticky header (now opens downward) |
 | v7.5.14 | WatchlistPage — remove redundant expand chevron (expand via batches badge only) |

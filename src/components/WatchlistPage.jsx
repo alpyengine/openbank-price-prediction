@@ -121,7 +121,7 @@ function ColTooltip({ label, text }) {
               width:     '220px',
             }}
           >
-            <p className="text-[11px] text-muted-foreground leading-relaxed m-0">{text}</p>
+            <p className="text-sm text-foreground leading-relaxed m-0">{text}</p>
           </div>
         )}
       </span>
@@ -708,7 +708,7 @@ export default function WatchlistPage({
                   { key: 'verdict',  label: 'Verdict',             tip: 'Result when horizon expired. If still open, ~ shows an estimated verdict using the current price vs target.' },
                   { key: 'star',     label: '',                    tip: '' },
                 ].map(({ key, label, tip }) => (
-                  <th key={key} className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border whitespace-nowrap sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+                  <th key={key} className="px-4 py-2.5 text-left text-[10px] font-bold text-muted-foreground border-b border-border whitespace-nowrap sticky top-0 z-10 bg-card">
                     {tip ? <ColTooltip label={label} text={tip} /> : label}
                   </th>
                 ))}
