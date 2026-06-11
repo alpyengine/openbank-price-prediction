@@ -80,7 +80,7 @@ function ColTooltip({ label, text }) {
       {label}
       <Info size={11} className="text-muted-foreground/60 shrink-0" />
       <span className={[
-        'absolute left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] z-50',
+        'absolute left-0 top-[calc(100%+4px)] z-[100]',
         'bg-popover text-popover-foreground border border-border',
         'text-[11px] leading-snug rounded-md px-2.5 py-1.5 shadow-md',
         'w-[200px] whitespace-normal pointer-events-none',

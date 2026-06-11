@@ -3368,3 +3368,32 @@ Tests: 164/164 passing"
 
 git tag v7.5.14
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 158 — v7.5.15  WatchlistPage — fix ColTooltip clipped by sticky header
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. NO npm install needed.
+#
+# BUG FIXED:
+#   ColTooltip was positioned bottom (above the th) — clipped by the
+#   overflow-auto scroll container. Fixed by positioning top (below the th)
+#   into the table content area where no clipping occurs.
+#   z-index raised to z-[100] to stay above sticky th (z-10) and any
+#   other positioned elements.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.15/. .
+
+git add src/components/WatchlistPage.jsx
+git commit -m "fix: ColTooltip clipped by sticky header — show below th (v7.5.15)
+
+Tooltip repositioned from bottom to top-[calc(100%+4px)] so it opens
+downward into the table content area, avoiding overflow-auto clipping.
+z-index raised to z-[100].
+
+Tests: 164/164 passing"
+
+git tag v7.5.15
+git push origin main --tags
