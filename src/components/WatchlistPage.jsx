@@ -113,12 +113,14 @@ function ColTooltip({ label, text }) {
           <div
             className="bg-card border border-border rounded-lg shadow-md p-2.5 text-left pointer-events-none"
             style={{
-              position:  'fixed',
-              top:       pos.y,
-              left:      pos.x,
-              transform: 'translateX(-100%)',
-              zIndex:    9999,
-              width:     '220px',
+              position:   'fixed',
+              top:        pos.y,
+              left:       pos.x,
+              transform:  'translateX(-100%)',
+              zIndex:     9999,
+              width:      '220px',
+              whiteSpace: 'normal',
+              wordWrap:   'break-word',
             }}
           >
             <p className="text-sm text-foreground leading-relaxed m-0">{text}</p>

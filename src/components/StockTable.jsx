@@ -331,8 +331,8 @@ export default function StockTable({
       {/* ── Table ──────────────────────────────────────────────────────── */}
       <div className="border border-border rounded-lg overflow-x-auto mb-6 shadow-sm bg-card">
         <table className="w-full border-collapse text-[13px] table-fixed" style={{ minWidth: 900 }}>
-          <thead>
-            <tr className="bg-muted border-b border-border">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-card border-b border-border">
               <Th w={72}  colKey="ticker"  onOpen={setHelpCol}>Ticker</Th>
               <Th w={120} colKey="ticker"  onOpen={setHelpCol}>Company</Th>
               <Th w={88}  colKey="price"   onOpen={setHelpCol}>Base price</Th>

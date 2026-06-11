@@ -3473,3 +3473,43 @@ Tests: 164/164 passing"
 
 git tag v7.5.17
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 161 — v7.5.18  StockTable sticky thead + WatchlistPage tooltip word-wrap
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/components/StockTable.jsx:
+#     thead: className="sticky top-0 z-10" — sticky on the whole thead
+#       instead of individual th elements. This works correctly with the
+#       overflow-x-auto container because sticky on thead is relative to
+#       the table, while the vertical scroll comes from main (overflowY:auto).
+#     tr: bg-muted → bg-card so the sticky header has solid background.
+#
+#   src/components/WatchlistPage.jsx:
+#     ColTooltip tooltip div: added whiteSpace:'normal' + wordWrap:'break-word'
+#       to prevent the tooltip text from rendering on a single line.
+#       The th parent has whitespace-nowrap which was being inherited.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.18/. .
+
+git add src/components/StockTable.jsx src/components/WatchlistPage.jsx
+git commit -m "fix: StockTable sticky thead + WatchlistPage tooltip word-wrap (v7.5.18)
+
+StockTable.jsx:
+  thead className='sticky top-0 z-10' (was on individual th).
+  tr bg-muted → bg-card for solid sticky background.
+
+WatchlistPage.jsx:
+  ColTooltip: whiteSpace:normal + wordWrap:break-word to prevent
+  single-line tooltip inheriting whitespace-nowrap from th parent.
+
+Tests: 164/164 passing"
+
+git tag v7.5.18
+git push origin main --tags
