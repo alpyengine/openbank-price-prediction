@@ -301,6 +301,102 @@ grant  execute on function public.get_all_profiles() to authenticated;
 
 
 -- =============================================================================
+-- SECTION 4.5 — FUNCTION: notify_fetch_failure()  (v7.6.0)
+-- =============================================================================
+-- Sends an email alert via EmailJS when any fetch function ends with failures.
+-- Called by fetch_expired_horizons / fetch_weekly_prices /
+-- fetch_weekly_prices_recovery whenever v_failed > 0.
+--
+-- EmailJS REST API (api/v1.0/email/send) requires, with "Use Private Key"
+-- enabled in the EmailJS dashboard:
+--   • user_id     = emailjs_public_key   (vault)
+--   • accessToken = emailjs_private_key  (vault)  <-- mandatory in strict mode
+-- The recipient is resolved by the template's To Email field set to {{to_email}}.
+--
+-- The send result is logged to fetch_log under function = 'notify_fetch_failure'
+-- (so it never pollutes the caller's failed_tickers aggregation).
+-- =============================================================================
+
+create or replace function public.notify_fetch_failure(
+  p_function_name  text,
+  p_run_date       date,
+  p_inserted       integer,
+  p_skipped        integer,
+  p_failed         integer,
+  p_failed_tickers text
+)
+returns void
+language plpgsql
+security definer
+as $$
+declare
+  v_service_id  text;
+  v_template_id text;
+  v_public_key  text;
+  v_private_key text;
+  v_payload     jsonb;
+  v_status      integer;
+  v_resp        text;
+begin
+  select decrypted_secret into v_service_id  from vault.decrypted_secrets where name = 'emailjs_service_id';
+  select decrypted_secret into v_template_id from vault.decrypted_secrets where name = 'emailjs_template_id_supabase';
+  select decrypted_secret into v_public_key  from vault.decrypted_secrets where name = 'emailjs_public_key';
+  select decrypted_secret into v_private_key from vault.decrypted_secrets where name = 'emailjs_private_key';
+
+  if v_service_id is null or v_template_id is null
+     or v_public_key is null or v_private_key is null then
+    insert into fetch_log(run_date, function, ticker, status, detail)
+    values (current_date, 'notify_fetch_failure', 'SYSTEM', 'failed',
+      'missing EmailJS secret(s) in vault — email not sent');
+    return;
+  end if;
+
+  -- Build EmailJS request body. template_params must match the template
+  -- variables: function_name, run_date, inserted, failed, failed_tickers,
+  -- to_email. (skipped is an input but is not shown in the template.)
+  v_payload := jsonb_build_object(
+    'service_id',  v_service_id,
+    'template_id', v_template_id,
+    'user_id',     v_public_key,
+    'accessToken', v_private_key,
+    'template_params', jsonb_build_object(
+      'function_name',  p_function_name,
+      'run_date',       p_run_date::text,
+      'inserted',       p_inserted,
+      'failed',         p_failed,
+      'failed_tickers', coalesce(nullif(p_failed_tickers, ''), '—'),
+      'to_email',       'alpyengine@gmail.com'
+    )
+  );
+
+  begin
+    select status, content
+      into v_status, v_resp
+    from http_post(
+      'https://api.emailjs.com/api/v1.0/email/send',
+      v_payload::text,
+      'application/json'
+    );
+
+    if v_status = 200 then
+      insert into fetch_log(run_date, function, ticker, status, detail)
+      values (current_date, 'notify_fetch_failure', p_function_name, 'inserted',
+        format('email sent (failed=%s, tickers=%s)', p_failed, p_failed_tickers));
+    else
+      insert into fetch_log(run_date, function, ticker, status, detail)
+      values (current_date, 'notify_fetch_failure', p_function_name, 'failed',
+        format('emailjs http %s: %s', v_status, left(coalesce(v_resp, ''), 300)));
+    end if;
+  exception when others then
+    insert into fetch_log(run_date, function, ticker, status, detail)
+    values (current_date, 'notify_fetch_failure', p_function_name, 'failed',
+      format('exception: %s', sqlerrm));
+  end;
+end;
+$$;
+
+
+-- =============================================================================
 -- SECTION 5 — FUNCTION: fetch_expired_horizons()
 -- =============================================================================
 -- Evaluates all awaiting predictions whose targetDate has passed.
@@ -338,11 +434,19 @@ declare
   v_best_diff    integer;
   v_curr_diff    integer;
   v_elem         jsonb;
+  v_inserted     integer     := 0;
+  v_skipped      integer     := 0;
+  v_failed       integer     := 0;
+  v_start_ts     timestamptz := clock_timestamp();
 begin
   select decrypted_secret into v_api_key
   from vault.decrypted_secrets
   where name = 'twelve_data_key';
-  if v_api_key is null then return; end if;
+  if v_api_key is null then
+    insert into fetch_log(run_date, function, ticker, status, detail)
+    values (current_date, 'fetch_expired_horizons', 'SYSTEM', 'failed', 'twelve_data_key not found in vault');
+    return;
+  end if;
 
   for rec in
     select
@@ -474,7 +578,33 @@ begin
           ),
           updated_at = now()
         where id = rec.batch_id;
+
+        insert into fetch_log(run_date, function, ticker, status, detail)
+        values (current_date, 'fetch_expired_horizons', v_ticker, 'inserted',
+          format('%s %s verdict=%s close=%s target=%s',
+            v_horizon, rec.result_row->>'targetDate', v_new_verdict, v_close_price, v_target_price));
+        v_inserted := v_inserted + 1;
+
+      elsif v_target_price is null or v_target_price <= 0 then
+        insert into fetch_log(run_date, function, ticker, status, detail)
+        values (current_date, 'fetch_expired_horizons', v_ticker, 'skipped',
+          format('%s %s — invalid targetPrice (%s)',
+            v_horizon, rec.result_row->>'targetDate', v_target_price));
+        v_skipped := v_skipped + 1;
+
+      else
+        insert into fetch_log(run_date, function, ticker, status, detail)
+        values (current_date, 'fetch_expired_horizons', v_ticker, 'failed',
+          format('%s %s — no close price for target_date=%s',
+            v_horizon, rec.result_row->>'targetDate', v_target_date));
+        v_failed := v_failed + 1;
       end if;
+
+    exception when others then
+      insert into fetch_log(run_date, function, ticker, status, detail)
+      values (current_date, 'fetch_expired_horizons', v_ticker, 'failed',
+        format('exception: %s', sqlerrm));
+      v_failed := v_failed + 1;
     end;
     perform pg_sleep(8);
   end loop;
@@ -507,6 +637,26 @@ begin
   where exists (
     select 1 from jsonb_array_elements(b.results) as r
     where r->>'verdict' != 'awaiting'
+  );
+
+  -- Email notification when there are failures
+  if v_failed > 0 then
+    perform notify_fetch_failure(
+      'fetch_expired_horizons', current_date,
+      v_inserted, v_skipped, v_failed,
+      (select string_agg(distinct ticker, ', ') from fetch_log
+       where run_date = current_date
+         and function = 'fetch_expired_horizons'
+         and status = 'failed')
+    );
+  end if;
+
+  -- Save execution summary
+  insert into fetch_log_summary(run_date, function, inserted, skipped, failed, duration_s)
+  values (
+    current_date, 'fetch_expired_horizons',
+    v_inserted, v_skipped, v_failed,
+    round(extract(epoch from clock_timestamp() - v_start_ts)::numeric, 1)
   );
 end;
 $$;
@@ -687,6 +837,18 @@ begin
       v_failed := v_failed + 1;
     end;
   end loop;
+
+  -- Email notification when there are failures
+  if v_failed > 0 then
+    perform notify_fetch_failure(
+      'fetch_weekly_prices', current_date,
+      v_inserted, v_skipped, v_failed,
+      (select string_agg(ticker, ', ') from fetch_log
+       where run_date = current_date
+         and function = 'fetch_weekly_prices'
+         and status = 'failed')
+    );
+  end if;
 
   -- Save execution summary
   insert into fetch_log_summary(run_date, function, inserted, skipped, failed, duration_s)
@@ -888,6 +1050,18 @@ begin
       v_failed := v_failed + 1;
     end;
   end loop;
+
+  -- Email notification when there are failures
+  if v_failed > 0 then
+    perform notify_fetch_failure(
+      'fetch_weekly_prices_recovery', current_date,
+      v_inserted, v_skipped, v_failed,
+      (select string_agg(ticker, ', ') from fetch_log
+       where run_date = current_date
+         and function = 'fetch_weekly_prices_recovery'
+         and status = 'failed')
+    );
+  end if;
 
   insert into fetch_log_summary(run_date, function, inserted, skipped, failed, duration_s)
   values (

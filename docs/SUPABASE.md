@@ -277,6 +277,8 @@ For each expired prediction:
 5. Calculates verdict (exceeded / hit / close / wrong_way / miss)
 6. Updates `batches.results` with verdict and `priceOnDate`
 7. Recalculates `hit_rate` and `hit_rate_ext` for all affected batches
+8. Logs every prediction to `fetch_log` — `inserted` = verdict evaluated, `skipped` = invalid `targetPrice`, `failed` = no close price / exception — and writes a run total to `fetch_log_summary` *(v7.6.0)*
+9. If `failed > 0`, sends an email alert via `notify_fetch_failure()` *(v7.6.0)*
 
 **Lookback window (updated v7.5.9):**
 - US tickers: `time_series?start_date=(targetDate-5)&end_date=targetDate` — picks closest day ≤ targetDate
@@ -313,6 +315,7 @@ PostgreSQL column/variable name collision which caused silent failures.
 3. Inserts the price into **all matching batch combinations** in a nested loop
 4. Logs every insert/skip/fail to `fetch_log`
 5. Writes execution summary to `fetch_log_summary`
+6. If `failed > 0`, sends an email alert via `notify_fetch_failure()` *(v7.6.0)*
 
 **Why the change?** Previous architecture iterated all `ticker × batch_id` combinations
 (~200 rows × 8s sleep = ~560s) which exceeded Supabase's 2-minute cron timeout.
@@ -342,12 +345,61 @@ but doesn't have one. This catches: API timeouts, rate limit silences, transient
 3. Re-fetches using identical API logic to `fetch_weekly_prices()`
 4. Inserts recovered rows tagged `RECOVERED` in `fetch_log.detail`
 5. Writes summary to `fetch_log_summary`
+6. If `failed > 0`, sends an email alert via `notify_fetch_failure()` *(v7.6.0)*
 
 **Full weekly schedule:**
 ```
 Saturday  10:00 UTC → fetch_weekly_prices()          main run
 Sunday    23:00 UTC → backup_to_github()             data backup
 Monday    06:00 UTC → fetch_weekly_prices_recovery() retry missed tickers
+```
+
+---
+
+### `notify_fetch_failure()` *(v7.6.0)*
+
+**Cron:** none — called internally by the three fetch functions when `failed > 0`.
+**Purpose:** Sends an email alert via EmailJS so silent fetch failures don't go unnoticed.
+
+**Signature:**
+```sql
+notify_fetch_failure(
+  p_function_name  text,    -- 'fetch_expired_horizons' | 'fetch_weekly_prices' | 'fetch_weekly_prices_recovery'
+  p_run_date       date,
+  p_inserted       integer,
+  p_skipped        integer,
+  p_failed         integer,
+  p_failed_tickers text
+)
+```
+
+**Flow:**
+1. Reads `emailjs_service_id`, `emailjs_template_id_supabase`, `emailjs_public_key`, `emailjs_private_key` from Vault
+2. Builds the EmailJS request body and POSTs to `https://api.emailjs.com/api/v1.0/email/send` via `http_post()`
+3. Logs the send result to `fetch_log` under `function = 'notify_fetch_failure'` (`inserted` = email sent, `failed` = HTTP error / exception)
+
+**EmailJS requirements:**
+- *Account → Security:* **Allow EmailJS API for non-browser applications** must be enabled (server-side call).
+- *Account → Security:* with **Use Private Key** enabled, the request **must** include `accessToken = emailjs_private_key`. Sending only the public key returns `403 — Private key is required`.
+- The template `template_id_supabase` must expose: `function_name`, `run_date`, `inserted`, `failed`, `failed_tickers`, `to_email`. `skipped` is passed to the function but not shown in the email.
+- The template's **To Email** field is set to `{{to_email}}`; the function sends `to_email = alpyengine@gmail.com`.
+
+**Request body:**
+```json
+{
+  "service_id":  "<emailjs_service_id>",
+  "template_id": "<emailjs_template_id_supabase>",
+  "user_id":     "<emailjs_public_key>",
+  "accessToken": "<emailjs_private_key>",
+  "template_params": {
+    "function_name": "fetch_weekly_prices",
+    "run_date": "2026-06-11",
+    "inserted": 28,
+    "failed": 2,
+    "failed_tickers": "AMD, MCD",
+    "to_email": "alpyengine@gmail.com"
+  }
+}
 ```
 
 ---
@@ -407,8 +459,12 @@ select cron.unschedule('job-name');
 
 | Secret name | Used by | Notes |
 |---|---|---|
-| `twelve_data_key` | `fetch_expired_horizons()`, `fetch_weekly_prices()` | Free plan: 8 req/min, 800/day |
+| `twelve_data_key` | `fetch_expired_horizons()`, `fetch_weekly_prices()`, `fetch_weekly_prices_recovery()` | Free plan: 8 req/min, 800/day |
 | `github_pat` | `backup_to_github()` | Token scope: `repo` |
+| `emailjs_service_id` | `notify_fetch_failure()` | EmailJS Gmail service (`service_xugjmjv`) |
+| `emailjs_template_id_supabase` | `notify_fetch_failure()` | Alert template (`template_ryfy271`) |
+| `emailjs_public_key` | `notify_fetch_failure()` | EmailJS `user_id` |
+| `emailjs_private_key` | `notify_fetch_failure()` | EmailJS `accessToken` — required with *Use Private Key* enabled *(v7.6.0)* |
 
 **Add/view secrets:**
 ```sql

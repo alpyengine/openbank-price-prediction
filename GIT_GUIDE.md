@@ -3542,3 +3542,81 @@ Tests: 164/164 passing"
 
 git tag v7.5.19
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 163 — v7.6.0  Supabase failure email alerts + fetch_expired_horizons logging
+# ===========================================================================
+#
+# SUPABASE CHANGES — must be deployed manually (SQL editor + Vault + EmailJS).
+# NO npm install. NO src/ changes — Supabase functions + docs only.
+#
+# WHAT'S NEW:
+#
+#   docs/supabase_setup.sql:
+#     + notify_fetch_failure(function_name, run_date, inserted, skipped,
+#         failed, failed_tickers) — new SECTION 4.5.
+#       Reads emailjs_service_id / emailjs_template_id_supabase /
+#       emailjs_public_key / emailjs_private_key from Vault, POSTs to
+#       https://api.emailjs.com/api/v1.0/email/send via http_post(), and
+#       logs the result to fetch_log (function='notify_fetch_failure').
+#       Sends accessToken = emailjs_private_key (required by EmailJS
+#       "Use Private Key" strict mode).
+#     ~ fetch_expired_horizons(): added v_inserted/v_skipped/v_failed/
+#       v_start_ts, per-prediction fetch_log inserts (inserted=verdict
+#       evaluated, skipped=invalid targetPrice, failed=no close/exception),
+#       per-prediction exception handler, fetch_log_summary at the end, and
+#       notify_fetch_failure() when v_failed > 0.
+#     ~ fetch_weekly_prices() + fetch_weekly_prices_recovery(): added the
+#       notify_fetch_failure() call before the fetch_log_summary insert.
+#
+#   docs/SUPABASE.md:
+#     + Section 2: notify_fetch_failure() subsection + logging/alert steps
+#       added to the three fetch functions.
+#     + Section 4: emailjs_service_id / emailjs_template_id_supabase /
+#       emailjs_public_key / emailjs_private_key rows in the Vault table.
+#
+#   README.md: v7.6.0 changelog row.
+#
+# DEPLOY (one-off, in order):
+#   1. Vault: add the EmailJS private key
+#        select vault.create_secret('<private_key>', 'emailjs_private_key');
+#      (emailjs_service_id / emailjs_template_id_supabase / emailjs_public_key
+#       were already present.)
+#   2. EmailJS dashboard (template_ryfy271):
+#        - To Email  -> {{to_email}}
+#        - Subject   -> "⚠️ Supabase fetch failure: {{function_name}}"
+#        - Account → Security: "Allow EmailJS API for non-browser applications"
+#          AND "Use Private Key" enabled.
+#   3. Supabase SQL editor: run the 4 functions from docs/supabase_setup.sql
+#      (notify_fetch_failure, fetch_expired_horizons, fetch_weekly_prices,
+#       fetch_weekly_prices_recovery). No cron changes.
+#   4. Smoke test:
+#        select notify_fetch_failure('manual_test', current_date, 0, 0, 1, 'TEST');
+#        select * from fetch_log where function='notify_fetch_failure'
+#          order by created_at desc limit 1;   -- expect status='inserted'
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.6.0/. .
+
+git add docs/supabase_setup.sql docs/SUPABASE.md README.md GIT_GUIDE.md
+git commit -m "feat: Supabase failure email alerts + fetch_expired_horizons logging (v7.6.0)
+
+notify_fetch_failure() (new):
+  Reads EmailJS secrets from Vault, POSTs to EmailJS via http_post()
+  with accessToken=emailjs_private_key, logs result to fetch_log.
+
+fetch_expired_horizons():
+  Persistent logging (fetch_log + fetch_log_summary), per-prediction
+  exception handler, notify_fetch_failure() when failed > 0.
+
+fetch_weekly_prices() + fetch_weekly_prices_recovery():
+  notify_fetch_failure() call before the summary insert.
+
+Vault: emailjs_private_key required (EmailJS Use Private Key strict mode).
+Docs: SUPABASE.md + README.md updated.
+No src/ changes."
+
+git tag -a v7.6.0 -m "v7.6.0: Supabase failure email alerts + fetch_expired_horizons logging"
+git push origin main
+git push origin v7.6.0
