@@ -3164,3 +3164,68 @@ Tests: 164/164 passing"
 
 git tag v7.5.10
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 154 — v7.5.11  Fix: WatchlistPage rows is not defined
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# BUG FIXED:
+#   ReferenceError: rows is not defined on WatchlistPage load.
+#   Root cause: market filter badge used rows.length (old variable name)
+#   after buildStockRows was replaced by buildGroupedRows in v7.5.10.
+#   The variable was renamed to filteredGroups but one reference was missed.
+#
+# FIX:
+#   WatchlistPage.jsx line ~578:
+#     rows.length → filteredGroups.length in the All (N) badge.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.11/. .
+
+git add src/components/WatchlistPage.jsx
+git commit -m "fix: WatchlistPage rows is not defined (v7.5.11)
+
+rows.length → filteredGroups.length in market filter All badge.
+Stray reference from buildStockRows → buildGroupedRows rename in v7.5.10.
+
+Tests: 164/164 passing"
+
+git tag v7.5.11
+git push origin main --tags
+
+
+# ===========================================================================
+# STEP 154 — v7.5.11  Fix: rows is not defined in WatchlistPage
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# BUG FIXED:
+#   ReferenceError: rows is not defined on WatchlistPage load.
+#   Root cause: market filter badge used rows.length after buildStockRows()
+#   was renamed to buildGroupedRows() in v7.5.10. The variable `rows` no
+#   longer exists — replaced by `filteredGroups`.
+#
+# FIX:
+#   WatchlistPage.jsx line ~578:
+#     rows.length → filteredGroups.length
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.11/. .
+
+git add src/components/WatchlistPage.jsx
+git commit -m "fix: rows is not defined in WatchlistPage market filter badge (v7.5.11)
+
+rows.length → filteredGroups.length in All badge.
+rows was removed in v7.5.10 when buildStockRows() was replaced
+by buildGroupedRows() but one reference was missed.
+
+Tests: 164/164 passing"
+
+git tag v7.5.11
+git push origin main --tags

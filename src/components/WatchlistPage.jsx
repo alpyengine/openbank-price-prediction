@@ -575,7 +575,7 @@ export default function WatchlistPage({
                     : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
                 )}
               >
-                All <span className="opacity-60">({rows.length})</span>
+                All <span className="opacity-60">({filteredGroups.length})</span>
               </button>
               {markets.map(([mkt, count]) => {
                 const FLAG = { US:'🇺🇸', DE:'🇩🇪', AS:'🇳🇱', PA:'🇫🇷', L:'🇬🇧', MC:'🇪🇸' }
