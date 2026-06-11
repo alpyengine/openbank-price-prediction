@@ -3397,3 +3397,34 @@ Tests: 164/164 passing"
 
 git tag v7.5.15
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 159 — v7.5.16  WatchlistPage — fix ColTooltip using fixed positioning
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. NO npm install needed.
+#
+# BUG FIXED:
+#   ColTooltip tooltip was clipped by the table scroll container because
+#   it used position:absolute inside a sticky th inside overflow:auto.
+#   Fix: copied the ColTooltip pattern from AllStocksPage which uses
+#   position:fixed with getBoundingClientRect() to calculate screen coords.
+#   Tooltip now renders at viewport level — impossible to clip.
+#   useRef added to React import.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.16/. .
+
+git add src/components/WatchlistPage.jsx
+git commit -m "fix: ColTooltip fixed positioning in WatchlistPage (v7.5.16)
+
+Replace position:absolute tooltip with position:fixed pattern from
+AllStocksPage. Uses getBoundingClientRect() on mouseenter to position
+tooltip at viewport coords — escapes all overflow/sticky clipping.
+useRef added to React import.
+
+Tests: 164/164 passing"
+
+git tag v7.5.16
+git push origin main --tags

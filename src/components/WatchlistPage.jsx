@@ -28,7 +28,7 @@
  * @param {Function}  onLoadBatch  — load a batch into the main view
  * @param {Function}  onCheckAlerts — trigger manual alert check
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -74,19 +74,56 @@ const CLOSE_RATIO = { '1M': 2.0, '3M': 2.0, '6M': 1.8, '12M': 1.6 }
  * ColTooltip — column header with an info icon tooltip.
  * Matches the pattern used in AllStocksPage.
  */
+/**
+ * ColTooltip — ℹ icon with hover tooltip for table column headers.
+ * Uses position:fixed to escape the table's overflow clipping.
+ * Copied from AllStocksPage pattern.
+ */
 function ColTooltip({ label, text }) {
+  const [open, setOpen] = useState(false)
+  const [pos,  setPos]  = useState({ x: 0, y: 0 })
+  const ref             = useRef(null)
+
+  function handleMouseEnter() {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      setPos({ x: rect.right, y: rect.bottom + 6 })
+    }
+    setOpen(true)
+  }
+
   return (
-    <span className="inline-flex items-center gap-1 group relative cursor-default">
+    <span className="inline-flex items-center gap-1">
       {label}
-      <Info size={11} className="text-muted-foreground/60 shrink-0" />
-      <span className={[
-        'absolute left-0 top-[calc(100%+4px)] z-[100]',
-        'bg-popover text-popover-foreground border border-border',
-        'text-[11px] leading-snug rounded-md px-2.5 py-1.5 shadow-md',
-        'w-[200px] whitespace-normal pointer-events-none',
-        'opacity-0 group-hover:opacity-100 transition-opacity',
-      ].join(' ')}>
-        {text}
+      <span
+        ref={ref}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setOpen(false)}
+        className="relative inline-flex items-center"
+      >
+        <svg
+          width="12" height="12" viewBox="0 0 12 12" fill="none"
+          className="text-muted-foreground cursor-help shrink-0"
+          aria-label="column info"
+        >
+          <circle cx="6" cy="6" r="5.5" stroke="currentColor" strokeWidth="1"/>
+          <text x="6" y="9" textAnchor="middle" fontSize="7" fill="currentColor" fontWeight="500">i</text>
+        </svg>
+        {open && (
+          <div
+            className="bg-card border border-border rounded-lg shadow-md p-2.5 text-left pointer-events-none"
+            style={{
+              position:  'fixed',
+              top:       pos.y,
+              left:      pos.x,
+              transform: 'translateX(-100%)',
+              zIndex:    9999,
+              width:     '220px',
+            }}
+          >
+            <p className="text-[11px] text-muted-foreground leading-relaxed m-0">{text}</p>
+          </div>
+        )}
       </span>
     </span>
   )
