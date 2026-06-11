@@ -194,6 +194,7 @@ npm run test       # watch mode
 107 tests across 6 files — utils, hooks, services.
 
 ---
+| v7.5.10 | Watchlist overhaul — horizon toggle (1M/3M/6M/12M), grouped rows with expand + avg upside, Left to target column, provisional verdict (~), ColTooltip headers, collapsible column guide · BatchSimple scroll-to + violet highlight from Watchlist · App auto-loads smallest batch on startup · stocks sorted A→Z on batch load |
 | v7.5.9 | Supabase price functions overhaul — fetch_expired_horizons 5-day lookback window (fixes weekend/holiday expiry) · fetch_weekly_prices unique-ticker architecture (fixes 2-min timeout) · fetch_weekly_prices_recovery() new function (Job 8, Mon 06:00 UTC) · fetch_log + fetch_log_summary tables · SUPABASE.md + UML updated |
 | v7.5.8 | Fix: getRefPrice/getUpsideHoy declaration order in AllStocksPage (ReferenceError before initialization) |
 | v7.5.7 | All Stocks — Left to target column (real upside from today's price) · getRefPrice cascade: weekly close → autoPrices → basePrice · topPicks and bestOnly use upsideHoy |

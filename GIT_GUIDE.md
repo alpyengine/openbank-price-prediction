@@ -3090,3 +3090,77 @@ README.md: changelog v7.5.4 → v7.5.9."
 
 git tag v7.5.9
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 153 — v7.5.10  Watchlist overhaul + smallest batch auto-load + scroll highlight
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/App.jsx:
+#     Auto-load on startup: smallest batch (fewest tickers) instead of most
+#       recent. Minimises Twelve Data / Alpha Vantage API calls on first render.
+#     handleLoadBatch: accepts optional scrollToTicker param. Sets
+#       highlightTicker state for 2.5s then clears it.
+#     newStocks sorted A→Z before setStocks on every batch load.
+#     highlightTicker prop passed to BatchSimple.
+#
+#   src/components/WatchlistPage.jsx:
+#     ColTooltip — info-icon tooltip on all 8 column headers.
+#     evaluateProvisional() — estimated verdict for open horizons using
+#       weekly → autoPrices cascade (same as Left to target).
+#       Displayed as "~ Label" with opacity-70 to distinguish from real verdict.
+#     buildGroupedRows() replaces buildStockRows():
+#       One group per ticker. Summary row = latest batch.
+#       batchRows[] = all batches for expand panel.
+#       avgUpside = mean horizon upside across all batches.
+#     horizon state (default '12M') — pill toggle 1M/3M/6M/12M in header.
+#       All columns (upside, left to target, verdict) react to selection.
+#     legendOpen state — collapsible column guide panel under KPIs.
+#     expandedTickers state — Set of tickers with expanded batch history.
+#     New columns: {H} Upside · Avg upside · Left to target (was vs Target).
+#     Left to target: (target - refPrice) / refPrice. Green if positive
+#       (still reachable), red if negative (already exceeded).
+#     KPI labels: "Left to target ↑" / "Exceeded target".
+#     Expand chevron shown only when batchCount > 1.
+#     onLoadBatch called with scrollToTicker when opening from detail panel.
+#
+#   src/components/BatchSimple.jsx:
+#     highlightTicker prop — on change, scrolls to matching row (smooth)
+#       and applies violet highlight class for 2.5s via highlightTicker state.
+#     Stocks rendered A→Z in table (defensive — App already sorts on load).
+#     useEffect + useRef added to React import.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.10/. .
+
+git add src/App.jsx src/components/WatchlistPage.jsx src/components/BatchSimple.jsx
+git commit -m "feat: Watchlist overhaul + smallest batch auto-load + scroll highlight (v7.5.10)
+
+App.jsx:
+  Auto-load smallest batch on startup (minimize API calls).
+  handleLoadBatch: optional scrollToTicker → highlightTicker 2.5s.
+  Stocks sorted A→Z on every batch load.
+  highlightTicker prop passed to BatchSimple.
+
+WatchlistPage.jsx:
+  Horizon toggle 1M/3M/6M/12M — upside, left to target, verdict react.
+  Grouped rows: one per ticker, expand to see all batches + avg upside.
+  Left to target: (target - refPrice) / refPrice (green/red).
+  Provisional verdict (~) for open horizons via weekly→autoPrices cascade.
+  ColTooltip on all column headers.
+  Collapsible column guide panel (legendOpen).
+  KPI labels updated.
+
+BatchSimple.jsx:
+  highlightTicker: scroll-to + violet highlight 2.5s.
+  Stocks rendered A→Z.
+
+Tests: 164/164 passing"
+
+git tag v7.5.10
+git push origin main --tags

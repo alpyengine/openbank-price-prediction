@@ -33,7 +33,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Star, X, ExternalLink, Bell } from 'lucide-react'
+import { Star, X, ExternalLink, Bell, ChevronDown, Info } from 'lucide-react'
 import {
   LineChart, Line, ResponsiveContainer, Tooltip as RTooltip,
 } from 'recharts'
@@ -66,6 +66,60 @@ const VERDICT_CFG = {
   awaiting:  { label: 'Awaiting', cls: 'bg-muted text-muted-foreground' },
 }
 
+// ── Hit margins by horizon (mirrors SNAPSHOT_PARAMS in stocks.js) ───────────
+const HIT_MARGINS = { '1M': 3, '3M': 5, '6M': 7, '12M': 10 }
+const CLOSE_RATIO = { '1M': 2.0, '3M': 2.0, '6M': 1.8, '12M': 1.6 }
+
+/**
+ * ColTooltip — column header with an info icon tooltip.
+ * Matches the pattern used in AllStocksPage.
+ */
+function ColTooltip({ label, text }) {
+  return (
+    <span className="inline-flex items-center gap-1 group relative cursor-default">
+      {label}
+      <Info size={11} className="text-muted-foreground/60 shrink-0" />
+      <span className={[
+        'absolute left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] z-50',
+        'bg-popover text-popover-foreground border border-border',
+        'text-[11px] leading-snug rounded-md px-2.5 py-1.5 shadow-md',
+        'w-[200px] whitespace-normal pointer-events-none',
+        'opacity-0 group-hover:opacity-100 transition-opacity',
+      ].join(' ')}>
+        {text}
+      </span>
+    </span>
+  )
+}
+
+/**
+ * evaluateProvisional — returns a verdict string for an open horizon
+ * using the current reference price (weekly → autoPrices → basePrice).
+ * Returns null if no price or no target.
+ */
+function evaluateProvisional(refPrice, targetPrice, basePrice, horizon) {
+  if (!refPrice || !targetPrice || !basePrice) return null
+  const margin     = HIT_MARGINS[horizon] ?? 5
+  const closeThresh = margin * (CLOSE_RATIO[horizon] ?? 2.0)
+  const signedDist = (refPrice - targetPrice) / targetPrice * 100
+  const absDist    = Math.abs(signedDist)
+  const bullish    = targetPrice >= basePrice
+
+  if (bullish) {
+    if (refPrice > targetPrice * (1 + margin / 100)) return 'exceeded'
+    if (absDist <= margin)                             return 'hit'
+    if (signedDist < 0 && absDist <= closeThresh)      return 'close'
+    if (signedDist < 0 && refPrice < basePrice)        return 'wrong_way'
+    return 'miss'
+  } else {
+    if (refPrice < targetPrice * (1 - margin / 100)) return 'exceeded'
+    if (absDist <= margin)                             return 'hit'
+    if (signedDist > 0 && absDist <= closeThresh)      return 'close'
+    if (signedDist > 0 && refPrice > basePrice)        return 'wrong_way'
+    return 'miss'
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
@@ -77,70 +131,110 @@ function fmtPct(n) {
 }
 
 /**
- * buildStockRows — derives one display row per ticker × batch.
- * If a ticker appears in 3 batches, 3 rows are returned.
- * This allows seeing all forecasts for a ticker across batches,
- * including cases where the same ticker has both bullish and bearish batches.
+ * buildBatchRow — builds a single row for one ticker × batch combination.
+ * horizon controls which upside/leftToTarget/verdict columns are active.
+ * weeklyPrices cascade: last weekly close → autoPrices → basePrice.
  */
-function buildStockRows(watchlist, batches, weeklyPrices, autoPrices) {
-  const rows = []
+function buildBatchRow(ticker, batch, weeklyPrices, autoPrices, horizon) {
+  const results  = batch.results.filter(r => r.ticker === ticker)
+  const get      = h => results.find(r => r.horizon === h)
+  const rH       = get(horizon)
+  const rFirst   = get('1M') ?? get('3M') ?? get('6M') ?? get('12M')
+
+  // Reference price: latest weekly close → autoPrices → null
+  const prices    = weeklyPrices[ticker]?.[batch.id] ?? []
+  const weeklyLast = prices.length ? prices[prices.length - 1] : null
+  const refPrice  = weeklyLast ?? autoPrices[ticker] ?? null
+
+  // Upside for selected horizon: (target - base) / base
+  const uH = rH
+    ? (rH.targetPrice - rH.basePrice) / rH.basePrice * 100
+    : null
+
+  // Left to target for selected horizon: (target - refPrice) / refPrice
+  // Positive = still has room. Negative = already exceeded.
+  const ltt = (refPrice && rH?.targetPrice)
+    ? (rH.targetPrice - refPrice) / refPrice * 100
+    : null
+
+  // Verdict for selected horizon:
+  //   - If horizon expired: use stored verdict from Supabase
+  //   - If horizon open: compute provisional verdict from refPrice (~)
+  const storedVerdict = rH?.verdict ?? 'awaiting'
+  let verdict = storedVerdict
+  let provisional = false
+  if (storedVerdict === 'awaiting' && rH?.targetPrice && rH?.basePrice && refPrice) {
+    const pv = evaluateProvisional(refPrice, rH.targetPrice, rH.basePrice, horizon)
+    if (pv) { verdict = pv; provisional = true }
+  }
+
+  return {
+    ticker,
+    co:        rFirst?.company ?? ticker,
+    batchId:   batch.id,
+    batchDate: batch.date,
+    direction: batch.direction ?? 'bullish',
+    market:    ticker.match(/\.(DE|AS|PA|L|MC)$/i)
+      ? ticker.match(/\.([A-Z]+)$/i)[1].toUpperCase()
+      : 'US',
+    currSym:   getCurrencySymbol(batch),
+    uH, ltt, verdict, provisional, refPrice,
+    basePrice: rH?.basePrice ?? null,
+    horizons: HORIZONS.map(h => {
+      const r    = get(h)
+      const vt_h = (refPrice && r?.targetPrice)
+        ? (r.targetPrice - refPrice) / refPrice * 100
+        : null
+      return { h, target: r?.targetPrice ?? null, verdict: r?.verdict ?? 'awaiting', vt: vt_h }
+    }),
+    prices,
+  }
+}
+
+/**
+ * buildGroupedRows — derives one GROUP per ticker.
+ * Each group has: summary row (latest batch) + all batch rows for expand.
+ * horizon controls which upside/leftToTarget/verdict values are shown.
+ */
+function buildGroupedRows(watchlist, batches, weeklyPrices, autoPrices, horizon) {
+  const groups = []
 
   for (const ticker of watchlist) {
-    // Find all batches containing this ticker, sorted newest first
     const tickerBatches = [...batches]
       .sort((a, b) => (b.id > a.id ? 1 : -1))
       .filter(b => b.results?.some(r => r.ticker === ticker))
 
-    for (const batch of tickerBatches) {
-      const results = batch.results.filter(r => r.ticker === ticker)
-      const get = h => results.find(r => r.horizon === h)
-
-      const r12 = get('12M')
-      const u12 = r12 ? (r12.targetPrice - r12.basePrice) / r12.basePrice * 100 : null
-
-      const prices    = weeklyPrices[ticker]?.[batch.id] ?? []
-      const lastPrice = prices.length ? prices[prices.length - 1] : (autoPrices[ticker] ?? null)
-      const vt        = (lastPrice && r12) ? (lastPrice - r12.targetPrice) / r12.targetPrice * 100 : null
-
-      const r1      = get('1M')
-      const verdict = r1?.verdict ?? 'awaiting'
-
-      const currSym = getCurrencySymbol(batch)
-
-      rows.push({
-        ticker,
-        co:        r12?.company ?? ticker,
-        batchId:   batch.id,
-        batchDate: batch.date,
-        direction: batch.direction ?? 'bullish',
-        market:    ticker.match(/\.(DE|AS|PA|L|MC)$/i) ? ticker.match(/\.([A-Z]+)$/i)[1].toUpperCase() : 'US',
-        currSym,
-        u12, vt, verdict, lastPrice,
-        basePrice: r12?.basePrice ?? null,
-        horizons: HORIZONS.map(h => {
-          const r    = get(h)
-          const vt_h = (lastPrice && r) ? (lastPrice - r.targetPrice) / r.targetPrice * 100 : null
-          return { h, target: r?.targetPrice ?? null, verdict: r?.verdict ?? 'awaiting', vt: vt_h }
-        }),
-        prices,
-      })
-    }
-
-    // If ticker not found in any batch, add a placeholder row with safe defaults
     if (tickerBatches.length === 0) {
-      rows.push({
-        ticker, batchId: null, co: ticker, direction: 'bullish',
-        currSym: '$', u12: null, vt: null, verdict: 'awaiting',
-        lastPrice: null, basePrice: null, prices: [],
-        horizons: HORIZONS.map(h => ({ h, target: null, verdict: 'awaiting', vt: null })),
+      groups.push({
+        ticker, co: ticker, market: 'US', batchCount: 0,
+        summary: null, batchRows: [],
       })
+      continue
     }
+
+    const batchRows = tickerBatches.map(b =>
+      buildBatchRow(ticker, b, weeklyPrices, autoPrices, horizon)
+    )
+
+    // Summary row = latest batch data
+    const latest = batchRows[0]
+
+    // Average upside across all batches (non-null only)
+    const uValues = batchRows.map(r => r.uH).filter(v => v != null)
+    const avgUpside = uValues.length ? uValues.reduce((s, v) => s + v, 0) / uValues.length : null
+
+    groups.push({
+      ticker,
+      co:         latest.co,
+      market:     latest.market,
+      batchCount: tickerBatches.length,
+      summary:    { ...latest, avgUpside },
+      batchRows,
+    })
   }
 
-  // Sort rows alphabetically by ticker ascending
-  rows.sort((a, b) => a.ticker.localeCompare(b.ticker))
-
-  return rows
+  groups.sort((a, b) => a.ticker.localeCompare(b.ticker))
+  return groups
 }
 
 // ── VerdictBadge ──────────────────────────────────────────────────────────────
@@ -353,32 +447,55 @@ export default function WatchlistPage({
   autoPrices = {}, watchlist, onToggle, onNav, onLoadBatch, onCheckAlerts,
 }) {
   const [selectedTicker, setSelectedTicker] = useState(null)
-  const [filterMkt,      setFilterMkt]      = useState('')  // '' | 'US' | 'DE' | ...
+  const [filterMkt,      setFilterMkt]      = useState('')
+  // horizon — controls upside/leftToTarget/verdict columns
+  const [horizon,        setHorizon]        = useState('12M')
+  // legendOpen — column guide panel toggle
+  const [legendOpen,     setLegendOpen]     = useState(false)
+  // expandedTickers — set of ticker strings with expanded batch history
+  const [expandedTickers, setExpandedTickers] = useState(new Set())
 
-  // Build display rows from watchlist + batches + prices — must be first
-  const rows = useMemo(
-    () => buildStockRows(watchlist, batches, weeklyPrices, autoPrices),
-    [watchlist, batches, weeklyPrices, autoPrices]
+  // Build grouped rows from watchlist + batches + prices
+  const groups = useMemo(
+    () => buildGroupedRows(watchlist, batches, weeklyPrices, autoPrices, horizon),
+    [watchlist, batches, weeklyPrices, autoPrices, horizon]
   )
 
-  // Unique markets in watchlist rows — for filter badges
+  // Unique markets — for filter badges
   const markets = useMemo(() => {
     const counts = {}
-    rows.forEach(r => { counts[r.market ?? 'US'] = (counts[r.market ?? 'US'] || 0) + 1 })
+    groups.forEach(g => { counts[g.market ?? 'US'] = (counts[g.market ?? 'US'] || 0) + 1 })
     return Object.entries(counts).sort((a, b) => b[1] - a[1])
-  }, [rows])
+  }, [groups])
 
-  // Apply market filter to rows
-  const filteredRows = useMemo(() =>
-    filterMkt ? rows.filter(r => (r.market ?? 'US') === filterMkt) : rows
-  , [rows, filterMkt])
+  // Apply market filter
+  const filteredGroups = useMemo(() =>
+    filterMkt ? groups.filter(g => (g.market ?? 'US') === filterMkt) : groups
+  , [groups, filterMkt])
 
-  const selectedRow = rows.find(r => `${r.ticker}__${r.batchId ?? 'none'}` === selectedTicker) ?? null
+  // Flatten all summary rows for panel lookup + KPI counts
+  const allSummaries = filteredGroups.map(g => g.summary).filter(Boolean)
 
-  // Summary counts
-  const aboveTarget = rows.filter(r => r.vt != null && r.vt >= 0).length
-  const belowTarget = rows.filter(r => r.vt != null && r.vt < 0).length
-  const awaiting    = rows.filter(r => r.verdict === 'awaiting').length
+  const selectedRow = (() => {
+    for (const g of groups) {
+      if (g.summary && `${g.ticker}__${g.summary.batchId ?? 'none'}` === selectedTicker)
+        return g.summary
+      for (const r of g.batchRows)
+        if (`${r.ticker}__${r.batchId ?? 'none'}` === selectedTicker) return r
+    }
+    return null
+  })()
+
+  // Summary counts based on leftToTarget of latest batch per ticker
+  const aboveTarget = allSummaries.filter(r => r.ltt != null && r.ltt <= 0).length
+  const belowTarget = allSummaries.filter(r => r.ltt != null && r.ltt > 0).length
+  const awaiting    = allSummaries.filter(r => r.verdict === 'awaiting' && !r.provisional).length
+
+  const toggleExpand = (ticker) => setExpandedTickers(prev => {
+    const next = new Set(prev)
+    next.has(ticker) ? next.delete(ticker) : next.add(ticker)
+    return next
+  })
 
   // Empty state
   if (watchlist.size === 0) {
@@ -412,7 +529,25 @@ export default function WatchlistPage({
                 </span>
               </div>
               <div className="text-[11px] text-muted-foreground mt-0.5">
-                One row per batch · vs Target uses last weekly price
+                One row per ticker · expand to see all batches · prices: weekly → live
+              </div>
+            </div>
+            {/* Horizon toggle */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[11px] text-muted-foreground">Horizon:</span>
+              <div className="flex items-center gap-0.5 bg-muted rounded-full p-0.5 border border-border">
+                {['1M','3M','6M','12M'].map(h => (
+                  <button
+                    key={h}
+                    onClick={() => setHorizon(h)}
+                    className={cn(
+                      'text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors',
+                      horizon === h
+                        ? 'bg-card text-foreground shadow-sm border border-border'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >{h}</button>
+                ))}
               </div>
             </div>
             {onCheckAlerts && (
@@ -467,9 +602,9 @@ export default function WatchlistPage({
         <div className="grid grid-cols-4 gap-2 px-5 py-3 border-b border-border">
           {[
             { label: 'Tickers',       val: watchlist.size, color: 'text-foreground' },
-            { label: 'Above target',  val: aboveTarget,    color: 'text-green-700'  },
-            { label: 'Below target',  val: belowTarget,    color: 'text-red-700'    },
-            { label: 'Awaiting',      val: awaiting,       color: 'text-muted-foreground' },
+            { label: 'Left to target ↑', val: belowTarget,  color: 'text-green-700'  },
+            { label: 'Exceeded target',   val: aboveTarget,  color: 'text-blue-700'   },
+            { label: 'Awaiting',          val: awaiting,     color: 'text-muted-foreground' },
           ].map(({ label, val, color }) => (
             <div key={label} className="bg-muted/50 rounded-lg p-2.5">
               <div className="text-[10px] text-muted-foreground mb-1">{label}</div>
@@ -478,35 +613,91 @@ export default function WatchlistPage({
           ))}
         </div>
 
+        {/* Column guide — collapsible legend panel */}
+        <div className="px-5 pt-2 pb-0">
+          <button
+            onClick={() => setLegendOpen(v => !v)}
+            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Info size={12} />
+            Column guide
+            <ChevronDown size={11} className={cn('transition-transform', legendOpen && 'rotate-180')} />
+          </button>
+          {legendOpen && (
+            <div className="mt-2 mb-3 p-3 bg-muted/50 rounded-lg border border-border text-[11px] leading-relaxed">
+              <div className="grid gap-x-3 gap-y-1.5" style={{ gridTemplateColumns: '110px 1fr' }}>
+                <span className="font-medium text-foreground">{horizon} Upside</span>
+                <span className="text-muted-foreground">(Target − Base) / Base from Openbank forecast. Does not update with market moves.</span>
+                <span className="font-medium text-foreground">Left to target</span>
+                <span className="text-muted-foreground">(Target − Last weekly close) / Last weekly close. Real remaining upside from today. Green = still reachable. Red = already exceeded.</span>
+                <span className="font-medium text-foreground">Verdict</span>
+                <span className="text-muted-foreground">Real result when horizon expired. If still open, shows estimated verdict (~) based on current price vs target using the same hit/miss margins.</span>
+                <span className="font-medium text-foreground">Avg upside</span>
+                <span className="text-muted-foreground">Mean {horizon} upside across all batches for this ticker. Shows consistency of Openbank forecasts over time.</span>
+              </div>
+              <div className="flex gap-3 flex-wrap mt-2 pt-2 border-t border-border">
+                {[
+                  ['Exceeded','bg-blue-50 text-blue-700','price passed target + margin'],
+                  ['Hit','bg-green-50 text-green-700','within ±H% of target'],
+                  ['Close','bg-amber-50 text-amber-700','within ±2H% of target'],
+                  ['Wrong way','bg-purple-50 text-purple-700','moved opposite direction'],
+                  ['Miss','bg-red-50 text-red-700','outside all thresholds'],
+                ].map(([label, cls, desc]) => (
+                  <span key={label} className="flex items-center gap-1">
+                    <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${cls}`}>{label}</span>
+                    <span className="text-muted-foreground">{desc}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Table */}
         <div className="overflow-auto flex-1">
           <table className="w-full text-[12px] border-collapse">
             <thead>
               <tr className="bg-muted/50">
-                {['Ticker', 'Market', 'Batch', 'Direction', '12M Upside', 'vs Target', 'Verdict', ''].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
-                    {h}
+                {[
+                  { key: 'ticker',   label: 'Ticker',              tip: 'Stock symbol and company name. One row per ticker — expand to see all batches.' },
+                  { key: 'market',   label: 'Market',              tip: 'Exchange: US = NYSE/NASDAQ. DE/AS/PA/L/MC = European markets.' },
+                  { key: 'batch',    label: 'Latest batch',        tip: 'Date of the most recent Openbank forecast for this ticker.' },
+                  { key: 'batches',  label: 'Batches',             tip: 'Total number of forecast batches containing this ticker. Click the row chevron to expand.' },
+                  { key: 'upside',   label: `${horizon} Upside`,   tip: `Expected % gain from batch base price to Openbank ${horizon} target. Calculated at batch import date.` },
+                  { key: 'avg',      label: 'Avg upside',          tip: `Mean ${horizon} upside across all batches for this ticker. Reflects historical forecast consistency.` },
+                  { key: 'ltt',      label: 'Left to target',      tip: '(Target − last weekly close) / last weekly close. Real remaining upside from today. Green = reachable. Red = already exceeded.' },
+                  { key: 'verdict',  label: 'Verdict',             tip: 'Result when horizon expired. If still open, ~ shows an estimated verdict using the current price vs target.' },
+                  { key: 'expand',   label: '',                    tip: '' },
+                ].map(({ key, label, tip }) => (
+                  <th key={key} className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border whitespace-nowrap">
+                    {tip ? <ColTooltip label={label} text={tip} /> : label}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map(row => {
-                const rowKey = `${row.ticker}__${row.batchId ?? 'none'}`
+              {filteredGroups.map(group => {
+                const { ticker, summary: row, batchRows, batchCount } = group
+                if (!row) return null
+                const rowKey  = `${ticker}__${row.batchId ?? 'none'}`
+                const isExpanded = expandedTickers.has(ticker)
+                const isSelected = selectedTicker === rowKey
+
                 return (
+                <>
+                {/* ── Summary row (latest batch) ─────────────────────── */}
                 <tr
                   key={rowKey}
                   className={cn(
-                    'border-b border-border cursor-pointer transition-colors',
-                    selectedTicker === rowKey ? 'bg-muted/60' : 'hover:bg-muted/30'
+                    'border-b border-border transition-colors',
+                    isSelected ? 'bg-muted/60' : 'hover:bg-muted/30'
                   )}
-                  onClick={() => setSelectedTicker(
-                    selectedTicker === rowKey ? null : rowKey
-                  )}
+                  onClick={() => setSelectedTicker(isSelected ? null : rowKey)}
+                  style={{ cursor: 'pointer' }}
                 >
                   {/* Ticker + company */}
                   <td className="px-4 py-2.5">
-                    <div className="font-semibold text-foreground">{row.ticker.replace(/\.(DE|AS|PA|L|MC|US)$/i, '')}</div>
+                    <div className="font-semibold text-foreground">{ticker.replace(/\.(DE|AS|PA|L|MC|US)$/i, '')}</div>
                     <div className="text-[10px] text-muted-foreground mt-0.5">{row.co}</div>
                   </td>
 
@@ -514,62 +705,139 @@ export default function WatchlistPage({
                   <td className="px-4 py-2.5">
                     <span className={cn(
                       'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded',
-                      row.market === 'US'
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-blue-50 text-blue-700'
+                      row.market === 'US' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
                     )}>{row.market}</span>
                   </td>
 
-                  {/* Batch date */}
-                  <td className="px-4 py-2.5 text-muted-foreground">
+                  {/* Latest batch date */}
+                  <td className="px-4 py-2.5 text-muted-foreground text-[12px]">
                     {row.batchDate ?? '—'}
                   </td>
 
-                  {/* Direction badge */}
+                  {/* Batch count badge */}
                   <td className="px-4 py-2.5">
                     <span className={cn(
-                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
-                      row.direction === 'bearish'
-                        ? 'bg-red-50 text-red-800'
-                        : 'bg-green-50 text-green-800'
+                      'inline-block text-[10px] font-medium px-2 py-0.5 rounded-full',
+                      batchCount > 1
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'bg-muted text-muted-foreground'
                     )}>
-                      {row.direction === 'bearish' ? '📉' : '📈'}
-                      {row.direction === 'bearish' ? 'Bearish' : 'Bullish'}
+                      {batchCount} batch{batchCount !== 1 ? 'es' : ''}
                     </span>
                   </td>
 
-                  {/* 12M Upside */}
-                  <td className={cn('px-4 py-2.5 font-semibold',
-                    row.u12 == null ? 'text-muted-foreground'
-                    : row.u12 >= 0 ? 'text-green-700' : 'text-red-700'
+                  {/* Horizon upside */}
+                  <td className={cn('px-4 py-2.5 font-semibold text-[12px]',
+                    row.uH == null ? 'text-muted-foreground'
+                    : row.uH >= 0  ? 'text-green-700' : 'text-red-700'
                   )}>
-                    {fmtPct(row.u12)}
+                    {fmtPct(row.uH)}
                   </td>
 
-                  {/* vs Target */}
-                  <td className={cn('px-4 py-2.5 font-semibold',
-                    row.vt == null ? 'text-muted-foreground'
-                    : row.vt >= 0 ? 'text-blue-700' : 'text-red-600'
+                  {/* Avg upside across all batches */}
+                  <td className={cn('px-4 py-2.5 text-[12px]',
+                    row.avgUpside == null ? 'text-muted-foreground'
+                    : row.avgUpside >= 0  ? 'text-green-600' : 'text-red-600'
                   )}>
-                    {fmtPct(row.vt)}
+                    {fmtPct(row.avgUpside)}
                   </td>
 
-                  {/* Verdict */}
+                  {/* Left to target */}
+                  <td className={cn('px-4 py-2.5 font-semibold text-[12px]',
+                    row.ltt == null ? 'text-muted-foreground'
+                    : row.ltt > 0   ? 'text-green-700'
+                    : 'text-red-600'
+                  )}>
+                    {fmtPct(row.ltt)}
+                  </td>
+
+                  {/* Verdict — real or provisional (~) */}
                   <td className="px-4 py-2.5">
-                    <VerdictBadge verdict={row.verdict} />
+                    {row.provisional
+                      ? <span className={cn(
+                          'inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold opacity-70',
+                          (VERDICT_CFG[row.verdict] ?? VERDICT_CFG.awaiting).cls
+                        )}>~ {(VERDICT_CFG[row.verdict] ?? VERDICT_CFG.awaiting).label}</span>
+                      : <VerdictBadge verdict={row.verdict} />
+                    }
                   </td>
 
-                  {/* Star toggle */}
-                  <td className="px-4 py-2.5 text-center">
-                    <button
-                      onClick={e => { e.stopPropagation(); onToggle(row.ticker) }}
-                      className="text-red-500 hover:opacity-70 transition-opacity"
-                      aria-label={`Remove ${row.ticker} from watchlist`}
-                    >
-                      <Star size={14} fill="currentColor" />
-                    </button>
+                  {/* Expand chevron + star */}
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={e => { e.stopPropagation(); onToggle(ticker) }}
+                        className="text-red-500 hover:opacity-70 transition-opacity"
+                        aria-label={`Remove ${ticker} from watchlist`}
+                      >
+                        <Star size={14} fill="currentColor" />
+                      </button>
+                      {batchCount > 1 && (
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleExpand(ticker) }}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          aria-label={isExpanded ? 'Collapse batches' : 'Expand batches'}
+                        >
+                          <ChevronDown
+                            size={14}
+                            className={cn('transition-transform duration-200', isExpanded && 'rotate-180')}
+                          />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
+
+                {/* ── Expanded batch history rows ────────────────────── */}
+                {isExpanded && batchRows.slice(1).map(br => {
+                  const brKey = `${ticker}__${br.batchId ?? 'none'}`
+                  return (
+                    <tr
+                      key={brKey}
+                      className={cn(
+                        'border-b border-border/60 bg-muted/20 transition-colors cursor-pointer',
+                        selectedTicker === brKey ? 'bg-muted/50' : 'hover:bg-muted/30'
+                      )}
+                      onClick={() => setSelectedTicker(selectedTicker === brKey ? null : brKey)}
+                    >
+                      {/* Indent + ticker */}
+                      <td className="px-4 py-2 pl-8">
+                        <div className="text-[11px] text-muted-foreground font-medium">{ticker.replace(/\.(DE|AS|PA|L|MC|US)$/i, '')}</div>
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className={cn(
+                          'inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded opacity-60',
+                          br.market === 'US' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
+                        )}>{br.market}</span>
+                      </td>
+                      <td className="px-4 py-2 text-[11px] text-muted-foreground">{br.batchDate ?? '—'}</td>
+                      <td className="px-4 py-2"></td>
+                      {/* Upside */}
+                      <td className={cn('px-4 py-2 text-[11px] font-medium',
+                        br.uH == null ? 'text-muted-foreground'
+                        : br.uH >= 0  ? 'text-green-600' : 'text-red-600'
+                      )}>{fmtPct(br.uH)}</td>
+                      <td className="px-4 py-2"></td>
+                      {/* Left to target */}
+                      <td className={cn('px-4 py-2 text-[11px] font-medium',
+                        br.ltt == null ? 'text-muted-foreground'
+                        : br.ltt > 0   ? 'text-green-600' : 'text-red-600'
+                      )}>{fmtPct(br.ltt)}</td>
+                      {/* Verdict */}
+                      <td className="px-4 py-2">
+                        {br.provisional
+                          ? <span className={cn(
+                              'inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold opacity-60',
+                              (VERDICT_CFG[br.verdict] ?? VERDICT_CFG.awaiting).cls
+                            )}>~ {(VERDICT_CFG[br.verdict] ?? VERDICT_CFG.awaiting).label}</span>
+                          : <VerdictBadge verdict={br.verdict} />
+                        }
+                      </td>
+                      <td className="px-4 py-2"></td>
+                    </tr>
+                  )
+                })}
+                </>
                 )
               })}
             </tbody>
@@ -589,7 +857,7 @@ export default function WatchlistPage({
               .sort((a, b) => (b.id > a.id ? 1 : -1))
               .find(b => b.results?.some(r => r.ticker === selectedRow.ticker))
             if (batch && onLoadBatch && onNav) {
-              onLoadBatch(batch)
+              onLoadBatch(batch, selectedRow.ticker)  // pass ticker for scroll highlight
               onNav('batch-detail')
             }
           }}

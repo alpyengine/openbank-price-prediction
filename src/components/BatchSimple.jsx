@@ -16,7 +16,7 @@
  * @param {Object}   overrides  — manual price overrides
  * @param {number}   hitMargin  — hit tolerance in % (default 5)
  */
-import { useMemo } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { targetDates, daysLeft, dateStatus, formatDate } from '@/utils/dates.js'
 import { getEffectivePrice, evaluatePrediction } from '@/utils/stocks.js'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
@@ -123,7 +123,7 @@ function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, ov
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function BatchSimple({ stocks, autoPrices, histPrices, overrides, hitMargin = 5, closeRatio = 2.4, direction = 'bullish' }) {
+export default function BatchSimple({ stocks, autoPrices, histPrices, overrides, hitMargin = 5, closeRatio = 2.4, direction = 'bullish', highlightTicker = null }) {
   if (!stocks.length) {
     return (
       <Card className="flex items-center justify-center p-12 text-muted-foreground text-sm">
@@ -131,6 +131,16 @@ export default function BatchSimple({ stocks, autoPrices, histPrices, overrides,
       </Card>
     )
   }
+
+  // Scroll to highlighted ticker when navigating from Watchlist
+  const rowRefs = useRef({})
+  useEffect(() => {
+    if (!highlightTicker) return
+    const clean = highlightTicker.replace(/\.(DE|AS|PA|L|MC|US)$/i, '')
+    const key   = stocks.find(s => s.t === highlightTicker || s.t.startsWith(clean))?.t
+    const el    = key ? rowRefs.current[key] : null
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlightTicker, stocks])
 
   return (
     <Card className="overflow-hidden">
@@ -166,8 +176,17 @@ export default function BatchSimple({ stocks, autoPrices, histPrices, overrides,
             </TableRow>
           </TableHeader>
           <TableBody>
-            {stocks.map(stock => (
-              <TableRow key={stock.t}>
+            {[...stocks].sort((a, b) => a.t.localeCompare(b.t)).map(stock => (
+              <TableRow
+                key={stock.t}
+                ref={el => { rowRefs.current[stock.t] = el }}
+                className={cn(
+                  highlightTicker && (stock.t === highlightTicker ||
+                    stock.t.startsWith(highlightTicker.replace(/\.(DE|AS|PA|L|MC|US)$/i, '')))
+                    ? 'bg-violet-50 dark:bg-violet-950/30 transition-colors duration-1000'
+                    : ''
+                )}
+              >
                 {/* Ticker + company name */}
                 <TableCell className="py-3 px-4">
                   <div className="font-bold text-sm">{stock.t.split('.')[0]}</div>

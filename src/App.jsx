@@ -117,19 +117,26 @@ export default function App() {
   }, [stocks])
 
   const { autoPrices, histPrices, fetching, log, fetchCurrentBatch, fetchHistoricalForHorizon, reset: resetPrices, restoreHistPrices } = usePriceFetch()
+
+  // highlightTicker — ticker to scroll-to and briefly highlight in BatchSimple/StockTable
+  const [highlightTicker, setHighlightTicker] = useState(null)
   const { history, stats, loading: histLoading, saving: histSaving, log: histLog, configured: histConfigured, load: loadHistory, saveBatch, deleteBatch } = useHistory(hitMargin)
   const { marketData, loading: marketLoading, log: marketLog, fetchMarketData, reset: resetMarketData, restoreMarketData } = useMarketData()
   const { fundamentals, loading: fundLoading, log: fundLog, fetchFundamentals, reset: resetFundamentals, restoreFundamentals } = useFundamentals()
 
-  // Auto-load the most recent batch on first mount
-  // instead of showing DEFAULT_STOCKS example data
+  // Auto-load the SMALLEST batch on first mount (fewest tickers).
+  // This minimises auto-fetch API calls on startup — large batches can
+  // exhaust the Twelve Data / Alpha Vantage free-tier quota immediately.
+  // Once the user selects a different batch manually it stays selected.
   useEffect(() => {
     if (!history?.batches?.length) return
     // Only auto-load if still showing default stocks (no batch loaded yet)
     if (loadedBatchId) return
-    // Load the first batch (sorted by savedAt desc — most recent first)
-    const first = history.batches[0]
-    if (first) handleLoadBatch(first)
+    // Pick the batch with the fewest stocks (stocks field, fallback to results length)
+    const smallest = [...history.batches].sort((a, b) =>
+      (a.stocks ?? a.results?.length ?? 0) - (b.stocks ?? b.results?.length ?? 0)
+    )[0]
+    if (smallest) handleLoadBatch(smallest)
   }, [history])
 
   // Auto-fetch historical prices for expired horizons
@@ -211,7 +218,12 @@ export default function App() {
    * Restores all batch state (stocks, prices, fundamentals, market data, notes)
    * from the saved batch object — avoids any API calls.
    */
-  const handleLoadBatch = useCallback((batch) => {
+  const handleLoadBatch = useCallback((batch, scrollToTicker = null) => {
+    // If called from Watchlist with a specific ticker, highlight it after load
+    if (scrollToTicker) {
+      setHighlightTicker(scrollToTicker)
+      setTimeout(() => setHighlightTicker(null), 2500)
+    }
     const seen = new Set()
     const newStocks = []
     for (const r of batch.results) {
@@ -227,6 +239,8 @@ export default function App() {
       newStocks.push({ t:r.ticker, co:r.company, cu: rows.find(x => x.currency)?.currency ?? 'USD', b:r.basePrice, t1:get('1M'), t3:get('3M'), t6:get('6M'), t12:get('12M'), base:base||new Date() })
     }
     if (!newStocks.length) return
+    // Sort alphabetically A→Z — default ordering for Batch Overview
+    newStocks.sort((a, b) => a.t.localeCompare(b.t))
     setStocks(newStocks)
     setLoadedBatchDate(batch.date)
     setLoadedBatchId(batch.id)
@@ -347,6 +361,7 @@ export default function App() {
               hitMargin={hitMargin}
               closeRatio={closeRatio}
               direction={batchDirection}
+              highlightTicker={highlightTicker}
             />
           )}
 
