@@ -329,7 +329,7 @@ export default function StockTable({
       </div>
 
       {/* ── Table ──────────────────────────────────────────────────────── */}
-      <div className="border border-border rounded-lg overflow-x-auto mb-6 shadow-sm bg-card">
+      <div className="border border-border rounded-lg overflow-x-clip mb-6 shadow-sm bg-card">
         <table className="w-full border-collapse text-[13px] table-fixed" style={{ minWidth: 900 }}>
           <thead className="sticky top-0 z-10">
             <tr className="bg-card border-b border-border">

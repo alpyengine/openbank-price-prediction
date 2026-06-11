@@ -3513,3 +3513,32 @@ Tests: 164/164 passing"
 
 git tag v7.5.18
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 162 — v7.5.19  StockTable: overflow-x-clip fixes sticky thead
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. NO npm install needed.
+#
+# BUG FIXED:
+#   overflow-x-auto on the table container was creating a new scroll context
+#   that blocked position:sticky on thead. overflow-x-clip clips horizontal
+#   content the same way but does NOT create a new scroll context, so the
+#   vertical sticky works correctly relative to main (overflowY:auto).
+#   One word change: overflow-x-auto → overflow-x-clip.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.19/. .
+
+git add src/components/StockTable.jsx
+git commit -m "fix: StockTable overflow-x-clip fixes sticky thead (v7.5.19)
+
+overflow-x-auto → overflow-x-clip on table container.
+overflow-x-clip clips horizontal content without creating a new
+scroll context — thead sticky now works relative to main.
+
+Tests: 164/164 passing"
+
+git tag v7.5.19
+git push origin main --tags

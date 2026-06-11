@@ -196,6 +196,7 @@ npm run test       # watch mode
 ---
 | v7.5.11 | Fix: WatchlistPage `rows is not defined` — stray `rows.length` reference in market filter badge updated to `filteredGroups.length` |
 | v7.5.14 | WatchlistPage — fix provisional verdict badge wrapping to two lines (whitespace-nowrap) |
+| v7.5.19 | StockTable: overflow-x-clip fixes sticky thead in BatchOverviewDetail |
 | v7.5.18 | StockTable sticky thead (fixes BatchOverviewDetail) + WatchlistPage tooltip word-wrap fix |
 | v7.5.17 | Sticky column headers in AllStocks + BatchOverviewDetail + Watchlist tooltip text style (text-sm, text-foreground) |
 | v7.5.16 | WatchlistPage — fix ColTooltip using position:fixed (getBoundingClientRect) — definitive fix for tooltip clipping |
