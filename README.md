@@ -194,6 +194,7 @@ npm run test       # watch mode
 107 tests across 6 files — utils, hooks, services.
 
 ---
+| v7.6.1 | Supabase cron watchdog — `check_cron_health()` (new, Job 9, Mon+Thu 07:00 UTC) detects the gap the v7.6.0 email can't: a cron that never runs / is cancelled by timeout. Checks awaiting horizons overdue >3d, weekly summary stale >8d, expired summary stale >3d · reuses `notify_fetch_failure()` (no new EmailJS template) · logs to `fetch_log` + `fetch_log_summary` · SUPABASE.md + supabase_setup.sql updated |
 | v7.6.0 | Supabase failure alerts — `notify_fetch_failure()` emails via EmailJS (`http_post` + `accessToken`) when any fetch ends with `failed > 0` · `fetch_expired_horizons` now writes persistent logging (`fetch_log` + `fetch_log_summary`) and triggers the alert · notify hooks added to `fetch_weekly_prices` + `fetch_weekly_prices_recovery` · `emailjs_private_key` Vault secret (required by EmailJS *Use Private Key*) · SUPABASE.md + supabase_setup.sql updated |
 | v7.5.11 | Fix: WatchlistPage `rows is not defined` — stray `rows.length` reference in market filter badge updated to `filteredGroups.length` |
 | v7.5.14 | WatchlistPage — fix provisional verdict badge wrapping to two lines (whitespace-nowrap) |

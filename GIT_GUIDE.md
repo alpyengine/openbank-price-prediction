@@ -3620,3 +3620,67 @@ No src/ changes."
 git tag -a v7.6.0 -m "v7.6.0: Supabase failure email alerts + fetch_expired_horizons logging"
 git push origin main
 git push origin v7.6.0
+
+
+# ===========================================================================
+# STEP 164 — v7.6.1  Supabase cron watchdog (check_cron_health)
+# ===========================================================================
+#
+# SUPABASE CHANGES — deploy manually (SQL editor + new cron job).
+# NO npm install. NO src/ changes — Supabase function + docs only.
+#
+# WHAT'S NEW:
+#
+#   docs/supabase_setup.sql:
+#     + check_cron_health() — new SECTION 7.5. Watchdog that covers the gap
+#       the v7.6.0 email can't: a cron that never runs or is cancelled by
+#       timeout. Reads only our own tables (no cron schema access). Checks:
+#         1. awaiting horizons overdue >3 days
+#         2. no weekly/recovery fetch_log_summary in >8 days
+#         3. no expired fetch_log_summary in >3 days
+#       On anomaly -> reuses notify_fetch_failure('cron_health_check', ...)
+#       (no new EmailJS template). Logs WATCHDOG row to fetch_log + a
+#       fetch_log_summary row every run.
+#     + SECTION 8: new cron job 9 'cron-health-check' '0 7 * * 1,4'
+#       (Mon + Thu 07:00 UTC).
+#
+#   docs/SUPABASE.md:
+#     + Section 2: check_cron_health() subsection.
+#     + Section 3: Job 9 row in the cron table.
+#
+#   README.md: v7.6.1 changelog row.
+#
+# DEPLOY (in order):
+#   1. Supabase SQL editor: run check_cron_health() from docs/supabase_setup.sql.
+#   2. Schedule the cron job:
+#        select cron.schedule('cron-health-check', '0 7 * * 1,4',
+#                             'select check_cron_health();');
+#   3. Smoke test (forces an anomaly only if one exists; safe to run):
+#        select check_cron_health();
+#        select run_date, function, inserted, skipped, failed, duration_s
+#        from fetch_log_summary
+#        where function = 'check_cron_health'
+#        order by created_at desc limit 1;
+#      failed = 0  -> all crons healthy (no email).
+#      failed > 0  -> anomaly detected, alert email sent.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.6.1/. .
+
+git add docs/supabase_setup.sql docs/SUPABASE.md README.md GIT_GUIDE.md
+git commit -m "feat: Supabase cron watchdog check_cron_health (v7.6.1)
+
+check_cron_health() (new, Job 9, Mon+Thu 07:00 UTC):
+  Detects a cron that never runs / is cancelled by timeout — the gap
+  the v7.6.0 email cannot cover. Checks awaiting horizons overdue >3d,
+  weekly summary stale >8d, expired summary stale >3d. On anomaly reuses
+  notify_fetch_failure('cron_health_check', ...) (no new EmailJS template).
+  Logs to fetch_log + fetch_log_summary.
+
+Cron: new job 9 'cron-health-check' '0 7 * * 1,4'.
+Docs: SUPABASE.md + README.md updated.
+No src/ changes."
+
+git tag -a v7.6.1 -m "v7.6.1: Supabase cron watchdog check_cron_health"
+git push origin main
+git push origin v7.6.1

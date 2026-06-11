@@ -1151,6 +1151,88 @@ $$;
 
 
 -- =============================================================================
+-- SECTION 7.5 — FUNCTION: check_cron_health()  (v7.6.1)
+-- =============================================================================
+-- Watchdog. Covers the one gap the v7.6.0 email cannot: a cron that never
+-- runs or is cancelled before reaching its notify_fetch_failure() call
+-- (e.g. statement timeout). Reads only our own tables — no cron schema access.
+-- If any anomaly is found it reuses notify_fetch_failure() (no new EmailJS
+-- template needed). Runs Mon + Thu 07:00 UTC (Job 9).
+-- =============================================================================
+
+create or replace function public.check_cron_health()
+returns void
+language plpgsql
+security definer
+as $$
+declare
+  v_anomalies    text[]      := array[]::text[];
+  v_detail       text;
+  v_awaiting     integer;
+  v_last_weekly  date;
+  v_last_expired date;
+  v_n            integer;
+  v_start_ts     timestamptz := clock_timestamp();
+begin
+  -- Check 1: awaiting horizons overdue by more than 3 days
+  -- (symptom of fetch_expired_horizons not evaluating)
+  select count(*) into v_awaiting
+  from batches b,
+       jsonb_array_elements(b.results) as r(value)
+  where r.value->>'verdict' = 'awaiting'
+    and (r.value->>'targetDate') is not null
+    and to_date(r.value->>'targetDate', 'DD Mon YYYY') <= current_date - 3;
+  if v_awaiting > 0 then
+    v_anomalies := v_anomalies || format('%s horizontes awaiting vencidos hace >3d', v_awaiting);
+  end if;
+
+  -- Check 2: no weekly/recovery summary in the last 8 days
+  -- (Saturday run + Monday recovery both silently failed)
+  select max(run_date) into v_last_weekly
+  from fetch_log_summary
+  where function in ('fetch_weekly_prices', 'fetch_weekly_prices_recovery');
+  if v_last_weekly is null or v_last_weekly < current_date - 8 then
+    v_anomalies := v_anomalies ||
+      format('weekly_prices sin ejecucion desde %s', coalesce(v_last_weekly::text, 'nunca'));
+  end if;
+
+  -- Check 3: no expired-horizons summary in the last 3 days
+  -- (3-day threshold absorbs the normal Sat->Mon gap)
+  select max(run_date) into v_last_expired
+  from fetch_log_summary
+  where function = 'fetch_expired_horizons';
+  if v_last_expired is null or v_last_expired < current_date - 3 then
+    v_anomalies := v_anomalies ||
+      format('fetch_expired_horizons sin ejecucion desde %s', coalesce(v_last_expired::text, 'nunca'));
+  end if;
+
+  v_n := coalesce(array_length(v_anomalies, 1), 0);
+
+  if v_n > 0 then
+    v_detail := array_to_string(v_anomalies, ' · ');
+    -- Reuse the v7.6.0 alert path (failed_tickers carries the anomaly detail)
+    perform notify_fetch_failure(
+      'cron_health_check', current_date,
+      0, 0, v_n, v_detail
+    );
+    insert into fetch_log(run_date, function, ticker, status, detail)
+    values (current_date, 'check_cron_health', 'WATCHDOG', 'failed', v_detail);
+  else
+    insert into fetch_log(run_date, function, ticker, status, detail)
+    values (current_date, 'check_cron_health', 'WATCHDOG', 'inserted', 'all crons healthy');
+  end if;
+
+  insert into fetch_log_summary(run_date, function, inserted, skipped, failed, duration_s)
+  values (
+    current_date, 'check_cron_health',
+    case when v_n = 0 then 1 else 0 end, 0, v_n,
+    round(extract(epoch from clock_timestamp() - v_start_ts)::numeric, 1)
+  );
+end;
+$$;
+
+
+-- =============================================================================
 -- SECTION 8 — CRON JOBS
 -- =============================================================================
 
@@ -1158,11 +1240,13 @@ select cron.schedule('fetch-expired-horizons-daily',  '0 2 * * 2-6', 'select fet
 select cron.schedule('fetch-weekly-prices-saturday',  '0 10 * * 6',  'select fetch_weekly_prices();');
 select cron.schedule('weekly-github-backup',           '0 23 * * 0',  'select backup_to_github();');
 select cron.schedule('recovery-weekly-prices',         '0 6 * * 1',   'select fetch_weekly_prices_recovery();');
+select cron.schedule('cron-health-check',              '0 7 * * 1,4', 'select check_cron_health();');
 -- Job schedule summary:
 --   Job 1 — fetch_expired_horizons()        Tue–Sat 02:00 UTC
 --   Job 2 — fetch_weekly_prices()           Sat    10:00 UTC
 --   Job 6 — backup_to_github()             Sun    23:00 UTC
 --   Job 8 — fetch_weekly_prices_recovery() Mon    06:00 UTC
+--   Job 9 — check_cron_health()            Mon+Thu 07:00 UTC  (v7.6.1 watchdog)
 
 
 -- =============================================================================

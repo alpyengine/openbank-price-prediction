@@ -418,6 +418,22 @@ Existing files are updated (not duplicated) using the SHA from the GET response.
 
 ---
 
+### `check_cron_health()` *(v7.6.1)*
+
+**Cron:** Job 9 — Mondays + Thursdays 07:00 UTC.
+**Purpose:** Watchdog. Closes the one gap the v7.6.0 email can't cover — a cron that **never runs** or is **cancelled before reaching its `notify_fetch_failure()` call** (e.g. statement timeout). Reads only our own tables, no `cron` schema access.
+
+**Checks (all read from existing tables):**
+1. `awaiting` horizons whose `targetDate` passed **more than 3 days ago** — symptom of `fetch_expired_horizons` not evaluating.
+2. No `fetch_log_summary` for `fetch_weekly_prices` / `fetch_weekly_prices_recovery` in the **last 8 days** — Saturday run + Monday recovery both silently failed.
+3. No `fetch_log_summary` for `fetch_expired_horizons` in the **last 3 days** — the 3-day threshold absorbs the normal Sat→Mon gap.
+
+**On anomaly:** reuses `notify_fetch_failure('cron_health_check', …)` (no new EmailJS template) with the anomaly list in `failed_tickers`, and logs to `fetch_log` as `WATCHDOG / failed`. Otherwise logs `WATCHDOG / inserted` (`all crons healthy`). Always writes a `fetch_log_summary` row.
+
+**Note:** if a persistent anomaly isn't resolved, the alert re-sends on the next Mon/Thu run until it clears — intended for a watchdog. The hard limit remains: if the Supabase/`pg_cron` infrastructure itself is down, no internal function can alert.
+
+---
+
 ## 3. Cron jobs
 
 All jobs managed by `pg_cron` (built into Supabase).
@@ -428,6 +444,7 @@ All jobs managed by `pg_cron` (built into Supabase).
 | 2 | `fetch-weekly-prices-saturday` | `0 10 * * 6` | `fetch_weekly_prices()` | Weekly close prices every Saturday 10:00 UTC |
 | 6 | `weekly-github-backup` | `0 23 * * 0` | `backup_to_github()` | Full backup to GitHub every Sunday 23:00 UTC |
 | 8 | `recovery-weekly-prices` | `0 6 * * 1` | `fetch_weekly_prices_recovery()` | Retry missed weekly prices every Monday 06:00 UTC |
+| 9 | `cron-health-check` | `0 7 * * 1,4` | `check_cron_health()` | Watchdog — Mon+Thu 07:00 UTC, alerts if a cron didn't run *(v7.6.1)* |
 
 **Why Tue–Sat for Job 1?**  
 The market closes at ~21:00 UTC Mon–Fri. The cron runs at 02:00 UTC —
