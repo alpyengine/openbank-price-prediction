@@ -195,6 +195,7 @@ npm run test       # watch mode
 
 ---
 | v7.5.11 | Fix: WatchlistPage `rows is not defined` — stray `rows.length` reference in market filter badge updated to `filteredGroups.length` |
+| v7.5.13 | WatchlistPage — fix sticky header (overflow-hidden blocking), fix batch expand (Set mutation), star and chevron in separate columns |
 | v7.5.12 | WatchlistPage — sticky column header on scroll + expand ticker history by clicking batches badge |
 | v7.5.11 | Fix: WatchlistPage crash — rows is not defined in market filter badge (rows.length → filteredGroups.length) |
 | v7.5.10 | Watchlist overhaul — horizon toggle (1M/3M/6M/12M), grouped rows with expand + avg upside, Left to target column, provisional verdict (~), ColTooltip headers, collapsible column guide · BatchSimple scroll-to + violet highlight from Watchlist · App auto-loads smallest batch on startup · stocks sorted A→Z on batch load |

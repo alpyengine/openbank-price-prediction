@@ -491,11 +491,13 @@ export default function WatchlistPage({
   const belowTarget = allSummaries.filter(r => r.ltt != null && r.ltt > 0).length
   const awaiting    = allSummaries.filter(r => r.verdict === 'awaiting' && !r.provisional).length
 
-  const toggleExpand = (ticker) => setExpandedTickers(prev => {
-    const next = new Set(prev)
-    next.has(ticker) ? next.delete(ticker) : next.add(ticker)
-    return next
-  })
+  const toggleExpand = (ticker) => {
+    setExpandedTickers(prev => {
+      const next = new Set(prev)
+      if (next.has(ticker)) { next.delete(ticker) } else { next.add(ticker) }
+      return next
+    })
+  }
 
   // Empty state
   if (watchlist.size === 0) {
@@ -516,7 +518,7 @@ export default function WatchlistPage({
     <div className="flex gap-0 border border-border rounded-xl overflow-hidden" style={{ height: 600 }}>
 
       {/* ── LEFT: main list ─────────────────────────────────────────── */}
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col" style={{ minHeight: 0 }}>
 
         {/* Header */}
         <div className="px-5 py-3 border-b border-border">
@@ -667,6 +669,7 @@ export default function WatchlistPage({
                   { key: 'avg',      label: 'Avg upside',          tip: `Mean ${horizon} upside across all batches for this ticker. Reflects historical forecast consistency.` },
                   { key: 'ltt',      label: 'Left to target',      tip: '(Target − last weekly close) / last weekly close. Real remaining upside from today. Green = reachable. Red = already exceeded.' },
                   { key: 'verdict',  label: 'Verdict',             tip: 'Result when horizon expired. If still open, ~ shows an estimated verdict using the current price vs target.' },
+                  { key: 'star',     label: '',                    tip: '' },
                   { key: 'expand',   label: '',                    tip: '' },
                 ].map(({ key, label, tip }) => (
                   <th key={key} className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border whitespace-nowrap sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
@@ -765,29 +768,30 @@ export default function WatchlistPage({
                     }
                   </td>
 
-                  {/* Expand chevron + star */}
-                  <td className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  {/* Star column */}
+                  <td className="px-3 py-2.5 text-center">
+                    <button
+                      onClick={e => { e.stopPropagation(); onToggle(ticker) }}
+                      className="text-red-500 hover:opacity-70 transition-opacity"
+                      aria-label={`Remove ${ticker} from watchlist`}
+                    >
+                      <Star size={14} fill="currentColor" />
+                    </button>
+                  </td>
+                  {/* Expand chevron column */}
+                  <td className="px-3 py-2.5 text-center">
+                    {batchCount > 1 && (
                       <button
-                        onClick={e => { e.stopPropagation(); onToggle(ticker) }}
-                        className="text-red-500 hover:opacity-70 transition-opacity"
-                        aria-label={`Remove ${ticker} from watchlist`}
+                        onClick={e => { e.stopPropagation(); toggleExpand(ticker) }}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label={isExpanded ? 'Collapse batches' : 'Expand batches'}
                       >
-                        <Star size={14} fill="currentColor" />
+                        <ChevronDown
+                          size={14}
+                          className={cn('transition-transform duration-200', isExpanded && 'rotate-180')}
+                        />
                       </button>
-                      {batchCount > 1 && (
-                        <button
-                          onClick={e => { e.stopPropagation(); toggleExpand(ticker) }}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                          aria-label={isExpanded ? 'Collapse batches' : 'Expand batches'}
-                        >
-                          <ChevronDown
-                            size={14}
-                            className={cn('transition-transform duration-200', isExpanded && 'rotate-180')}
-                          />
-                        </button>
-                      )}
-                    </div>
+                    )}
                   </td>
                 </tr>
 
@@ -836,7 +840,8 @@ export default function WatchlistPage({
                           : <VerdictBadge verdict={br.verdict} />
                         }
                       </td>
-                      <td className="px-4 py-2"></td>
+                      <td className="px-3 py-2"></td>
+                      <td className="px-3 py-2"></td>
                     </tr>
                   )
                 })}

@@ -3265,3 +3265,47 @@ Tests: 164/164 passing"
 
 git tag v7.5.12
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 156 — v7.5.13  WatchlistPage — fix sticky header + fix expand + split columns
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# BUGS FIXED:
+#
+#   1. Sticky header not working:
+#      overflow-hidden on the left panel div was creating a new stacking
+#      context that blocked position:sticky on th elements. Fixed by removing
+#      overflow-hidden and using minHeight:0 instead (flex shrink constraint).
+#
+#   2. Batch expand not working:
+#      toggleExpand was calling setExpandedTickers with a mutated Set.
+#      React uses referential equality to detect state changes — mutating
+#      and returning the same Set object caused no re-render.
+#      Fixed: create new Set(prev), mutate copy, return copy.
+#
+#   3. Star and chevron now in separate columns:
+#      Previously combined in one td with flex. Now two independent td/th
+#      elements — cleaner layout, easier to click individually.
+#      Expanded rows updated to emit 2 trailing empty cells.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.13/. .
+
+git add src/components/WatchlistPage.jsx
+git commit -m "fix: WatchlistPage sticky header + expand + split star/chevron columns (v7.5.13)
+
+1. Sticky header: remove overflow-hidden from left panel (was blocking
+   position:sticky on th). Use minHeight:0 flex constraint instead.
+2. Expand by badge/chevron: fix toggleExpand — was mutating same Set
+   reference causing no re-render. Now creates new Set copy.
+3. Star and chevron in separate columns (was one combined td).
+   Expanded rows updated to 2 trailing empty cells.
+
+Tests: 164/164 passing"
+
+git tag v7.5.13
+git push origin main --tags
