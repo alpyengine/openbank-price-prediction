@@ -669,7 +669,7 @@ export default function WatchlistPage({
                   { key: 'verdict',  label: 'Verdict',             tip: 'Result when horizon expired. If still open, ~ shows an estimated verdict using the current price vs target.' },
                   { key: 'expand',   label: '',                    tip: '' },
                 ].map(({ key, label, tip }) => (
-                  <th key={key} className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border whitespace-nowrap">
+                  <th key={key} className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border whitespace-nowrap sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
                     {tip ? <ColTooltip label={label} text={tip} /> : label}
                   </th>
                 ))}
@@ -716,12 +716,15 @@ export default function WatchlistPage({
 
                   {/* Batch count badge */}
                   <td className="px-4 py-2.5">
-                    <span className={cn(
-                      'inline-block text-[10px] font-medium px-2 py-0.5 rounded-full',
-                      batchCount > 1
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : 'bg-muted text-muted-foreground'
-                    )}>
+                    <span
+                      className={cn(
+                        'inline-block text-[10px] font-medium px-2 py-0.5 rounded-full transition-opacity',
+                        batchCount > 1
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200 cursor-pointer hover:opacity-70'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                      onClick={batchCount > 1 ? e => { e.stopPropagation(); toggleExpand(ticker) } : undefined}
+                    >
                       {batchCount} batch{batchCount !== 1 ? 'es' : ''}
                     </span>
                   </td>

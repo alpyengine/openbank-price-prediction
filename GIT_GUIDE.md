@@ -3229,3 +3229,39 @@ Tests: 164/164 passing"
 
 git tag v7.5.11
 git push origin main --tags
+
+
+# ===========================================================================
+# STEP 155 — v7.5.12  WatchlistPage — sticky header + expand by badge click
+# ===========================================================================
+#
+# NO SUPABASE CHANGES.
+# NO npm install needed.
+#
+# WHAT'S NEW:
+#
+#   src/components/WatchlistPage.jsx:
+#     Sticky table header: th elements get position sticky + top-0 + z-10
+#       + bg-muted/80 + backdrop-blur-sm. The scroll container (overflow-auto
+#       flex-1) was already correct — only the th styles were missing.
+#     Expand by badge click: the "N batches" badge now calls toggleExpand()
+#       on click (stopPropagation to avoid row selection). Only active when
+#       batchCount > 1. Badge gets cursor-pointer + hover:opacity-70.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.5.12/. .
+
+git add src/components/WatchlistPage.jsx
+git commit -m "fix: WatchlistPage sticky header + expand by batches badge (v7.5.12)
+
+WatchlistPage.jsx:
+  th: sticky top-0 z-10 bg-muted/80 backdrop-blur-sm — header stays
+    visible while scrolling the ticker list.
+  Batches badge: onClick toggleExpand when batchCount > 1.
+    cursor-pointer + hover:opacity-70. stopPropagation to avoid
+    triggering row selection.
+
+Tests: 164/164 passing"
+
+git tag v7.5.12
+git push origin main --tags
