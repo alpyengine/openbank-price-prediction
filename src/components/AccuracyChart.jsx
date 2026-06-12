@@ -126,25 +126,59 @@ const SERIES_META = [
 ]
 
 /**
- * smoothPath — gentle Catmull-Rom → cubic bezier smoothing.
+ * smoothPath — monotone cubic interpolation (Fritsch–Carlson).
+ * Smooth curve that never overshoots beyond the data points, so a line between
+ * two equal values (e.g. two 0% batches) stays flat instead of dipping below
+ * the axis. x must be increasing (batches left → right).
  * @param {number[][]} pts — array of [x, y] points (already in SVG space)
- * @param {number}     t   — smoothing strength (lower = closer to straight lines)
  * @returns {string}       — SVG path `d` attribute
  */
-function smoothPath(pts, t = 0.2) {
-  if (pts.length < 2) return ''
-  if (pts.length === 2) return `M ${pts[0][0]} ${pts[0][1]} L ${pts[1][0]} ${pts[1][1]}`
+function smoothPath(pts) {
+  const n = pts.length
+  if (n < 2) return ''
+  if (n === 2) return `M ${pts[0][0]} ${pts[0][1]} L ${pts[1][0]} ${pts[1][1]}`
+
+  // secant slopes between consecutive points
+  const dx = [], slope = []
+  for (let i = 0; i < n - 1; i++) {
+    const hx = pts[i + 1][0] - pts[i][0]
+    dx[i] = hx
+    slope[i] = hx !== 0 ? (pts[i + 1][1] - pts[i][1]) / hx : 0
+  }
+
+  // tangents — zero at local extrema / flats to prevent overshoot
+  const m = new Array(n)
+  m[0] = slope[0]
+  m[n - 1] = slope[n - 2]
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2
+  }
+  // Fritsch–Carlson monotonicity limiter
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) {
+      m[i] = 0
+      m[i + 1] = 0
+    } else {
+      const a = m[i] / slope[i]
+      const b = m[i + 1] / slope[i]
+      const h = Math.hypot(a, b)
+      if (h > 3) {
+        const t = 3 / h
+        m[i] = t * a * slope[i]
+        m[i + 1] = t * b * slope[i]
+      }
+    }
+  }
+
+  // cubic Hermite segments → cubic bezier
   let d = `M ${pts[0][0]} ${pts[0][1]}`
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] || pts[i]
-    const p1 = pts[i]
-    const p2 = pts[i + 1]
-    const p3 = pts[i + 2] || p2
-    const c1x = p1[0] + (p2[0] - p0[0]) * t
-    const c1y = p1[1] + (p2[1] - p0[1]) * t
-    const c2x = p2[0] - (p3[0] - p1[0]) * t
-    const c2y = p2[1] - (p3[1] - p1[1]) * t
-    d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${p2[0]} ${p2[1]}`
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i]
+    const c1x = pts[i][0] + h / 3
+    const c1y = pts[i][1] + (m[i] * h) / 3
+    const c2x = pts[i + 1][0] - h / 3
+    const c2y = pts[i + 1][1] - (m[i + 1] * h) / 3
+    d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${pts[i + 1][0]} ${pts[i + 1][1]}`
   }
   return d
 }

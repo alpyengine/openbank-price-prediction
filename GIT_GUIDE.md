@@ -3705,9 +3705,11 @@ git push origin v7.6.1
 #       state when all are hidden.
 #     - Multi-series hover tooltip — one row per visible horizon at the
 #       hovered batch, plus the vertical guide line.
-#     - Smoothed lines via Catmull-Rom -> cubic bezier (smoothPath, t=0.2)
-#       with a subtle fill under Global. Lines split at nulls (toSegments) so
-#       legacy 12M / not-yet-matured horizons don't bridge gaps.
+#     - Smoothed lines via monotone cubic interpolation (smoothPath, no
+#       overshoot — a flat segment between two equal values stays flat,
+#       so the curve never dips below the axis) with a subtle fill under
+#       Global. Lines split at nulls (toSegments) so legacy 12M / not-yet-
+#       matured horizons don't bridge gaps.
 #     - X-axis batch labels rotated -40deg, fontSize 11 (was horizontal, 9).
 #
 #   DATA: no changes. stats.chartData is already [s1M, s3M, s6M, s12M] from
@@ -3736,7 +3738,8 @@ git commit -m "feat: Accuracy Stats chart redesign — per-horizon lines (v7.7.0
 AccuracyChart: AreaChart (single averaged line) -> MultiLineChart.
 - One line per horizon (1M/3M/6M/12M) + Global aggregate line.
 - Clickable legend toggles each line; Y axis rescales to visible series.
-- Multi-series hover tooltip; smoothed Catmull-Rom curves; subtle fill
+- Multi-series hover tooltip; smoothed monotone-cubic curves (no
+  overshoot); subtle fill
   under Global; segments split at nulls (legacy 12M / immature horizons).
 - Diagonal X-axis batch labels (rotate -40deg, fontSize 11).
 
