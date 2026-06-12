@@ -306,6 +306,20 @@ export default function App() {
             batchCurrency={batchCurrency}
           />
 
+          {/* Email report modal — shared across both batch pages (v7.7.1) */}
+          {showEmail && ['batch', 'batch-detail'].includes(activePage) && (
+            <EmailPreview
+              stocks={stocks}
+              horizon={horizon}
+              autoPrices={autoPrices}
+              histPrices={histPrices}
+              overrides={overrides}
+              horizonExpired={horizonExpired}
+              fundamentals={fundamentals}
+              onClose={() => setShowEmail(false)}
+            />
+          )}
+
           {/* Fetch bar — shown on both batch pages */}
           {showFetchBar && (
             <FetchBar
@@ -504,19 +518,6 @@ export default function App() {
                 onToggleWatchlist={toggleWatchlist}
                 batchDirection={batchDirection}
               />
-
-              {showEmail && (
-                <EmailPreview
-                  stocks={stocks}
-                  horizon={horizon}
-                  autoPrices={autoPrices}
-                  histPrices={histPrices}
-                  overrides={overrides}
-                  horizonExpired={horizonExpired}
-                  fundamentals={fundamentals}
-                  onClose={() => setShowEmail(false)}
-                />
-              )}
             </>
           )}
 
