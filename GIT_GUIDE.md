@@ -3684,3 +3684,69 @@ No src/ changes."
 git tag -a v7.6.1 -m "v7.6.1: Supabase cron watchdog check_cron_health"
 git push origin main
 git push origin v7.6.1
+
+
+# ===========================================================================
+# STEP 165 — v7.7.0  Accuracy Stats chart redesign (per-horizon lines) + branch workflow doc
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. NO npm install needed. Frontend only — one component.
+#
+# WHAT'S NEW:
+#
+#   src/components/AccuracyChart.jsx:
+#     - AreaChart (single averaged line) replaced by MultiLineChart.
+#     - One line per horizon (1M / 3M / 6M / 12M) + a Global aggregate line
+#       (= the average that was drawn before v7.7.0). Horizon colours match
+#       the horizon cards (H_COLORS.bar); Global uses var(--foreground) so it
+#       stays legible in light and dark themes.
+#     - Clickable legend (hidden state via useState) toggles each line; the
+#       Y axis rescales to the visible series only. "Select a series" empty
+#       state when all are hidden.
+#     - Multi-series hover tooltip — one row per visible horizon at the
+#       hovered batch, plus the vertical guide line.
+#     - Smoothed lines via Catmull-Rom -> cubic bezier (smoothPath, t=0.2)
+#       with a subtle fill under Global. Lines split at nulls (toSegments) so
+#       legacy 12M / not-yet-matured horizons don't bridge gaps.
+#     - X-axis batch labels rotated -40deg, fontSize 11 (was horizontal, 9).
+#
+#   DATA: no changes. stats.chartData is already [s1M, s3M, s6M, s12M] from
+#   useHistory.computed() (hit% per horizon per batch). useHistory.js and
+#   Supabase are untouched — this is a pure presentation change.
+#
+#   README.md: v7.7.0 changelog row + new "Development workflow" section
+#   linking docs/GIT_WORKFLOW.md.
+#
+#   docs/GIT_WORKFLOW.md (new): branch + Vercel preview workflow — branch
+#   naming, create -> test -> merge -> annotated tag, local .env vs Vercel
+#   env vars, preview caveats (Google OAuth, shared Supabase DB, Preview env
+#   vars), rollback. Adopted from v7.7.0 onward.
+#
+# TEST NOTE: run `npm run test:run`. If a component test asserted the old
+#   AreaChart internals (e.g. the "Accuracy" single-series tooltip text or the
+#   areaG gradient), update it to the new MultiLineChart legend/tooltip. No
+#   logic in useHistory/stats changed, so the data-layer tests are unaffected.
+#
+find . -not -path './.git/*' -not -path './public/*' -not -name '.gitignore' -not -name '.env' -not -name '.' -delete
+cp -r /Users/alex/Downloads/openbank-price-prediction_v7.7.0/. .
+
+git add src/components/AccuracyChart.jsx docs/GIT_WORKFLOW.md README.md GIT_GUIDE.md
+git commit -m "feat: Accuracy Stats chart redesign — per-horizon lines (v7.7.0)
+
+AccuracyChart: AreaChart (single averaged line) -> MultiLineChart.
+- One line per horizon (1M/3M/6M/12M) + Global aggregate line.
+- Clickable legend toggles each line; Y axis rescales to visible series.
+- Multi-series hover tooltip; smoothed Catmull-Rom curves; subtle fill
+  under Global; segments split at nulls (legacy 12M / immature horizons).
+- Diagonal X-axis batch labels (rotate -40deg, fontSize 11).
+
+No data/backend changes: stats.chartData is already per-horizon
+([s1M,s3M,s6M,s12M]) from useHistory.computed(). useHistory.js and
+Supabase untouched.
+
+Docs: new docs/GIT_WORKFLOW.md (branch + Vercel preview workflow),
+linked from README. Adopted from v7.7.0 onward."
+
+git tag -a v7.7.0 -m "v7.7.0: Accuracy Stats chart redesign — per-horizon lines"
+git push origin main
+git push origin v7.7.0
