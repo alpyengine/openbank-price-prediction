@@ -3800,3 +3800,47 @@ git push origin main
 git push origin v7.7.1
 git branch -d fix/email-report
 git push origin --delete fix/email-report   # opcional
+
+
+# ===========================================================================
+# STEP 167 — v7.8.0  Vercel Web Analytics
+# ===========================================================================
+#
+# Adds the @vercel/analytics dependency (npm i). NO SUPABASE CHANGES.
+#
+# WHAT'S NEW:
+#
+#   src/App.jsx:
+#     - import { Analytics } from '@vercel/analytics/react'
+#     - <Analytics /> rendered once at the app root (after </main>).
+#
+#   package.json + package-lock.json: @vercel/analytics added (from `npm i`).
+#   README.md: v7.8.0 changelog row.
+#
+#   NOTE: the SPA navigates by internal state (activePage), not URLs, so
+#   Analytics counts visitors/sessions; internal sections are NOT separate
+#   pageviews. Make sure Web Analytics is enabled for the project in the
+#   Vercel dashboard.
+#
+# Apply on a feature branch (see docs/GIT_WORKFLOW.md):
+git checkout main && git pull origin main
+git checkout -b feat/vercel-analytics
+npm i @vercel/analytics                 # adds dep → updates package.json + package-lock.json
+unzip -o ~/Downloads/openbank-price-prediction_v7.8.0.zip -d .
+npm run test:run
+git add src/App.jsx package.json package-lock.json README.md GIT_GUIDE.md
+git commit -m "feat: Vercel Web Analytics (v7.8.0)
+
+Add @vercel/analytics and render <Analytics /> at the app root
+(import from @vercel/analytics/react). The SPA navigates by internal
+state, so Analytics counts visitors/sessions (internal sections are
+not separate pageviews)."
+git push origin feat/vercel-analytics
+# → verify the Vercel preview, then merge:
+git checkout main
+git merge --no-ff --no-edit feat/vercel-analytics
+git tag -a v7.8.0 -m "v7.8.0: Vercel Web Analytics"
+git push origin main
+git push origin v7.8.0
+git branch -d feat/vercel-analytics
+git push origin --delete feat/vercel-analytics   # opcional

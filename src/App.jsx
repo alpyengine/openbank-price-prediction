@@ -57,6 +57,7 @@ import BatchSimple      from './components/BatchSimple.jsx'
 import ImportPage       from './components/ImportPage.jsx'
 import EmailPreview     from './components/EmailPreview.jsx'
 import AccuracyChart    from './components/AccuracyChart.jsx'
+import { Analytics }    from '@vercel/analytics/react'
 import { useMarketData } from './hooks/useMarketData.js'
 import { useRole }        from './hooks/useRole.js'
 import ManageUsers       from './components/ManageUsers.jsx'
@@ -603,6 +604,9 @@ export default function App() {
 
         </div>
       </main>
+
+      {/* Vercel Web Analytics (v7.8.0) */}
+      <Analytics />
     </div>
   )
 }
