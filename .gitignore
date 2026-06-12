@@ -4,3 +4,4 @@ dist/
 .DS_Store
 *.local
 openbank-price-prediction_v*/
+clean.sh
