@@ -7,7 +7,7 @@
  *   1. Action bar — Refresh button + log (slider removed in v7.3.3)
  *   2. KPI cards  — overall hit rate (pure + extended), total hits, awaiting
  *   3. Horizon cards — hit rate per horizon with SNAPSHOT_PARAMS thresholds
- *   4. Area chart — accuracy trend over time across batches
+ *   4. Multi-line chart — accuracy per horizon over time (1M/3M/6M/12M + Global)
  *   5. Batch table — all saved batches with Load / Download / Delete actions
  *
  * Note: Accuracy Stats always uses SNAPSHOT_PARAMS fixed thresholds (v7.3.3+).
@@ -109,15 +109,104 @@ function KpiCard({ label, value, icon: Icon, sub, subColor }) {
   )
 }
 
-// ── Area chart with hover tooltip ─────────────────────────────────────────────
+// ── Multi-line accuracy chart (per horizon) ───────────────────────────────────
 
 /**
- * AreaChart — SVG area chart showing accuracy trend over batches.
- * Uses raw SVG for maximum control — no chart library dependency.
- * Displays a hover tooltip when mouse moves over the chart.
+ * Series metadata for the accuracy chart.
+ * Colours match the horizon cards (H_COLORS.bar). 'global' is the aggregate
+ * (average of the available horizon values per batch) and uses --foreground so
+ * it stays legible in both light and dark themes.
  */
-function AreaChart({ chartData, chartLabels }) {
-  const [hover, setHover] = useState(null)
+const SERIES_META = [
+  { key: 'global', name: 'Global', color: 'var(--foreground)', width: 2.4, fill: true },
+  { key: '1M',  name: '1M',  color: '#16a34a', width: 1.8 },
+  { key: '3M',  name: '3M',  color: '#3b82f6', width: 1.8 },
+  { key: '6M',  name: '6M',  color: '#d97706', width: 1.8 },
+  { key: '12M', name: '12M', color: '#8b5cf6', width: 1.8 },
+]
+
+/**
+ * smoothPath — monotone cubic interpolation (Fritsch–Carlson).
+ * Smooth curve that never overshoots beyond the data points, so a line between
+ * two equal values (e.g. two 0% batches) stays flat instead of dipping below
+ * the axis. x must be increasing (batches left → right).
+ * @param {number[][]} pts — array of [x, y] points (already in SVG space)
+ * @returns {string}       — SVG path `d` attribute
+ */
+function smoothPath(pts) {
+  const n = pts.length
+  if (n < 2) return ''
+  if (n === 2) return `M ${pts[0][0]} ${pts[0][1]} L ${pts[1][0]} ${pts[1][1]}`
+
+  // secant slopes between consecutive points
+  const dx = [], slope = []
+  for (let i = 0; i < n - 1; i++) {
+    const hx = pts[i + 1][0] - pts[i][0]
+    dx[i] = hx
+    slope[i] = hx !== 0 ? (pts[i + 1][1] - pts[i][1]) / hx : 0
+  }
+
+  // tangents — zero at local extrema / flats to prevent overshoot
+  const m = new Array(n)
+  m[0] = slope[0]
+  m[n - 1] = slope[n - 2]
+  for (let i = 1; i < n - 1; i++) {
+    m[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2
+  }
+  // Fritsch–Carlson monotonicity limiter
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) {
+      m[i] = 0
+      m[i + 1] = 0
+    } else {
+      const a = m[i] / slope[i]
+      const b = m[i + 1] / slope[i]
+      const h = Math.hypot(a, b)
+      if (h > 3) {
+        const t = 3 / h
+        m[i] = t * a * slope[i]
+        m[i + 1] = t * b * slope[i]
+      }
+    }
+  }
+
+  // cubic Hermite segments → cubic bezier
+  let d = `M ${pts[0][0]} ${pts[0][1]}`
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i]
+    const c1x = pts[i][0] + h / 3
+    const c1y = pts[i][1] + (m[i] * h) / 3
+    const c2x = pts[i + 1][0] - h / 3
+    const c2y = pts[i + 1][1] - (m[i + 1] * h) / 3
+    d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${pts[i + 1][0]} ${pts[i + 1][1]}`
+  }
+  return d
+}
+
+/**
+ * toSegments — split a value array into continuous [x,y] runs, breaking at nulls.
+ * This keeps a line from jumping across batches where a horizon has no data
+ * (e.g. 12M only exists in legacy batches, or horizons not yet matured).
+ */
+function toSegments(vals, xOf, yOf) {
+  const segs = []
+  let seg = []
+  vals.forEach((v, i) => {
+    if (v == null) { if (seg.length) segs.push(seg); seg = [] }
+    else seg.push([xOf(i), yOf(v)])
+  })
+  if (seg.length) segs.push(seg)
+  return segs
+}
+
+/**
+ * MultiLineChart — accuracy per horizon over batches.
+ * One line per horizon (1M/3M/6M/12M) plus a Global aggregate line.
+ * Legend entries toggle each line; the Y axis rescales to the visible series.
+ */
+function MultiLineChart({ chartData, chartLabels }) {
+  const [hidden, setHidden]     = useState({})    // { '12M': true, ... }
+  const [hoverIdx, setHoverIdx] = useState(null)
 
   if (!chartData || !chartLabels || chartLabels.length < 2) {
     return (
@@ -127,42 +216,69 @@ function AreaChart({ chartData, chartLabels }) {
     )
   }
 
-  // SVG dimensions and padding
-  const W   = 600
-  const H   = 160
-  const PAD = { t: 10, b: 30, l: 44, r: 10 }
-  const iW  = W - PAD.l - PAD.r
-  const iH  = H - PAD.t - PAD.b
+  const n = chartLabels.length
 
-  // Average across all horizons for each batch
-  const vals = chartLabels.map((_, i) => {
-    const row = chartData.map(series => series[i]).filter(v => v != null)
+  // chartData = [s1M, s3M, s6M, s12M] (order = HORIZONS) — see useHistory.computed().
+  // Global = average of the available horizon values per batch (matches the
+  // single line drawn before v7.7.0).
+  const globalVals = chartLabels.map((_, i) => {
+    const row = chartData.map(s => s?.[i]).filter(v => v != null)
     return row.length ? Math.round(row.reduce((a, b) => a + b, 0) / row.length) : null
   })
+  const valuesByKey = {
+    global: globalVals,
+    '1M':   chartData[0] ?? [],
+    '3M':   chartData[1] ?? [],
+    '6M':   chartData[2] ?? [],
+    '12M':  chartData[3] ?? [],
+  }
 
-  const validVals = vals.filter(v => v != null)
-  if (validVals.length < 2) return null
+  const isVisible = (k) => !hidden[k]
+  const toggle    = (k) => setHidden(prev => ({ ...prev, [k]: !prev[k] }))
 
-  const minV = Math.max(0, Math.min(...validVals) - 10)
-  const maxV = Math.min(100, Math.max(...validVals) + 10)
+  // SVG geometry
+  const W = 720, H = 300, PAD = { t: 16, b: 64, l: 46, r: 16 }
+  const iW = W - PAD.l - PAD.r
+  const iH = H - PAD.t - PAD.b
 
-  const xOf = (i) => PAD.l + (i / (vals.length - 1)) * iW
-  const yOf = (v) => v == null ? null : PAD.t + iH - ((v - minV) / (maxV - minV)) * iH
+  // Adaptive Y domain from the currently visible series only.
+  const visibleVals = []
+  SERIES_META.forEach(s => {
+    if (isVisible(s.key)) (valuesByKey[s.key] || []).forEach(v => { if (v != null) visibleVals.push(v) })
+  })
+  const hasData = visibleVals.length >= 2
 
-  const pts     = vals.map((v, i) => v != null ? `${xOf(i)},${yOf(v)}` : null).filter(Boolean)
-  const linePts = pts.join(' ')
-  const areaPts = `${xOf(0)},${PAD.t + iH} ${pts.join(' ')} ${xOf(vals.length - 1)},${PAD.t + iH}`
-  const yTicks  = [50, 65, 80, 100].filter(v => v >= minV && v <= maxV)
+  let minV = 0, maxV = 100
+  if (hasData) {
+    minV = Math.max(0, Math.min(...visibleVals) - 6)
+    maxV = Math.min(100, Math.max(...visibleVals) + 6)
+    if (maxV - minV < 15) { const c = (maxV + minV) / 2; minV = Math.max(0, c - 10); maxV = Math.min(100, c + 10) }
+  }
+
+  const xOf = (i) => PAD.l + (n < 2 ? 0 : (i / (n - 1)) * iW)
+  const yOf = (v) => PAD.t + iH - ((v - minV) / (maxV - minV)) * iH
+
+  // Y ticks at round values inside the domain
+  const step = (maxV - minV) > 40 ? 20 : 10
+  const yTicks = []
+  for (let v = Math.ceil(minV / step) * step; v <= maxV; v += step) yTicks.push(v)
+
+  // Thin X labels when there are many batches (always keep the last one)
+  const labelEvery = Math.max(1, Math.floor(n / 12))
 
   const handleMouseMove = (e) => {
     const rect   = e.currentTarget.getBoundingClientRect()
     const mouseX = (e.clientX - rect.left) * (W / rect.width)
-    const idx    = Math.round((mouseX - PAD.l) / iW * (vals.length - 1))
-    const clamped = Math.max(0, Math.min(vals.length - 1, idx))
-    if (vals[clamped] != null) {
-      setHover({ idx: clamped, x: xOf(clamped), y: yOf(vals[clamped]), label: chartLabels[clamped], value: vals[clamped] })
-    }
+    const idx    = Math.round((mouseX - PAD.l) / iW * (n - 1))
+    setHoverIdx(Math.max(0, Math.min(n - 1, idx)))
   }
+
+  // Tooltip rows for the hovered batch — only visible series with a value
+  const tipRows = hoverIdx != null
+    ? SERIES_META
+        .filter(s => isVisible(s.key) && valuesByKey[s.key][hoverIdx] != null)
+        .map(s => ({ ...s, value: valuesByKey[s.key][hoverIdx] }))
+    : []
 
   return (
     <div className="relative">
@@ -171,74 +287,127 @@ function AreaChart({ chartData, chartLabels }) {
         viewBox={`0 0 ${W} ${H}`}
         className="overflow-visible cursor-crosshair"
         onMouseMove={handleMouseMove}
-        onMouseLeave={() => setHover(null)}
+        onMouseLeave={() => setHoverIdx(null)}
       >
-        <defs>
-          <linearGradient id="areaG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor="#16a34a" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="#16a34a" stopOpacity="0.01" />
-          </linearGradient>
-        </defs>
-
-        {/* Y-axis grid lines */}
-        {yTicks.map(v => (
+        {/* Y-axis grid lines + labels */}
+        {hasData && yTicks.map(v => (
           <g key={v}>
             <line
               x1={PAD.l} y1={yOf(v)} x2={PAD.l + iW} y2={yOf(v)}
               stroke="var(--border)" strokeWidth={1} strokeDasharray="4 4"
             />
-            <text x={PAD.l - 6} y={yOf(v) + 4} fontSize={9} fill="var(--muted-foreground)" textAnchor="end">
+            <text x={PAD.l - 8} y={yOf(v) + 3.5} fontSize={11} fill="var(--muted-foreground)" textAnchor="end">
               {v}%
             </text>
           </g>
         ))}
 
-        {/* Area fill */}
-        <polygon points={areaPts} fill="url(#areaG)" />
+        {/* Series — smoothed lines, optional fill under Global, dots */}
+        {hasData && SERIES_META.map(s => {
+          if (!isVisible(s.key)) return null
+          const segs = toSegments(valuesByKey[s.key], xOf, yOf)
+          if (!segs.length) return null
 
-        {/* Line */}
-        <polyline
-          points={linePts} fill="none"
-          stroke="#16a34a" strokeWidth={2}
-          strokeLinejoin="round" strokeLinecap="round"
-        />
+          let fillPath = null
+          if (s.fill) {
+            const sg   = segs[0]
+            const body = smoothPath(sg).replace(/^M\s*[\d.\-]+\s+[\d.\-]+/, '')
+            fillPath = `M ${sg[0][0]} ${PAD.t + iH} L ${sg[0][0]} ${sg[0][1]}${body} L ${sg[sg.length - 1][0]} ${PAD.t + iH} Z`
+          }
 
-        {/* Hover indicator */}
-        {hover && (
-          <>
-            <line
-              x1={hover.x} y1={PAD.t} x2={hover.x} y2={PAD.t + iH}
-              stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5}
-            />
-            <circle cx={hover.x} cy={hover.y} r={5} fill="#16a34a" stroke="#fff" strokeWidth={2} />
-          </>
+          return (
+            <g key={s.key}>
+              {fillPath && <path d={fillPath} fill={s.color} fillOpacity={0.05} stroke="none" />}
+              {segs.map((sg, si) => (
+                <path
+                  key={si} d={smoothPath(sg)} fill="none"
+                  stroke={s.color} strokeWidth={s.width}
+                  strokeLinejoin="round" strokeLinecap="round"
+                />
+              ))}
+              {valuesByKey[s.key].map((v, i) => v != null && (
+                <circle
+                  key={i} cx={xOf(i)} cy={yOf(v)} r={s.key === 'global' ? 3.2 : 2.6}
+                  fill="var(--card)" stroke={s.color} strokeWidth={2}
+                />
+              ))}
+            </g>
+          )
+        })}
+
+        {/* Empty state when every series is hidden */}
+        {!hasData && (
+          <text x={W / 2} y={H / 2} fontSize={14} fill="var(--muted-foreground)" textAnchor="middle">
+            Select a series to display
+          </text>
         )}
 
-        {/* X-axis labels */}
+        {/* Hover guide line */}
+        {hasData && hoverIdx != null && (
+          <line
+            x1={xOf(hoverIdx)} y1={PAD.t} x2={xOf(hoverIdx)} y2={PAD.t + iH}
+            stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5}
+          />
+        )}
+
+        {/* X-axis labels — diagonal, smaller font */}
         {chartLabels.map((label, i) => {
-          if (i % Math.max(1, Math.floor(chartLabels.length / 6)) !== 0) return null
+          if (i % labelEvery !== 0 && i !== n - 1) return null
+          const x = xOf(i), y = PAD.t + iH + 16
           return (
-            <text key={label} x={xOf(i)} y={H - 6} fontSize={9} fill="var(--muted-foreground)" textAnchor="middle">
+            <text
+              key={i} x={x} y={y} fontSize={11} fill="var(--muted-foreground)"
+              textAnchor="end" transform={`rotate(-40 ${x} ${y})`}
+            >
               {label}
             </text>
           )
         })}
       </svg>
 
-      {/* Hover tooltip */}
-      {hover && (
+      {/* Hover tooltip — multi-series */}
+      {tipRows.length > 0 && (
         <div
-          className="absolute top-0 bg-card border border-border rounded-lg px-3 py-2 text-xs shadow-lg pointer-events-none z-10 min-w-[120px]"
-          style={{ left: `${Math.min(hover.x / W * 100, 75)}%` }}
+          className="absolute top-2 bg-card border border-border rounded-lg px-3 py-2 text-xs shadow-lg pointer-events-none z-10 min-w-[150px]"
+          style={{ left: `${Math.min((xOf(hoverIdx) / W) * 100 + 2, 70)}%` }}
         >
-          <div className="font-semibold mb-1">{hover.label}</div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-sm bg-success inline-block shrink-0" />
-            <span className="text-muted-foreground">Accuracy</span>
-            <span className="font-bold ml-auto">{hover.value}%</span>
-          </div>
+          <div className="font-semibold text-sm mb-1.5">Batch {chartLabels[hoverIdx]}</div>
+          {tipRows.map(r => (
+            <div key={r.key} className="flex items-center gap-2 my-0.5">
+              <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ background: r.color }} />
+              <span className="text-muted-foreground">{r.name}</span>
+              <span className="font-bold ml-auto">{r.value}%</span>
+            </div>
+          ))}
         </div>
       )}
+
+      {/* Legend — click to show / hide a line */}
+      <div className="flex flex-wrap justify-center gap-2 pt-3 mt-2 border-t border-border">
+        {SERIES_META.map(s => (
+          <button
+            key={s.key}
+            onClick={() => toggle(s.key)}
+            className={cn(
+              'inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[13px] font-semibold transition-colors',
+              isVisible(s.key)
+                ? 'border-border text-foreground bg-card hover:bg-muted'
+                : 'border-border text-muted-foreground bg-card opacity-50'
+            )}
+            aria-pressed={isVisible(s.key)}
+          >
+            <span
+              className={cn('inline-block rounded-sm shrink-0', s.key === 'global' ? 'w-4 h-[3px]' : 'w-3 h-3')}
+              style={{ background: s.color }}
+            />
+            <span className={cn(!isVisible(s.key) && 'line-through')}>{s.name}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="text-center text-[11px] text-muted-foreground pt-2">
+        Click a legend item to show / hide that line · hover for per-horizon values
+      </div>
     </div>
   )
 }
@@ -457,7 +626,7 @@ export default function AccuracyChart({
             <CardHeader className="py-3.5 px-4 border-b border-border flex-row items-center justify-between space-y-0">
               <div>
                 <div className="text-sm font-semibold">Prediction Accuracy Over Time</div>
-                <div className="text-xs text-muted-foreground mt-0.5">Historical accuracy as batches mature</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Historical accuracy as batches mature — per horizon</div>
               </div>
               {stats.overallRate != null && (
                 <Badge variant="secondary" className="text-xs font-semibold">
@@ -466,7 +635,7 @@ export default function AccuracyChart({
               )}
             </CardHeader>
             <CardContent className="p-4">
-              <AreaChart chartData={stats.chartData} chartLabels={stats.chartLabels} />
+              <MultiLineChart chartData={stats.chartData} chartLabels={stats.chartLabels} />
             </CardContent>
           </Card>
 
