@@ -3753,3 +3753,50 @@ linked from README. Adopted from v7.7.0 onward."
 git tag -a v7.7.0 -m "v7.7.0: Accuracy Stats chart redesign — per-horizon lines"
 git push origin main
 git push origin v7.7.0
+
+
+# ===========================================================================
+# STEP 166 — v7.7.1  Fix: Email report button on Batch Overview page
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. NO npm install needed. Frontend only — one component.
+#
+# WHAT'S NEW:
+#
+#   src/App.jsx:
+#     - The Email report button (Header) shows on both batch pages and toggles
+#       showEmail, but the <EmailPreview> modal was only rendered inside the
+#       activePage === 'batch-detail' block — so on the 'batch' (Batch Overview)
+#       page the button did nothing.
+#     - Moved the {showEmail && <EmailPreview/>} render out of the batch-detail
+#       block to a single shared spot right after <Header/>, gated to batch
+#       pages: ['batch','batch-detail'].includes(activePage). Now it works on
+#       both Batch Overview and Batch Overview Detail.
+#     - No change to EmailPreview.jsx or its styling (it already worked on
+#       batch-detail). The Batch Overview email uses the current global horizon.
+#
+#   README.md: v7.7.1 changelog row.
+#
+# Apply on a feature branch (see docs/GIT_WORKFLOW.md):
+git checkout main && git pull origin main
+git checkout -b fix/email-report
+unzip -o ~/Downloads/openbank-price-prediction_v7.7.1.zip -d .
+npm run test:run
+git add src/App.jsx README.md GIT_GUIDE.md
+git commit -m "fix: Email report button works on Batch Overview page (v7.7.1)
+
+The Email report button (Header) appears on both batch pages and toggles
+showEmail, but <EmailPreview> was only rendered inside the batch-detail
+block, so on the Batch Overview page the button did nothing.
+
+Move the {showEmail && <EmailPreview/>} render to a single shared spot
+after <Header/>, gated to batch pages. No change to EmailPreview.jsx."
+git push origin fix/email-report
+# → verify the Vercel preview, then merge:
+git checkout main
+git merge --no-ff --no-edit fix/email-report
+git tag -a v7.7.1 -m "v7.7.1: fix Email report button on Batch Overview"
+git push origin main
+git push origin v7.7.1
+git branch -d fix/email-report
+git push origin --delete fix/email-report   # opcional
