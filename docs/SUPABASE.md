@@ -2,8 +2,16 @@
 
 **Project:** Openbank Price Prediction  
 **Supabase project:** `yyenwzljojxbqtzcbchk`  
-**Version:** v7.4.10  
+**Version:** v7.9.0  
 **Last updated:** June 2026
+
+> **v7.9.0 — price fetching moved to Edge Functions.** The two price-fetch SQL
+> functions (`fetch_expired_horizons()`, `fetch_weekly_prices()`) were hitting the
+> 120 s `statement_timeout` and the Twelve Data 8 req/min ceiling. They are now
+> replaced by two **Edge Functions** (`fetch-expired-horizons`, `fetch-weekly-prices`)
+> driven by per-minute crons. The old SQL functions remain as a fallback but their
+> crons (jobs 1 & 2) are **paused**. See §2 (Functions), §3 (Cron jobs) and §7
+> (Edge Functions).
 
 This document describes every table, function, cron job, and configuration
 in Supabase for this project. Use it as the single source of truth when
@@ -264,9 +272,18 @@ $$;
 
 ---
 
-### `fetch_expired_horizons()` ⚠️ Critical
+### `fetch_expired_horizons()` ⚠️ Critical — *superseded in v7.9.0*
 
-**Cron:** Job 1 — Tue–Sat 02:00 UTC  
+> **⚠️ Replaced by the `fetch-expired-horizons` Edge Function (v7.9.0).**
+> This SQL function still exists as a fallback, but its cron (job 1) is **paused**.
+> The live path is now the Edge Function + RPCs `get_pending_expired` /
+> `save_expired_verdict` / `recalc_hit_rates` (see §7). The verdict logic below is
+> unchanged — it was ported verbatim into `save_expired_verdict`. The reason for the
+> move: this function ran as one statement under the 120 s `statement_timeout` and
+> called Twelve Data one ticker at a time with `pg_sleep(8)`, so it died at ~15
+> tickers (Bug #9).
+
+**Cron:** Job 1 — Tue–Sat 02:00 UTC — **paused in v7.9.0** (`active = false`)  
 **Purpose:** Evaluates all awaiting predictions whose `targetDate` has passed.
 
 For each expired prediction:
@@ -304,9 +321,17 @@ PostgreSQL column/variable name collision which caused silent failures.
 
 ---
 
-### `fetch_weekly_prices()`
+### `fetch_weekly_prices()` — *superseded in v7.9.0*
 
-**Cron:** Job 2 — Saturdays 10:00 UTC  
+> **⚠️ Replaced by the `fetch-weekly-prices` Edge Function (v7.9.0).**
+> This SQL function still exists as a fallback, but its cron (job 2) is **paused**.
+> The live path is now the Edge Function + RPCs `get_pending_weekly_tickers` /
+> `save_weekly_price` / `current_weekly_friday` (see §7). The unique-ticker fan-out
+> idea below is preserved — the Edge Function fetches a chunk of unique tickers and
+> `save_weekly_price` distributes each price to every matching batch. The move fixed
+> the same 120 s timeout / 8 req/min ceiling as the expired function (Bug #9).
+
+**Cron:** Job 2 — Saturdays 10:00 UTC — **paused in v7.9.0** (`active = false`)  
 **Purpose:** Fetches the most recent Friday closing price for all active tickers.
 
 **Architecture (updated v7.5.9 — unique ticker loop):**
@@ -438,15 +463,24 @@ Existing files are updated (not duplicated) using the SHA from the GET response.
 
 All jobs managed by `pg_cron` (built into Supabase).
 
-| Job | Name | Schedule | Function | Purpose |
-|---|---|---|---|---|
-| 1 | `fetch-expired-horizons-daily` | `0 2 * * 2-6` | `fetch_expired_horizons()` | Evaluate expired predictions Tue–Sat 02:00 UTC |
-| 2 | `fetch-weekly-prices-saturday` | `0 10 * * 6` | `fetch_weekly_prices()` | Weekly close prices every Saturday 10:00 UTC |
-| 6 | `weekly-github-backup` | `0 23 * * 0` | `backup_to_github()` | Full backup to GitHub every Sunday 23:00 UTC |
-| 8 | `recovery-weekly-prices` | `0 6 * * 1` | `fetch_weekly_prices_recovery()` | Retry missed weekly prices every Monday 06:00 UTC |
-| 9 | `cron-health-check` | `0 7 * * 1,4` | `check_cron_health()` | Watchdog — Mon+Thu 07:00 UTC, alerts if a cron didn't run *(v7.6.1)* |
+| Job | Name | Schedule | Calls | Status | Purpose |
+|---|---|---|---|---|---|
+| 10 | `fetch-weekly-prices-edge` | `* 10-11 * * 6` | Edge `fetch-weekly-prices` | ✅ active | Weekly close prices — Sat 10:00–11:59 UTC, every minute *(v7.9.0)* |
+| 12 | `fetch-expired-horizons-edge` | `* 2-3 * * 2-6` | Edge `fetch-expired-horizons` | ✅ active | Evaluate expired predictions — Tue–Sat 02:00–03:59 UTC, every minute *(v7.9.0)* |
+| 2 | `fetch-weekly-prices-saturday` | `0 10 * * 6` | `fetch_weekly_prices()` | ⏸ paused | Old SQL weekly run — superseded by job 10 *(paused v7.9.0)* |
+| 1 | `fetch-expired-horizons-daily` | `0 2 * * 2-6` | `fetch_expired_horizons()` | ⏸ paused | Old SQL expired run — superseded by job 12 *(paused v7.9.0)* |
+| 6 | `weekly-github-backup` | `0 23 * * 0` | `backup_to_github()` | ✅ active | Full backup to GitHub every Sunday 23:00 UTC |
+| 8 | `recovery-weekly-prices` | `0 6 * * 1` | `fetch_weekly_prices_recovery()` | ✅ active | Retry missed weekly prices every Monday 06:00 UTC (safety net) |
+| 9 | `cron-health-check` | `0 7 * * 1,4` | `check_cron_health()` | ✅ active | Watchdog — Mon+Thu 07:00 UTC, alerts if a cron didn't run *(v7.6.1)* |
 
-**Why Tue–Sat for Job 1?**  
+**Per-minute windows (v7.9.0):** jobs 10 and 12 fire **every minute** during their
+window and call the Edge Function asynchronously via `net.http_post`. Each call
+processes a chunk of ≤7 tickers/horizons and returns in seconds, so the per-minute
+cadence is itself the rate-limit throttle (≤8 req/min) and nothing runs under the
+Postgres `statement_timeout`. The functions are idempotent/resumable: each run only
+fetches what's still missing, so a window self-resumes across minutes (and across days).
+
+**Why Tue–Sat for the expired job?**  
 The market closes at ~21:00 UTC Mon–Fri. The cron runs at 02:00 UTC —
 that's early Tuesday through early Saturday, catching Monday–Friday closes.
 
@@ -470,13 +504,21 @@ select cron.alter_job(job_id := 1, schedule := '0 2 * * 2-6');
 select cron.unschedule('job-name');
 ```
 
+**Pause / resume (keep the job, just stop it running) — v7.9.0:**
+```sql
+-- A direct UPDATE on cron.job raises "permission denied"; use alter_job:
+select cron.alter_job(job_id := 1, active := false);  -- pause
+select cron.alter_job(job_id := 1, active := true);   -- resume
+```
+
 ---
 
 ## 4. Vault secrets
 
 | Secret name | Used by | Notes |
 |---|---|---|
-| `twelve_data_key` | `fetch_expired_horizons()`, `fetch_weekly_prices()`, `fetch_weekly_prices_recovery()` | Free plan: 8 req/min, 800/day |
+| `twelve_data_key` | `fetch_expired_horizons()`, `fetch_weekly_prices()`, `fetch_weekly_prices_recovery()` (old SQL fallback) | Free plan: 8 req/min, 800/day |
+| `service_role_key` | cron jobs 10 & 12 — passed as `Authorization: Bearer …` by `net.http_post` to the Edge Functions *(v7.9.0)* | Service-role JWT. Lets the per-minute crons call the Edge Functions while **Verify JWT** stays enabled |
 | `github_pat` | `backup_to_github()` | Token scope: `repo` |
 | `emailjs_service_id` | `notify_fetch_failure()` | EmailJS Gmail service (`service_xugjmjv`) |
 | `emailjs_template_id_supabase` | `notify_fetch_failure()` | Alert template (`template_ryfy271`) |
@@ -494,6 +536,15 @@ select name, decrypted_secret
 from vault.decrypted_secrets
 where name in ('twelve_data_key', 'github_pat');
 ```
+
+**Edge Function secrets (separate from Vault) — v7.9.0:**
+The Edge Functions read their own secrets via `Deno.env.get(...)`, set in
+**Dashboard → Edge Functions → Secrets** (not Vault):
+- `TWELVE_DATA_KEY` — same Twelve Data key, used by both price Edge Functions.
+- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically by Supabase.
+
+The `service_role_key` **Vault** secret above is a different thing: it lets the
+**crons** authenticate their `net.http_post` call to the Edge Functions.
 
 ---
 
@@ -565,6 +616,66 @@ Located at: `supabase/functions/invite-user/index.ts`
 
 Called from `ManageUsers.jsx` when an admin invites a new user.
 Sets initial role to `readonly` in `profiles`.
+
+---
+
+### `fetch-weekly-prices` *(v7.9.0)*
+
+Replaces the `fetch_weekly_prices()` SQL function. Driven by **cron job 10**
+(`* 10-11 * * 6` — Sat 10:00–11:59 UTC, every minute).
+Located at: `supabase/functions/fetch-weekly-prices/index.ts`
+SQL helpers: `supabase/sql/01_weekly_prices_edge_setup.sql`
+
+**Per invocation:** asks `get_pending_weekly_tickers(7)` for up to 7 unique tickers
+still missing this week's Friday close, fetches them (US → one Twelve Data **batch**
+call; EU → Yahoo one-by-one), and calls `save_weekly_price(ticker, close)` which
+fans the price out to every batch containing that ticker. Real error detection: a
+Twelve Data `status:error` / `code` (e.g. 429) makes the whole batch stay pending
+for the next minute instead of being recorded as "no price".
+
+**Supporting RPCs (`01_weekly_prices_edge_setup.sql`):**
+| RPC | Purpose |
+|---|---|
+| `current_weekly_friday()` | This week's Friday (or last Friday if not reached). Must match the function's `computeFriday()`. |
+| `get_pending_weekly_tickers(p_limit)` | Up to N unique tickers with no `weekly_prices` row for the current Friday. |
+| `save_weekly_price(p_ticker, p_close)` | Inserts the price into every batch (fan-out); returns rows inserted. |
+| `log_weekly_failure(p_ticker, p_detail)` | Logs a fetch failure to `fetch_log`. |
+
+---
+
+### `fetch-expired-horizons` *(v7.9.0)*
+
+Replaces the `fetch_expired_horizons()` SQL function. Driven by **cron job 12**
+(`* 2-3 * * 2-6` — Tue–Sat 02:00–03:59 UTC, every minute).
+Located at: `supabase/functions/fetch-expired-horizons/index.ts`
+SQL helpers: `supabase/sql/02_expired_horizons_rpcs.sql`
+
+**Per invocation:** asks `get_pending_expired(7)` for up to 7 `(ticker, target_date)`
+pairs still `awaiting` and expired (with the cached price if any). For each it uses
+the cached price or fetches the close **at that target date** (US → Twelve Data
+`time_series` with a 5-day lookback; EU → Yahoo), then calls `save_expired_verdict`.
+After the chunk it calls `recalc_hit_rates()`. No batch endpoint here — each horizon
+has its own target date, so it's ≤7 single fetches per minute (still ≤8/min).
+
+**Verdict logic stays in SQL.** `save_expired_verdict` contains the exact
+direction-aware logic (exceeded / hit / close / wrong_way / miss, with the per-horizon
+margins of §2) ported verbatim from the original function, so the migration can't
+drift the evaluation.
+
+**Supporting RPCs (`02_expired_horizons_rpcs.sql`):**
+| RPC | Purpose |
+|---|---|
+| `get_pending_expired(p_limit)` | Up to N distinct `(ticker, target_date)` still awaiting + expired, with `cached_close` if present. |
+| `save_expired_verdict(p_ticker, p_target_date, p_close)` | Caches the price, computes the verdict for every matching awaiting result, updates `batches.results`; returns rows updated. |
+| `log_expired_failure(p_ticker, p_target_date, p_detail)` | Logs a fetch failure to `fetch_log`. |
+| `recalc_hit_rates()` | Recomputes `hit_rate` / `hit_rate_ext` for all evaluated batches. |
+
+**Deploy / config (both price functions):**
+- Deploy via Dashboard → Edge Functions (no Supabase CLI used in this project).
+- Set the `TWELVE_DATA_KEY` secret (Edge Functions → Secrets).
+- **Verify JWT** stays **enabled**; the crons authenticate with the `service_role_key`
+  Vault secret in the `net.http_post` `Authorization` header (§4).
+- Crons + the pause of the old jobs 1 & 2 live in `supabase/sql/03_crons_edge.sql`.
 
 ---
 
@@ -756,6 +867,34 @@ returns empty responses under load without an explicit error code.
 `fetch_weekly_prices_recovery()` (Job 8, Monday 06:00 UTC) acts as safety net —
 retries any combination missing a row for last Friday.
 
+### Bug #9 — SQL fetch functions hit statement_timeout + 8/min ceiling (v7.9.0)
+
+**Symptom:** `fetch_expired_horizons()` and `fetch_weekly_prices()` cron runs were
+cancelled mid-way:
+```
+ERROR: canceling statement due to statement timeout
+CONTEXT: SQL statement "SELECT pg_sleep(...)"
+```
+and some tickers came back without a price even when the API was up.
+
+**Root cause (two compounding limits):**
+1. Each function runs as **one statement** under the 120 s `statement_timeout`.
+2. Twelve Data free plan = **8 credits/min** (1 credit per symbol). Calling one
+   ticker per request with a `pg_sleep` between them means only ~16 symbols fit in
+   the 120 s window before the statement is killed. Going faster just turns the
+   extra calls into **429s**, which the old SQL didn't detect (`status:error` /
+   `code` weren't checked) — so a rate-limited response was silently logged as
+   "no price obtained".
+
+**Fix (v7.9.0):** Move fetching **out of Postgres** into two Edge Functions
+(`fetch-weekly-prices`, `fetch-expired-horizons`). A **per-minute cron** during a
+fixed window triggers each function via `net.http_post` (async — returns instantly,
+so nothing runs under the statement timeout). Each invocation processes a chunk of
+**≤7** tickers/horizons, so the per-minute cadence *is* the ≤8/min throttle. The
+functions detect real API errors (429 ≠ "no price") and are idempotent/resumable —
+each run only fetches what's still missing, so a window self-resumes across minutes
+and days. Old jobs 1 & 2 paused (kept as fallback). See §7.
+
 ---
 
 ## 10. Verification queries
@@ -804,7 +943,24 @@ limit 20;
 
 -- Vault secrets present:
 select name from vault.decrypted_secrets
-where name in ('twelve_data_key', 'github_pat');
+where name in ('twelve_data_key', 'github_pat', 'service_role_key');
+
+-- v7.9.0 — Edge price crons active and old SQL crons paused:
+select jobid, jobname, schedule, active
+from cron.job
+where jobname in (
+  'fetch-weekly-prices-edge', 'fetch-expired-horizons-edge',   -- expect active = true
+  'fetch-weekly-prices-saturday', 'fetch-expired-horizons-daily' -- expect active = false
+)
+order by active desc, jobid;
+
+-- v7.9.0 — Edge function run results (from fetch_log):
+select run_date, function, status, count(*)
+from fetch_log
+where function in ('fetch_weekly_prices_edge', 'fetch_expired_horizons_edge')
+  and run_date > current_date - 14
+group by run_date, function, status
+order by run_date desc;
 
 -- Verify pending weekly prices (missing rows for last Friday):
 select count(*) as pendientes

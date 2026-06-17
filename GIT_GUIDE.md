@@ -3844,3 +3844,71 @@ git push origin main
 git push origin v7.8.0
 git branch -d feat/vercel-analytics
 git push origin --delete feat/vercel-analytics   # opcional
+
+
+# ===========================================================================
+# STEP 168 — v7.9.0  Price fetching → Supabase Edge Functions
+# ===========================================================================
+#
+# BACKEND ONLY. No src/ changes (the React app is untouched). This commit is the
+# source-of-truth copy of the Edge Functions + SQL + updated docs. The actual
+# deploy was done in the Supabase dashboard (no Supabase CLI in this project):
+# functions deployed, TWELVE_DATA_KEY secret set, RPCs + crons run, Verify JWT
+# enabled, service_role_key stored in Vault, old crons (jobs 1 & 2) paused.
+#
+# WHAT'S NEW:
+#
+#   supabase/functions/fetch-weekly-prices/index.ts      — weekly close Edge Function
+#   supabase/functions/fetch-expired-horizons/index.ts   — expired-horizon Edge Function
+#   supabase/sql/01_weekly_prices_edge_setup.sql         — weekly RPCs
+#   supabase/sql/02_expired_horizons_rpcs.sql            — expired RPCs (+ verdict logic)
+#   supabase/sql/03_crons_edge.sql                       — crons (jobs 10 & 12) + pause of 1 & 2 + prereqs
+#
+#   docs/SUPABASE.md                              — functions/crons/vault/§7 Edge Functions + Bug #9
+#   docs/openbank-forecast-uml.md                 — data-flow, cron gantt, sequences → Edge model
+#   docs/Openbank_Mapa_Sistema_Datos.html         — system map (updated to final state)
+#   docs/Diseno_EdgeFunction_Precios_v7.9.0.html  — design doc (plan → implemented)
+#   README.md                                     — v7.9.0 changelog row + Edge Functions in Supabase section
+#
+#   WHY: the SQL fetch functions hit the 120s statement_timeout and the Twelve
+#   Data 8-req/min ceiling (Bug #9). A per-minute cron + net.http_post + ≤7-chunk
+#   Edge Function removes both walls. Idempotent/resumable; the verdict logic
+#   stays in SQL (save_expired_verdict). Old jobs 1 & 2 paused as fallback.
+#
+#   NOTE: GitHub does not render the .html docs inline — open them locally or via
+#   htmlpreview.github.io.
+#
+# Apply on a feature branch (see docs/GIT_WORKFLOW.md):
+git checkout main && git pull origin main
+git checkout -b feat/edge-functions-price-fetch
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.0.zip -d .
+npm run test:run                         # sanity — no src changes, tests unaffected
+git add supabase/functions/fetch-weekly-prices/index.ts \
+        supabase/functions/fetch-expired-horizons/index.ts \
+        supabase/sql/01_weekly_prices_edge_setup.sql \
+        supabase/sql/02_expired_horizons_rpcs.sql \
+        supabase/sql/03_crons_edge.sql \
+        docs/SUPABASE.md \
+        docs/openbank-forecast-uml.md \
+        docs/Openbank_Mapa_Sistema_Datos.html \
+        docs/Diseno_EdgeFunction_Precios_v7.9.0.html \
+        README.md GIT_GUIDE.md
+git commit -m "feat: move price fetching to Supabase Edge Functions (v7.9.0)
+
+The SQL fetch functions (fetch_expired_horizons, fetch_weekly_prices) hit
+the 120s statement_timeout and the Twelve Data 8-req/min ceiling (Bug #9).
+Replaced by two Edge Functions triggered by per-minute crons (jobs 10 & 12)
+via net.http_post; each call handles a chunk of <=7 and is idempotent and
+resumable. Verdict logic kept in SQL (save_expired_verdict). Verify JWT
+enabled; crons authenticate with the service_role_key Vault secret. Old SQL
+crons (jobs 1 & 2) paused as fallback. Docs updated (SUPABASE.md, UML,
+system-map & design HTML). Backend only — no src changes."
+git push origin feat/edge-functions-price-fetch
+# → backend only (no Vercel preview needed), then merge:
+git checkout main
+git merge --no-ff --no-edit feat/edge-functions-price-fetch
+git tag -a v7.9.0 -m "v7.9.0: price fetching on Supabase Edge Functions"
+git push origin main
+git push origin v7.9.0
+git branch -d feat/edge-functions-price-fetch
+git push origin --delete feat/edge-functions-price-fetch   # opcional

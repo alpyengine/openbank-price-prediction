@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diseño — Edge Function de precios (v7.9.0)</title>
+<style>
+:root{
+  --bg:#f0f2f5; --surface:#ffffff; --surface2:#f4f5f8; --border:rgba(0,0,0,0.09);
+  --text:#1a1f2e; --text2:#4b5563; --text3:#6b7280;
+  --th-bg:#eef0f6; --th-text:#374151;
+  --accent:#4f46e5; --green:#16a34a; --red:#dc2626; --amber:#b45309; --blue:#1d4ed8;
+  --pill-bg:#e0e7ff; --pill-text:#3730a3;
+  --tag-green-bg:#dcfce7; --tag-green-text:#14532d;
+  --shadow:0 1px 4px rgba(0,0,0,0.07);
+  --fs-base:15px; --fs-sm:13px; --fs-xs:12px; --fs-xxs:11.5px;
+}
+[data-theme="dark"]{
+  --bg:#273550; --surface:#2e3f60; --surface2:#364970; --border:rgba(160,195,255,0.15);
+  --text:#eef2fa; --text2:#cad6f0; --text3:#96aece;
+  --th-bg:#293858; --th-text:#d8e4f8;
+  --accent:#8ba4f8; --green:#34d399; --red:#f87171; --amber:#fbbf24; --blue:#7ab8fa;
+  --pill-bg:#1e3175; --pill-text:#c8d8ff;
+  --tag-green-bg:#083325; --tag-green-text:#6ee7b7;
+  --shadow:0 1px 4px rgba(0,0,0,0.3);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);
+  color:var(--text);font-size:var(--fs-base);line-height:1.55;padding:20px;transition:background .2s,color .2s;}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap;}
+.topbar h1{font-size:21px;font-weight:800;}
+.topbar p{font-size:var(--fs-sm);color:var(--text3);margin-top:3px;}
+.toggle-btn{display:flex;align-items:center;gap:8px;padding:9px 17px;background:var(--surface);
+  border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:var(--fs-sm);
+  font-weight:600;color:var(--text2);transition:all .15s;}
+.toggle-btn:hover{background:var(--surface2);}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;
+  box-shadow:var(--shadow);margin-bottom:20px;}
+.card-header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.card-header h2{font-size:var(--fs-base);font-weight:700;}
+.card-body{padding:18px;}
+.card-body p{margin-bottom:10px;}
+.card-body p:last-child{margin-bottom:0;}
+b{color:var(--text);}
+.muted{color:var(--text3);}
+.tag{display:inline-block;font-size:var(--fs-xxs);font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.tag.g{background:var(--tag-green-bg);color:var(--tag-green-text);}
+.tag.a{background:#fef3c7;color:#92400e;}
+[data-theme="dark"] .tag.a{background:#3d1a02;color:#fcd34d;}
+.tag.r{background:#fee2e2;color:#991b1b;}
+[data-theme="dark"] .tag.r{background:#7f1d1d;color:#fca5a5;}
+.tag.b{background:var(--pill-bg);color:var(--pill-text);}
+.step{display:flex;gap:13px;align-items:flex-start;margin-bottom:11px;}
+.step:last-child{margin-bottom:0;}
+.step .num{width:26px;height:26px;border-radius:7px;background:var(--pill-bg);color:var(--pill-text);
+  font-weight:800;font-size:var(--fs-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.step .txt{font-size:var(--fs-sm);color:var(--text2);}
+.step .txt b{color:var(--text);}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-sm);}
+th{padding:10px 13px;text-align:left;font-size:var(--fs-xs);font-weight:700;color:var(--th-text);
+  background:var(--th-bg);border-bottom:1.5px solid var(--border);}
+td{padding:10px 13px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+.tbl-wrap{overflow-x:auto;}
+pre{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:13px 15px;
+  font-family:'SF Mono',Menlo,monospace;font-size:var(--fs-sm);color:var(--text);overflow-x:auto;line-height:1.5;}
+code{font-family:'SF Mono',Menlo,monospace;font-size:.92em;background:var(--surface2);padding:1px 5px;border-radius:4px;}
+
+/* Flow diagram */
+.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;}
+.fbox{flex:1;min-width:150px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;
+  padding:13px 14px;text-align:center;display:flex;flex-direction:column;justify-content:center;}
+.fbox .ic{font-size:20px;margin-bottom:6px;}
+.fbox .ti{font-size:var(--fs-sm);font-weight:800;color:var(--text);}
+.fbox .de{font-size:var(--fs-xxs);color:var(--text3);margin-top:4px;line-height:1.35;}
+.farrow{display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--accent);font-weight:800;padding:0 6px;}
+@media(max-width:680px){.farrow{transform:rotate(90deg);width:100%;padding:6px 0;}}
+.warnbar{border-left:3px solid var(--amber);padding:11px 15px;background:var(--surface2);border-radius:0 8px 8px 0;font-size:var(--fs-sm);color:var(--text2);}
+.okbar{border-left:3px solid var(--green);padding:11px 15px;background:var(--surface2);border-radius:0 8px 8px 0;font-size:var(--fs-sm);color:var(--text2);}
+.qbox{border-left:3px solid var(--accent);padding:11px 15px;background:var(--surface2);border-radius:0 8px 8px 0;font-size:var(--fs-sm);color:var(--text2);margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div id="root" data-theme="light">
+
+  <div class="topbar">
+    <div>
+      <h1>Diseño — Edge Function de precios</h1>
+      <p>v7.9.0 · <b>implementado, desplegado y probado</b> · jun 2026</p>
+    </div>
+    <button class="toggle-btn" onclick="tog()" aria-label="Cambiar tema">
+      <span id="ti2">🌙</span>&nbsp;<span id="tl">Modo nocturno</span>
+    </button>
+  </div>
+
+  <!-- PROBLEMA + DECISIÓN -->
+  <div class="card">
+    <div class="card-header"><span>🎯</span><h2>El problema y la decisión</h2></div>
+    <div class="card-body">
+      <div class="okbar" style="margin-bottom:12px"><b>Estado:</b> implementado en v7.9.0. Las dos Edge Functions están desplegadas, probadas y con sus crons activos (jobs 10 y 12); las funciones SQL viejas quedan pausadas como respaldo (jobs 1 y 2).</div>
+      <p><b>Problema:</b> el fetch de precios se ejecutaba <b>dentro de Postgres</b>, como una sola orden, y Postgres corta cualquier orden a los <b>120s</b>. Como traer N tickers tarda minutos (límite de Twelve Data: 8 por minuto), no cabía. Además, el throttle (<code>pg_sleep</code>) iba demasiado rápido y provocaba errores 429 que el código etiquetaba mal como "no price obtained".</p>
+      <p><b>Decisión:</b> sacar el fetch de Postgres y llevarlo a una <b>Edge Function</b> (gratis, sin subir de plan). El despertador (cron) solo dispara; el trabajo se hace fuera.</p>
+    </div>
+  </div>
+
+  <!-- ARQUITECTURA -->
+  <div class="card">
+    <div class="card-header"><span>🏗️</span><h2>Arquitectura</h2></div>
+    <div class="card-body">
+      <div class="flow">
+        <div class="fbox"><div class="ic">⏰</div><div class="ti">pg_cron</div><div class="de">cada minuto (en ventana). Solo dispara.</div></div>
+        <div class="farrow">→</div>
+        <div class="fbox"><div class="ic">📨</div><div class="ti">net.http_post</div><div class="de">pg_net, asíncrono → no bloquea, no toca los 120s</div></div>
+        <div class="farrow">→</div>
+        <div class="fbox"><div class="ic">⚡</div><div class="ti">Edge Function</div><div class="de">trae 1 paquete de ≤7 tickers que falten y sale en segundos</div></div>
+        <div class="farrow">→</div>
+        <div class="fbox"><div class="ic">🌐</div><div class="ti">Twelve Data / Yahoo</div><div class="de">1 batch de ≤7 (US) · Yahoo p/ EU</div></div>
+        <div class="farrow">→</div>
+        <div class="fbox"><div class="ic">💾</div><div class="ti">weekly_prices</div><div class="de">guarda y marca como hecho</div></div>
+      </div>
+      <p style="margin-top:14px" class="muted">Clave: el throttle ya no es un <code>sleep</code> dentro del código — es <b>la cadencia del cron</b> (1 paquete por minuto (≤7), por debajo del tope de 8/min de Twelve Data). Cada ejecución es minúscula.</p>
+      <p class="muted" style="margin-top:8px"><b>Programación:</b> ventana fija de disparos por minuto (sábado 10:00–11:59 UTC = 120 disparos), <b>no atada al nº de tickers</b>. Cuando ya no falta nada, los disparos sobrantes son no-ops instantáneos. Si algún día se pasara de 800 US, continúa al día siguiente tras el reset de cupo (sábado + domingo + lunes ≈ 2.400/semana de margen). El número de semana se calcula por batch; el precio del viernes es el mismo y se reparte a todos los batches que contienen el ticker.</p>
+    </div>
+  </div>
+
+  <!-- POR QUÉ ESQUIVA LOS DOS MUROS -->
+  <div class="card">
+    <div class="card-header"><span>🧱</span><h2>Por qué este diseño esquiva los dos muros</h2></div>
+    <div class="card-body">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Muro</th><th>Límite</th><th>Cómo lo esquiva</th></tr></thead>
+          <tbody>
+            <tr><td><b>Postgres</b> (statement_timeout)</td><td>120s por orden</td><td><code>net.http_post</code> es asíncrono: el cron dispara y vuelve al instante. El trabajo ya no corre dentro de Postgres.</td></tr>
+            <tr><td><b>Edge Function</b> (wall clock)</td><td>400s por ejecución, y 150s para responder</td><td>Cada ejecución hace <b>solo 1 paquete de ≤7</b> → termina en segundos, lejísimos de cualquier tope. Nunca hay sleeps largos dentro.</td></tr>
+            <tr><td><b>Twelve Data</b> (rate limit)</td><td>8 créditos/min · 800/día</td><td>1 paquete de ≤7 por minuto, por debajo del tope de 8/min. Cero 429.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:12px" class="muted">Reparto el trabajo en muchas piezas diminutas en vez de una pieza grande. Así ningún tope (ni el de Postgres, ni el de la Edge, ni el de la API) llega a activarse.</p>
+    </div>
+  </div>
+
+  <!-- CÓMO FUNCIONA -->
+  <div class="card">
+    <div class="card-header"><span>⚙️</span><h2>Qué hace la Edge Function en cada ejecución</h2></div>
+    <div class="card-body">
+      <div class="step"><div class="num">1</div><div class="txt">Calcula el viernes de referencia de esta semana.</div></div>
+      <div class="step"><div class="num">2</div><div class="txt">Busca <b>hasta 7 tickers únicos que AÚN no tengan el precio de esta semana</b> (consulta tipo <code>not exists</code> sobre <code>weekly_prices</code>).</div></div>
+      <div class="step"><div class="num">3</div><div class="txt">Si no falta ninguno → <b>sale inmediatamente</b> (no-op). Esto es lo que la hace barata aunque el cron suene cada minuto.</div></div>
+      <div class="step"><div class="num">4</div><div class="txt">Separa US y EU. Los <b>US</b> en <b>una sola llamada batch</b> a Twelve Data (<code>/price?symbol=A,B,C…</code>). Los <b>EU</b> por Yahoo (sin límite diario).</div></div>
+      <div class="step"><div class="num">5</div><div class="txt"><b>Detecta errores de verdad</b>: si la respuesta trae <code>status:error</code> o <code>code</code> (p. ej. 429), lo marca como fallo real — no como "sin precio". (Arregla el bug de los 26.)</div></div>
+      <div class="step"><div class="num">6</div><div class="txt">Guarda los precios buenos en <code>weekly_prices</code> (en todas las combinaciones ticker×batch) y registra en <code>fetch_log</code>.</div></div>
+      <div class="step"><div class="num">7</div><div class="txt">Sale. El minuto siguiente, el cron vuelve a disparar y coge los siguientes 7 que falten.</div></div>
+      <p style="margin-top:14px" class="muted">Es exactamente la lógica de tu <code>usePriceFetch.js</code> (paquetes de 8 + batch endpoint), pero el "esperar 62s" se sustituye por "ejecutarse una vez por minuto".</p>
+    </div>
+  </div>
+
+  <!-- REANUDABLE + ESCALADO -->
+  <div class="card">
+    <div class="card-header"><span>♾️</span><h2>Reanudable y escalable (tu pregunta del "y si no caben en un día")</h2></div>
+    <div class="card-body">
+      <p>Como cada ejecución solo coge <b>lo que aún falta</b>, el sistema <b>se reanuda solo</b>: si una pasada no termina (por la hora, por el cupo, por lo que sea), la siguiente continúa donde se quedó. La tabla <code>weekly_prices</code> es el marcador de progreso. No hace falta lógica de estado extra.</p>
+      <div class="tbl-wrap" style="margin-top:6px">
+        <table>
+          <thead><tr><th>Tickers únicos</th><th>Paquetes (÷8)</th><th>Tiempo aprox (1/min)</th><th>¿Cabe en un día?</th></tr></thead>
+          <tbody>
+            <tr><td><b>56</b> (hoy)</td><td>7</td><td>~7 min</td><td><span class="tag g">Sí, de sobra</span></td></tr>
+            <tr><td>200</td><td>25</td><td>~25 min</td><td><span class="tag g">Sí</span></td></tr>
+            <tr><td>500</td><td>63</td><td>~63 min</td><td><span class="tag g">Sí</span></td></tr>
+            <tr><td>800</td><td>100</td><td>~100 min</td><td><span class="tag a">Justo (= tope diario)</span></td></tr>
+            <tr><td>&gt; 800</td><td>—</td><td>—</td><td><span class="tag r">Se reparte en 2+ días (automático)</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:12px" class="muted">El barrido semanal es 1 vez/semana, así que tienes sábado + domingo + el recovery del lunes de margen. Estás lejísimos del límite.</p>
+    </div>
+  </div>
+
+  <!-- ERRORES -->
+  <div class="card">
+    <div class="card-header"><span>🛟</span><h2>Manejo de errores</h2></div>
+    <div class="card-body">
+      <div class="okbar" style="margin-bottom:10px"><b>429 (rate limit):</b> ya no debería pasar (8/min respetado), pero si pasa, se detecta y se deja como "falta" → lo reintenta el minuto siguiente. Nunca se confunde con "sin datos".</div>
+      <div class="okbar" style="margin-bottom:10px"><b>Corte de red puntual (caso ALB):</b> el ticker se queda "falta" y se reintenta solo en la siguiente pasada.</div>
+      <div class="okbar"><b>Símbolo sin datos de verdad:</b> tras N reintentos, se marca y se avisa por email (notify_fetch_failure), con el motivo correcto.</div>
+    </div>
+  </div>
+
+  <!-- LAS DOS FUNCIONES -->
+  <div class="card">
+    <div class="card-header"><span>🔁</span><h2>Alcance: las dos funciones de fetch (ambas migradas)</h2></div>
+    <div class="card-body">
+      <p>El mismo patrón sirve para las dos, con una diferencia:</p>
+      <div class="step"><div class="num">A</div><div class="txt"><b>fetch-weekly-prices</b> (precios del viernes) → migrada primera. Una fecha común (el viernes) para todos, así que usa el <b>batch</b> de Twelve Data (US) en una sola llamada. <span class="tag g">job 10</span></div></div>
+      <div class="step"><div class="num">B</div><div class="txt"><b>fetch-expired-horizons</b> (evaluar vencidos) → migrada después. Cada horizonte tiene <b>su propia fecha objetivo</b>, así que <b>no</b> hay batch: ≤7 búsquedas individuales por minuto. El <b>veredicto</b> (hit/close/miss…) se calcula en SQL (<code>save_expired_verdict</code>), idéntico al original. <span class="tag g">job 12</span></div></div>
+      <p class="muted" style="margin-top:10px">Se migró A, se validó, y luego B. Las funciones SQL viejas quedan desactivadas como red de seguridad.</p>
+    </div>
+  </div>
+
+  <!-- PLAN -->
+  <div class="card">
+    <div class="card-header"><span>✅</span><h2>Cómo se implementó (hecho)</h2></div>
+    <div class="card-body">
+      <div class="step"><div class="num">1</div><div class="txt">Edge Functions (TypeScript/Deno) escritas — el "esperar 62s" de <code>usePriceFetch.js</code> se sustituye por "ejecutarse 1 vez/min". <span class="tag g">hecho</span></div></div>
+      <div class="step"><div class="num">2</div><div class="txt">RPCs SQL de apoyo creadas (pending / save / recalc). Veredicto de los vencidos portado a <code>save_expired_verdict</code>. <span class="tag g">hecho</span></div></div>
+      <div class="step"><div class="num">3</div><div class="txt"><code>TWELVE_DATA_KEY</code> en los secrets de cada Edge Function. <span class="tag g">hecho</span></div></div>
+      <div class="step"><div class="num">4</div><div class="txt">Probado a mano (1 ticker, batch de 3, disparador <code>net.http_post</code>) mirando logs + tablas. <span class="tag g">hecho</span></div></div>
+      <div class="step"><div class="num">5</div><div class="txt">Crons por minuto creados (sáb 10:00–11:59 · mar–sáb 02:00–03:59) y crons viejos pausados. <span class="tag g">hecho</span></div></div>
+      <div class="step"><div class="num">6</div><div class="txt"><b>Seguridad:</b> Verify JWT activado en ambas; los crons autentican con la <code>service_role_key</code> de Vault en la cabecera. <span class="tag g">hecho</span></div></div>
+    </div>
+  </div>
+
+  <!-- COMMIT v7.9.0 -->
+  <div class="card">
+    <div class="card-header"><span>📦</span><h2>Qué entra en el commit v7.9.0</h2></div>
+    <div class="card-body">
+      <div class="step"><div class="num">·</div><div class="txt">La Edge Function nueva (carpeta <code>supabase/functions/…</code>).</div></div>
+      <div class="step"><div class="num">·</div><div class="txt">El SQL del nuevo cron por minuto + la desactivación del viejo.</div></div>
+      <div class="step"><div class="num">·</div><div class="txt">Este documento de diseño + el mapa del sistema, en <code>docs/</code>.</div></div>
+      <div class="step"><div class="num">·</div><div class="txt">README: fila de changelog v7.9.0 + enlaces a los HTML.</div></div>
+      <div class="step"><div class="num">·</div><div class="txt">GIT_GUIDE.md: siguiente STEP con los comandos.</div></div>
+      <p class="muted" style="margin-top:10px">Commit explicativo, tag anotado <code>v7.9.0</code>, ZIP con solo lo cambiado — como siempre.</p>
+    </div>
+  </div>
+
+  <!-- DECISIONES ABIERTAS -->
+  <div class="card">
+    <div class="card-header"><span>✅</span><h2>Decisiones tomadas</h2></div>
+    <div class="card-body">
+      <div class="qbox" style="border-left-color:var(--green)"><b>1. Proveedor para EU →</b> <b>Yahoo</b> (sin límite diario). La app sigue usando Alpha Vantage para precios en vivo; las Edge Functions usan Yahoo para EU.</div>
+      <div class="qbox" style="border-left-color:var(--green)"><b>2. Ventanas →</b> semanal <b>sábado 10:00–11:59 UTC</b> (job 10); vencidos <b>mar–sáb 02:00–03:59 UTC</b> (job 12). Un disparo por minuto.</div>
+      <div class="qbox" style="border-left-color:var(--green);margin-bottom:0"><b>3. Orden →</b> primero <code>fetch-weekly-prices</code>, validada, y después <code>fetch-expired-horizons</code>. Ambas ya en marcha.</div>
+    </div>
+  </div>
+
+</div>
+<script>
+function tog(){
+  const root=document.getElementById('root');
+  const isDark=root.dataset.theme==='dark';
+  root.dataset.theme=isDark?'light':'dark';
+  document.getElementById('ti2').textContent=isDark?'🌙':'☀️';
+  document.getElementById('tl').textContent =isDark?'Modo nocturno':'Modo diurno';
+}
+</script>
+</body>
+</html>

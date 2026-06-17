@@ -42,11 +42,15 @@ All persistence, automation and price fetching runs on Supabase.
 - RLS policies, known issues, EU market support
 - GitHub backup system (section 7)
 
-📊 **[openbank-forecast-uml.md](./docs/openbank-forecast-uml.md)** — Mermaid UML diagrams (v7.5.0+):
+📊 **[openbank-forecast-uml.md](./docs/openbank-forecast-uml.md)** — Mermaid UML diagrams (v7.5.0+, price flow on Edge Functions since v7.9.0):
 - Entity relationship diagram (all 8 tables)
 - System architecture and data flow
 - Cron job schedule, sequence diagrams for all functions
 - RLS access matrix and verdict evaluation flowchart
+
+⚡ **Edge Functions (v7.9.0)** — price fetching runs as two Supabase Edge Functions in `supabase/functions/` (`fetch-weekly-prices`, `fetch-expired-horizons`), driven by per-minute crons; SQL helpers in `supabase/sql/`. Visual references *(HTML — open locally or via htmlpreview.github.io)*:
+- **[docs/Openbank_Mapa_Sistema_Datos.html](./docs/Openbank_Mapa_Sistema_Datos.html)** — system map: crons, functions, APIs, tables
+- **[docs/Diseno_EdgeFunction_Precios_v7.9.0.html](./docs/Diseno_EdgeFunction_Precios_v7.9.0.html)** — design & rationale of the Edge Function migration
 
 📄 **[SPEC_FUNDAMENTALS.md](./docs/SPEC_FUNDAMENTALS.md)** — Investment Score & fundamentals specification:
 - Metrics catalogue (valuation, growth, quality, sentiment)
@@ -209,6 +213,7 @@ npm run test       # watch mode
 107 tests across 6 files — utils, hooks, services.
 
 ---
+| v7.9.0 | Price fetching moved to Supabase **Edge Functions** — `fetch_expired_horizons()` / `fetch_weekly_prices()` were dying at the 120s `statement_timeout` + Twelve Data 8-req/min ceiling (Bug #9). Replaced by two Edge Functions (`fetch-weekly-prices`, `fetch-expired-horizons`) triggered by **per-minute crons** (jobs 10 & 12) via `net.http_post`; each call handles a chunk of ≤7 and is idempotent/resumable · weekly uses the Twelve Data batch endpoint, expired fetches per target-date · verdict logic kept in SQL (`save_expired_verdict`, ported verbatim) · real 429 detection · **Verify JWT** enabled, crons authenticate with the `service_role_key` Vault secret · old SQL crons (jobs 1 & 2) paused as fallback · new `supabase/functions/` + `supabase/sql/` · SUPABASE.md + UML + system-map & design HTML (`docs/`) updated |
 | v7.8.0 | Vercel Web Analytics — `@vercel/analytics` added · `<Analytics />` rendered once at the app root (`@vercel/analytics/react`) · counts visitors/sessions (the SPA navigates by internal state, so sections are not separate pageviews) · enable Web Analytics for the project in the Vercel dashboard |
 | v7.7.1 | Fix: Email report button on Batch Overview — the `<EmailPreview>` modal was only rendered inside the `batch-detail` block, so the Header button did nothing on the Batch Overview page · moved the `{showEmail && <EmailPreview/>}` render to a single shared spot after `<Header/>`, gated to batch pages · no change to `EmailPreview.jsx` |
 | v7.7.0 | Accuracy Stats chart redesign — `AccuracyChart` `AreaChart` (single averaged line) replaced by `MultiLineChart`: one line per horizon (1M/3M/6M/12M) + a Global aggregate line · clickable legend toggles each line, Y axis rescales to the visible series · multi-series hover tooltip · smoothed monotone-cubic curves (no overshoot below 0%) + subtle fill under Global · segments split at nulls (legacy 12M / immature horizons don't bridge gaps) · diagonal X-axis batch labels (rotate -40°, 11px) · no backend/`useHistory` changes — `chartData` is already per-horizon · adopt branch + Vercel preview workflow (new `docs/GIT_WORKFLOW.md`, linked from README) |
