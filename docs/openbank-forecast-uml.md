@@ -136,11 +136,17 @@ flowchart TD
     Date`"]
 
     APP["`**React App**
-    v7.5.0
+    v7.9.0
     Vite + Tailwind + shadcn/ui`"]
 
     SUPABASE["`**Supabase**
-    PostgreSQL + Auth + pg_cron`"]
+    PostgreSQL + Auth
+    pg_cron (per-minute triggers)`"]
+
+    EDGE["`**Edge Functions** (v7.9.0)
+    fetch-weekly-prices
+    fetch-expired-horizons
+    chunk ≤7 · ≤8 req/min`"]
 
     TD["`**Twelve Data API**
     US stock prices
@@ -179,10 +185,9 @@ flowchart TD
     APP -->|send report| EMAIL
     APP -->|send alert| EMAIL
 
-    SUPABASE -->|fetch expired horizons US| TD
-    SUPABASE -->|fetch expired horizons EU| YF
-    SUPABASE -->|fetch weekly prices US| TD
-    SUPABASE -->|fetch weekly prices EU| YF
+    SUPABASE -->|"pg_cron → net.http_post (per minute)"| EDGE
+    EDGE -->|expired + weekly · US| TD
+    EDGE -->|expired + weekly · EU| YF
     SUPABASE -->|weekly backup| GH
 ```
 
@@ -192,99 +197,101 @@ flowchart TD
 
 ```mermaid
 gantt
-    title Supabase cron jobs — weekly schedule (UTC)
+    title Supabase cron jobs — weekly schedule (UTC) · v7.9.0
     dateFormat HH:mm
     axisFormat %H:%M
 
-    section Tuesday–Saturday
-    fetch_expired_horizons() :crit, 02:00, 30m
+    section Tue–Sat
+    fetch-expired-horizons-edge (job 12, per min) :crit, 02:00, 120m
 
     section Saturday
-    fetch_weekly_prices()             :active, 10:00, 60m
+    fetch-weekly-prices-edge (job 10, per min)    :active, 10:00, 120m
 
     section Sunday
-    backup_to_github()                :done, 23:00, 30m
+    backup_to_github (job 6)                      :done, 23:00, 30m
 
     section Monday
-    fetch_weekly_prices_recovery()    :crit, 06:00, 30m
+    fetch_weekly_prices_recovery (job 8)          :crit, 06:00, 30m
 ```
+
+> Jobs 10 & 12 fire **every minute** inside their window and trigger the Edge
+> Function via `net.http_post`; each call handles a chunk of ≤7 and returns in
+> seconds. The old SQL jobs 1 (`fetch_expired_horizons`) and 2 (`fetch_weekly_prices`)
+> are **paused** since v7.9.0 (kept as fallback).
 
 ---
 
-## Function Call Flow — fetch_expired_horizons()
+## Function Call Flow — fetch-expired-horizons (Edge Function · v7.9.0)
 
 ```mermaid
 sequenceDiagram
-    participant CRON as pg_cron (02:00 UTC)
-    participant FN as fetch_expired_horizons()
-    participant DB as batches table
-    participant PC as price_cache
+    participant CRON as pg_cron (Tue–Sat 02:00–03:59, per min)
+    participant EF as Edge fetch-expired-horizons
+    participant RPC as SQL RPCs
+    participant DB as batches / price_cache
     participant TD as Twelve Data
     participant YF as Yahoo Finance
 
-    CRON->>FN: execute daily (Tue–Sat)
-    FN->>DB: SELECT awaiting predictions where targetDate <= today
-    loop for each expired prediction
-        FN->>PC: check price_cache (ticker, targetDate)
-        alt cache hit
-            PC-->>FN: return cached close_price
+    CRON->>EF: net.http_post (Authorization: service_role)
+    EF->>RPC: get_pending_expired(7)
+    RPC-->>EF: up to 7 (ticker, target_date, cached_close)
+    loop for each pending (≤7)
+        alt cached_close present
+            note over EF: use cached price (no API call)
         else EU ticker (.DE/.AS/.PA/.L/.MC)
-            FN->>YF: GET /v8/finance/chart/TICKER?interval=1d&period1=X&period2=Y
-            YF-->>FN: return close_price (nearest trading day ±3 days)
-            FN->>PC: INSERT into price_cache
+            EF->>YF: chart/TICKER?interval=1d&period1=(t-5d)&period2=t
+            YF-->>EF: close (nearest trading day ≤ target)
         else US ticker
-            FN->>TD: GET /eod?symbol=TICKER&date=targetDate
-            TD-->>FN: return close_price
-            FN->>PC: INSERT into price_cache
+            EF->>TD: time_series?symbol&start=(t-5)&end=t&outputsize=5
+            TD-->>EF: close (nearest trading day ≤ target)
         end
-        FN->>FN: evaluate verdict (exceeded/hit/close/wrong_way/miss)
-        FN->>DB: UPDATE batches.results (verdict + priceOnDate)
-        FN->>FN: pg_sleep(8) — rate limit pause
+        EF->>RPC: save_expired_verdict(ticker, target_date, close)
+        RPC->>DB: cache price + evaluate verdict + UPDATE batches.results
     end
-    FN->>DB: UPDATE hit_rate + hit_rate_ext for all affected batches
+    EF->>RPC: recalc_hit_rates()
+    RPC->>DB: UPDATE hit_rate + hit_rate_ext for evaluated batches
+    EF-->>CRON: { processed, updated, failed }
+    note over CRON,EF: next minute resumes with the next ≤7 (idempotent)
 ```
 
 ---
 
-## Function Call Flow — fetch_weekly_prices()
+## Function Call Flow — fetch-weekly-prices (Edge Function · v7.9.0)
 
 ```mermaid
 sequenceDiagram
-    participant CRON as pg_cron (Sat 10:00 UTC)
-    participant FN as fetch_weekly_prices()
-    participant DB as batches table
+    participant CRON as pg_cron (Sat 10:00–11:59, per min)
+    participant EF as Edge fetch-weekly-prices
+    participant RPC as SQL RPCs
     participant WP as weekly_prices
-    participant LOG as fetch_log / fetch_log_summary
     participant TD as Twelve Data
     participant YF as Yahoo Finance
 
-    CRON->>FN: execute every Saturday
-    FN->>FN: calculate last Friday date
-    FN->>DB: SELECT DISTINCT tickers (~30 unique)
-    note over FN: One API call per unique ticker<br/>then fan-out to all batches
-    loop for each UNIQUE ticker
-        alt EU ticker (.DE/.AS/.PA/.L/.MC)
-            FN->>YF: GET chart/TICKER?interval=1d&period1=(fri-5d)&period2=(fri+1d)
-            YF-->>FN: return time series — pick closest day <= friday
-        else US ticker
-            FN->>TD: GET time_series?symbol=TICKER&start=(fri-7)&end=fri&outputsize=10
-            TD-->>FN: return values array — pick closest day <= friday
-        end
-        alt price obtained
-            loop for each batch containing this ticker
-                FN->>FN: week_num = (friday - base_date) / 7
-                FN->>WP: INSERT if not exists (ticker, batch_id, week, week_date, close_price)
-                FN->>LOG: INSERT fetch_log status=inserted|skipped
-            end
-        else no price
-            FN->>LOG: INSERT fetch_log status=failed
-        end
-        FN->>FN: pg_sleep(2) — rate limit pause
+    CRON->>EF: net.http_post (Authorization: service_role)
+    EF->>RPC: get_pending_weekly_tickers(7)
+    RPC-->>EF: up to 7 unique tickers missing this Friday
+    EF->>EF: friday = computeFriday() (= current_weekly_friday)
+    alt US tickers
+        EF->>TD: time_series?symbol=A,B,C…&start=(fri-7)&end=fri (one BATCH call)
+        TD-->>EF: per-symbol values — pick closest day ≤ friday<br/>(status:error / 429 → all stay pending)
     end
-    FN->>LOG: INSERT fetch_log_summary (inserted, skipped, failed, duration_s)
+    loop for each EU ticker
+        EF->>YF: chart/TICKER?interval=1d&period1=(fri-5d)&period2=(fri+1d)
+        YF-->>EF: close (closest day ≤ friday)
+    end
+    loop for each ticker with a price
+        EF->>RPC: save_weekly_price(ticker, close)
+        RPC->>WP: fan-out — INSERT into every batch (week_num per batch)
+    end
+    EF-->>CRON: { processed, inserted, failed, friday }
+    note over CRON,EF: next minute resumes with the next ≤7 (idempotent)
 ```
 
 ## Function Call Flow — fetch_weekly_prices_recovery()
+
+> Still a **SQL** function (job 8, active). Kept as a Monday safety net. With the
+> v7.9.0 weekly Edge Function self-resuming across the Saturday window it's largely
+> redundant, but it stays as a cheap fallback.
 
 ```mermaid
 sequenceDiagram
@@ -405,4 +412,4 @@ graph LR
 
 ---
 
-*Generated from `docs/supabase_setup.sql` · v7.5.0 · June 2026*
+*Generated from `docs/supabase_setup.sql` + `supabase/` (Edge Functions & RPCs) · v7.9.0 · June 2026*

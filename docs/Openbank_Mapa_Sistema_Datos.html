@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Openbank · Mapa del sistema de datos</title>
+<style>
+:root{
+  --bg:#f0f2f5; --surface:#ffffff; --surface2:#f4f5f8; --border:rgba(0,0,0,0.09);
+  --text:#1a1f2e; --text2:#4b5563; --text3:#6b7280;
+  --th-bg:#eef0f6; --th-text:#374151;
+  --accent:#4f46e5; --green:#16a34a; --red:#dc2626; --amber:#b45309; --blue:#1d4ed8;
+  --pill-bg:#e0e7ff; --pill-text:#3730a3;
+  --tag-green-bg:#dcfce7; --tag-green-text:#14532d;
+  --tag-hold-bg:#e0e7ff; --tag-hold-text:#3730a3;
+  --shadow:0 1px 4px rgba(0,0,0,0.07);
+  --fs-base:15px; --fs-sm:13px; --fs-xs:12px; --fs-xxs:11.5px;
+}
+[data-theme="dark"]{
+  --bg:#273550; --surface:#2e3f60; --surface2:#364970; --border:rgba(160,195,255,0.15);
+  --text:#eef2fa; --text2:#cad6f0; --text3:#96aece;
+  --th-bg:#293858; --th-text:#d8e4f8;
+  --accent:#8ba4f8; --green:#34d399; --red:#f87171; --amber:#fbbf24; --blue:#7ab8fa;
+  --pill-bg:#1e3175; --pill-text:#c8d8ff;
+  --tag-green-bg:#083325; --tag-green-text:#6ee7b7;
+  --tag-hold-bg:#1a2d70; --tag-hold-text:#c8d8ff;
+  --shadow:0 1px 4px rgba(0,0,0,0.3);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);
+  color:var(--text);font-size:var(--fs-base);line-height:1.55;padding:20px;transition:background .2s,color .2s;}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap;}
+.topbar h1{font-size:21px;font-weight:800;}
+.topbar p{font-size:var(--fs-sm);color:var(--text3);margin-top:3px;}
+.toggle-btn{display:flex;align-items:center;gap:8px;padding:9px 17px;background:var(--surface);
+  border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:var(--fs-sm);
+  font-weight:600;color:var(--text2);transition:all .15s;}
+.toggle-btn:hover{background:var(--surface2);}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;
+  box-shadow:var(--shadow);margin-bottom:20px;}
+.card-header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.card-header h2{font-size:var(--fs-base);font-weight:700;}
+.card-body{padding:16px 18px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:22px;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 16px;box-shadow:var(--shadow);}
+.kpi-label{font-size:var(--fs-xxs);font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;}
+.kpi-value{font-size:23px;font-weight:700;line-height:1.1;}
+.kpi-sub{font-size:var(--fs-xs);margin-top:5px;font-weight:600;color:var(--text3);}
+.flow{display:flex;flex-direction:column;gap:11px;}
+.step{display:flex;gap:13px;align-items:flex-start;}
+.step .num{width:26px;height:26px;border-radius:7px;background:var(--pill-bg);color:var(--pill-text);
+  font-weight:800;font-size:var(--fs-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.step .txt{font-size:var(--fs-sm);color:var(--text2);}
+.step .txt b{color:var(--text);}
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-sm);min-width:720px;}
+th{padding:11px 14px;text-align:left;font-size:var(--fs-xs);font-weight:700;color:var(--th-text);
+  background:var(--th-bg);border-bottom:1.5px solid var(--border);white-space:nowrap;}
+td{padding:12px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--surface2);}
+.fn{font-family:'SF Mono',Menlo,monospace;font-weight:700;font-size:var(--fs-sm);color:var(--text);white-space:nowrap;}
+.muted{color:var(--text3);font-size:var(--fs-xs);}
+.tag{display:inline-block;font-size:var(--fs-xxs);font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+.tag.b{background:var(--tag-hold-bg);color:var(--tag-hold-text);}
+.tag.g{background:var(--tag-green-bg);color:var(--tag-green-text);}
+.tag.a{background:#fef3c7;color:#92400e;}
+[data-theme="dark"] .tag.a{background:#3d1a02;color:#fcd34d;}
+.tag.r{background:#fee2e2;color:#991b1b;}
+[data-theme="dark"] .tag.r{background:#7f1d1d;color:#fca5a5;}
+.ti{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.ti.bl{background:#dbeafe;} .ti.gr{background:#d1fae5;} .ti.am{background:#fef3c7;} .ti.pu{background:#ede9fe;} .ti.re{background:#fee2e2;}
+[data-theme="dark"] .ti.bl{background:#162d55;} [data-theme="dark"] .ti.gr{background:#083325;}
+[data-theme="dark"] .ti.am{background:#3d1a02;} [data-theme="dark"] .ti.pu{background:#2d1060;} [data-theme="dark"] .ti.re{background:#7f1d1d;}
+pre{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:13px 15px;
+  font-family:'SF Mono',Menlo,monospace;font-size:var(--fs-sm);color:var(--text);overflow-x:auto;line-height:1.5;}
+.note{font-size:var(--fs-sm);color:var(--text2);}
+.note b{color:var(--text);}
+.legend{font-size:var(--fs-xs);color:var(--text3);margin-top:10px;}
+.disclaimer{font-size:var(--fs-xs);color:var(--text3);margin-top:6px;line-height:1.5;}
+.warnbar{border-left:3px solid var(--amber);padding:11px 15px;background:var(--surface2);border-radius:0 8px 8px 0;font-size:var(--fs-sm);color:var(--text2);}
+.warnbar b{color:var(--text);}
+</style>
+</head>
+<body>
+<div id="root" data-theme="light">
+
+  <div class="topbar">
+    <div>
+      <h1>Openbank · Mapa del sistema de datos</h1>
+      <p>Backend Supabase <code>yyenwzljojxbqtzcbchk</code> · referencia · <b>v7.9.0</b> (fetch de precios en Edge Functions) · jun 2026</p>
+    </div>
+    <button class="toggle-btn" onclick="tog()" aria-label="Cambiar tema">
+      <span id="ti2">🌙</span>&nbsp;<span id="tl">Modo nocturno</span>
+    </button>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Crons activos</div><div class="kpi-value">5</div><div class="kpi-sub">jobs 6·8·9·10·12 · (1·2 pausados)</div></div>
+    <div class="kpi-card"><div class="kpi-label">Fetch de precios</div><div class="kpi-value">Edge</div><div class="kpi-sub">2 Edge Functions · v7.9.0</div></div>
+    <div class="kpi-card"><div class="kpi-label">APIs externas</div><div class="kpi-value">6</div><div class="kpi-sub">Twelve Data es la crítica</div></div>
+    <div class="kpi-card"><div class="kpi-label">Cuello de botella</div><div class="kpi-value" style="color:var(--green)">resuelto</div><div class="kpi-sub">≤7/min · sin timeout</div></div>
+  </div>
+
+  <!-- EL CICLO -->
+  <div class="card">
+    <div class="card-header"><span>🔄</span><h2>El ciclo, en 4 frases</h2></div>
+    <div class="card-body">
+      <div class="flow">
+        <div class="step"><div class="num">1</div><div class="txt">Creas un <b>batch</b> de predicciones (Openbank AI: "este ticker valdrá X en 1M / 3M / 6M / 12M"). Se guarda en la tabla <b>batches</b>.</div></div>
+        <div class="step"><div class="num">2</div><div class="txt">Cada <b>sábado</b> una <b>Edge Function</b> apunta el <b>cierre real del viernes</b> de cada ticker → tabla <b>weekly_prices</b>. Así ves la evolución semana a semana.</div></div>
+        <div class="step"><div class="num">3</div><div class="txt">Cuando una predicción <b>vence</b> (llega su fecha objetivo), otra <b>Edge Function</b> de madrugada (Mar–Sáb) busca el precio real de ese día y decide si acertó: <b>hit / close / miss</b> → actualiza <b>batches</b>.</div></div>
+        <div class="step"><div class="num">4</div><div class="txt">Redes de seguridad: un cron de <b>recuperación</b> el lunes, un <b>watchdog</b> Lun+Jue y <b>emails</b> de aviso. Y cada 2 semanas tú revisas a mano lo único que ningún cron puede detectar: que un cron <b>no llegue a ejecutarse</b>.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA MAESTRA -->
+  <div class="card">
+    <div class="card-header"><span>⚙️</span><h2>Qué hace cada función · qué busca · con qué · cuándo · límite</h2></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Función</th><th>Qué hace (sencillo)</th><th>Qué dato busca</th><th>API / herramienta</th><th>Cuándo</th><th>Límite / cuidado</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div style="display:flex;gap:9px;align-items:center"><span class="ti bl">🎯</span><span class="fn">fetch-expired-<br>horizons</span></div><div class="muted">Edge Function · cron job 12</div></td>
+            <td>Cuando una predicción vence, comprueba si acertó (hit / close / miss). <span class="muted">El veredicto se calcula en SQL (save_expired_verdict).</span></td>
+            <td>Precio real del ticker en la fecha objetivo <span class="muted">(ventana 5 días atrás para fines de semana / festivos)</span></td>
+            <td>Twelve Data <span class="muted">(time_series) · Yahoo (EU)</span></td>
+            <td><span class="tag g">Mar–Sáb 02:00–03:59 UTC</span><div class="muted">cada minuto · ≤7 por pasada · resumible</div></td>
+            <td><span class="tag g">sin timeout</span> <span class="muted">≤8/min respetado</span></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;gap:9px;align-items:center"><span class="ti gr">📅</span><span class="fn">fetch-weekly-<br>prices</span></div><div class="muted">Edge Function · cron job 10</div></td>
+            <td>Apunta el cierre del viernes de cada ticker activo (seguimiento semanal). <span class="muted">Reparte cada precio a todos los batches.</span></td>
+            <td>Último cierre semanal → <b>weekly_prices</b> <span class="muted">(tickers únicos, ~30 no 200)</span></td>
+            <td>Twelve Data <span class="muted">(batch) · Yahoo (EU)</span></td>
+            <td><span class="tag g">Sáb 10:00–11:59 UTC</span><div class="muted">cada minuto · ≤7 por pasada · resumible</div></td>
+            <td><span class="tag g">sin timeout</span> <span class="muted">batch · detecta 429 (no lo cuenta como "sin precio")</span></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;gap:9px;align-items:center"><span class="ti gr">♻️</span><span class="fn">fetch_weekly_<br>prices_recovery</span></div><div class="muted">cron · recovery-weekly-prices</div></td>
+            <td>Reintenta lo que el cron del sábado no consiguió.</td>
+            <td>Weekly prices que faltan</td>
+            <td>Twelve Data</td>
+            <td><span class="tag b">Lun 06:00 UTC</span></td>
+            <td><span class="muted">si se agota el cupo diario de la API, se queda "atascado" hasta el reset UTC</span></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;gap:9px;align-items:center"><span class="ti pu">💾</span><span class="fn">backup_to_<br>github</span></div><div class="muted">cron · weekly-github-backup</div></td>
+            <td>Copia de seguridad de la base de datos al repo de respaldo.</td>
+            <td>Vuelca los datos → <b>alpyengine/openbank-price-data</b></td>
+            <td>GitHub API <span class="muted">(PAT en Vault)</span></td>
+            <td><span class="tag b">Dom 23:00 UTC</span></td>
+            <td><span class="muted">—</span></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;gap:9px;align-items:center"><span class="ti am">🛡️</span><span class="fn">check_cron_<br>health</span></div><div class="muted">cron · cron-health-check · watchdog</div></td>
+            <td>Vigila que los crons se hayan ejecutado; si detecta un hueco, avisa por email.</td>
+            <td><b>fetch_log_summary</b> (antigüedad) + horizontes "awaiting" ya vencidos</td>
+            <td>interno + EmailJS</td>
+            <td><span class="tag b">Lun+Jue 07:00 UTC</span></td>
+            <td><span class="tag r">no detecta su propio fallo</span></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;gap:9px;align-items:center"><span class="ti re">✉️</span><span class="fn">notify_fetch_<br>failure</span></div><div class="muted">no es cron</div></td>
+            <td>Manda email cuando un fetch acaba con fallos (failed&nbsp;&gt;&nbsp;0).</td>
+            <td>Lee los secrets de EmailJS desde Vault</td>
+            <td>EmailJS <span class="muted">(http_post · accessToken · template_ryfy271)</span></td>
+            <td><span class="muted">lo llaman las funciones al fallar</span></td>
+            <td><span class="tag a">bug: la lista de tickers se acumula</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-body" style="border-top:1px solid var(--border)">
+      <div class="legend"><b>v7.9.0:</b> las versiones SQL antiguas <b>fetch_weekly_prices()</b> (job 2) y <b>fetch_expired_horizons()</b> (job 1) siguen existiendo pero sus crons están <b>pausados</b> — se conservan como respaldo, las reemplazan las dos Edge Functions de arriba. La función <b>backfill_weekly_prices</b> sigue existiendo sin cron (dormida). Hay además 2 funciones de usuarios/auth fuera del pipeline (ver más abajo).</div>
+    </div>
+  </div>
+
+  <!-- APIs -->
+  <div class="card">
+    <div class="card-header"><span>🔌</span><h2>APIs externas y sus límites</h2></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>API / servicio</th><th>Para qué</th><th>Quién la usa</th><th>Límite (plan free típico)</th></tr></thead>
+        <tbody>
+          <tr><td class="fn">Twelve Data</td><td>Precios (cierre diario / semanal)</td><td><b>Las 2 Edge Functions</b> de precios</td><td><span class="tag a">8 req/min · 800/día</span> <span class="muted">→ el límite se respeta con ≤7 por pasada y 1 pasada/min (ya no hace falta pg_sleep)</span></td></tr>
+          <tr><td class="fn">Finnhub</td><td>Fundamentales (primario, desde v7.0.6)</td><td>La app al crear / refrescar un batch</td><td><span class="muted">~60 req/min</span></td></tr>
+          <tr><td class="fn">FMP /stable/profile</td><td>Sector e industria</td><td>La app (perfil del ticker)</td><td><span class="muted">según plan</span></td></tr>
+          <tr><td class="fn">Yahoo Finance</td><td>Precios de tickers europeos (.DE, BME)</td><td>La app (tickers EU)</td><td><span class="tag a">sin SLA · puede cambiar sin aviso</span></td></tr>
+          <tr><td class="fn">GitHub API</td><td>Backup semanal de la BD</td><td>backup_to_github</td><td><span class="muted">PAT en Vault</span></td></tr>
+          <tr><td class="fn">EmailJS</td><td>Emails de alerta de fallos</td><td>notify_fetch_failure</td><td><span class="muted">requiere accessToken · template_ryfy271</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DÓNDE VIVEN LOS DATOS -->
+  <div class="card">
+    <div class="card-header"><span>🗄️</span><h2>Dónde viven los datos (tablas)</h2></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Tabla</th><th>Qué guarda</th></tr></thead>
+        <tbody>
+          <tr><td class="fn">batches</td><td>Tus predicciones + resultados (ticker, horizonte, verdict, targetDate, priceOnDate…)</td></tr>
+          <tr><td class="fn">price_cache</td><td>Precios ya consultados, para no volver a llamar a la API por lo mismo</td></tr>
+          <tr><td class="fn">weekly_prices</td><td>El cierre del viernes, semana a semana, de cada ticker activo</td></tr>
+          <tr><td class="fn">fetch_log · fetch_log_summary</td><td>Registro de qué función se ejecutó y cuándo — lo lee el watchdog</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AUTH -->
+  <div class="card">
+    <div class="card-header"><span>👤</span><h2>Funciones de usuarios / auth (fuera del pipeline)</h2></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Función</th><th>Qué hace (inferido)</th></tr></thead>
+        <tbody>
+          <tr><td class="fn">handle_new_user</td><td>Trigger al registrarse un usuario: crea su fila de perfil. Patrón estándar de Supabase.</td></tr>
+          <tr><td class="fn">get_all_profiles</td><td>Devuelve los perfiles de usuario (para la gestión / vista de usuarios de la app).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-body" style="border-top:1px solid var(--border)"><div class="legend">Descripción inferida — dime si quieres que confirme el contenido real de estas dos.</div></div>
+  </div>
+
+  <!-- CUELLO DE BOTELLA -->
+  <div class="card">
+    <div class="card-header"><span>✅</span><h2>Dónde se rompía — y cómo se arregló (v7.9.0)</h2></div>
+    <div class="card-body">
+      <div class="warnbar">
+        <b>El problema (antes de v7.9.0):</b> el rol de los crons tenía <b>statement_timeout = 120 s</b>. Twelve Data free solo permite <b>8 llamadas/min</b>, por eso había un <b>pg_sleep(8)</b> entre cada ticker. La cuenta salía así: 120 s ÷ 8 s ≈ <b>15 tickers por pasada</b>. Con carteras grandes, un cron nunca terminaba en una sola ejecución y moría por timeout justo dentro del pg_sleep. Y al ir más rápido, los <b>429</b> se registraban como "sin precio".
+      </div>
+      <div class="warnbar" style="border-left-color:var(--green);margin-top:12px">
+        <b>La solución (v7.9.0):</b> el fetch salió de Postgres a dos <b>Edge Functions</b>. Un cron <b>por minuto</b> (dentro de su ventana) las dispara con <code>net.http_post</code> (asíncrono → devuelve al instante, sin tocar el timeout). Cada llamada procesa <b>≤7</b> tickers/horizontes, así la cadencia por minuto <b>es</b> el límite de 8/min. Detectan los 429 de verdad y son <b>resumibles</b> (cada pasada coge solo lo que falta, también entre días). Los crons SQL viejos (jobs 1 y 2) quedan pausados como respaldo.
+      </div>
+    </div>
+  </div>
+
+  <!-- VERIFICAR -->
+  <div class="card">
+    <div class="card-header"><span>🔎</span><h2>Verifícalo tú mismo contra la base de datos real</h2></div>
+    <div class="card-body">
+      <p class="note" style="margin-bottom:10px">Hoja ya cotejada con la BD real (jun 2026). Guarda estas consultas para volver a comprobarlo más adelante si cambias algún cron:</p>
+<pre>-- 1) Todos los crons activos y su horario
+select jobid, schedule, jobname, active
+from cron.job
+order by jobid;
+
+-- 2) Todas tus funciones
+select proname
+from pg_proc
+where pronamespace = 'public'::regnamespace
+order by proname;
+
+-- 3) v7.9.0 — crons edge activos / viejos pausados
+select jobid, jobname, schedule, active
+from cron.job
+where jobname like 'fetch-%'
+order by active desc, jobid;</pre>
+      <p class="disclaimer">Si algún horario o función no coincide con lo de arriba, dímelo y actualizo el mapa.</p>
+    </div>
+  </div>
+
+</div>
+<script>
+function tog(){
+  const root=document.getElementById('root');
+  const isDark=root.dataset.theme==='dark';
+  root.dataset.theme=isDark?'light':'dark';
+  document.getElementById('ti2').textContent=isDark?'🌙':'☀️';
+  document.getElementById('tl').textContent =isDark?'Modo nocturno':'Modo diurno';
+}
+</script>
+</body>
+</html>
