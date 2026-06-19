@@ -173,7 +173,7 @@ export function useHistory(margin = 5) {
 
         if (thisHorizonExpired) {
           const { price: p } = getEffectivePrice(
-            stock.t, h, autoPrices, histPrices, overrides, true
+            stock.t, h, autoPrices, histPrices, overrides, true, /* snapshot */ true
           )
           if (p) {
             // Use snapshot mode — fixed SNAPSHOT_PARAMS per horizon

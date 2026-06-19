@@ -123,9 +123,14 @@ export function histKey(ticker, horizon) {
  * @param {Object}  histPrices      — { [ticker_horizon]: { price, date } }
  * @param {Object}  overrides       — { [ticker]: number } manual overrides
  * @param {boolean} horizonExpired  — true if this specific horizon's target date has passed
+ * @param {boolean} [snapshot=false] — true when settling a batch save. In this mode an
+ *                  expired horizon must use its real closing price; if none is available
+ *                  the current price is NOT used as a fallback — null is returned so the
+ *                  verdict stays 'awaiting' (the cron settles it later). Live callers omit
+ *                  this and keep the current-price fallback for provisional display.
  * @returns {{ price: number|null, isHistorical: boolean, historicalDate: string|null }}
  */
-export function getEffectivePrice(ticker, horizon, autoPrices, histPrices, overrides, horizonExpired) {
+export function getEffectivePrice(ticker, horizon, autoPrices, histPrices, overrides, horizonExpired, snapshot = false) {
   // 1. Manual override always wins
   const ov = overrides[ticker]
   if (ov && ov > 0) return { price: ov, isHistorical: false, historicalDate: null }
@@ -137,9 +142,14 @@ export function getEffectivePrice(ticker, horizon, autoPrices, histPrices, overr
     if (hist && hist.price) {
       return { price: hist.price, isHistorical: true, historicalDate: hist.date }
     }
+    // Snapshot mode (batch save): an expired horizon must be settled with its
+    // real closing price. If the historical close isn't loaded, do NOT fall back
+    // to the current price — return null so the verdict stays 'awaiting' and the
+    // cron (save_expired_verdict) settles it later with the real close. (v7.9.1)
+    if (snapshot) return { price: null, isHistorical: false, historicalDate: null }
   }
 
-  // 3. Current auto-fetched price
+  // 3. Current auto-fetched price (live display only — never settles an expired snapshot)
   const au = autoPrices[ticker]
   if (au && au > 0) return { price: au, isHistorical: false, historicalDate: null }
 

@@ -3912,3 +3912,70 @@ git push origin main
 git push origin v7.9.0
 git branch -d feat/edge-functions-price-fetch
 git push origin --delete feat/edge-functions-price-fetch   # opcional
+
+
+# ===========================================================================
+# STEP 169 — v7.9.1  Fix: never settle an expired horizon with the current price
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install needed. Frontend only — two files + one test.
+#
+# WHAT'S NEW:
+#
+#   src/utils/stocks.js:
+#     - getEffectivePrice() gains a 7th arg `snapshot = false`. In snapshot mode,
+#       an EXPIRED horizon with no historical close in histPrices now returns
+#       { price: null } instead of falling through to the current price (autoPrices).
+#     - Root cause of the corrupted 1M verdicts: at save time histPrices for an
+#       expired horizon was often empty, so getEffectivePrice returned today's
+#       price; saveBatch then froze a verdict + priceOnDate computed against the
+#       wrong price. With null, saveBatch leaves the horizon 'awaiting' and the
+#       cron (save_expired_verdict) settles it later with the real close.
+#     - Live/provisional callers omit the flag (default false) -> unchanged.
+#
+#   src/hooks/useHistory.js:
+#     - saveBatch() now calls getEffectivePrice(..., true, /* snapshot */ true).
+#       Only this caller opts into snapshot mode.
+#
+#   src/utils/getEffectivePrice.test.js (NEW):
+#     - 6 regression tests: snapshot+expired+noHist -> null; snapshot+expired+hist
+#       -> settled close; override precedence; live fallback preserved; default
+#       behaves as live; snapshot flag only gates the expired branch.
+#     - Test count 164 -> 170, files 9 -> 10.
+#
+#   README.md: v7.9.1 changelog row + test count bump.
+#
+#   NOTE: this fix STOPS new corruption. The 25 pre-existing mis-graded 1M
+#   verdicts (March batches, evaluated against the current price) still need a
+#   one-time DB reset to 'awaiting' so the cron re-settles them — that's a
+#   separate Supabase SQL step, NOT part of this commit.
+#
+# Apply on a feature branch (see docs/GIT_WORKFLOW.md):
+git checkout main && git pull origin main
+git checkout -b fix/expired-snapshot-current-price
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.1.zip -d .
+npm run test:run
+git add src/utils/stocks.js src/hooks/useHistory.js src/utils/getEffectivePrice.test.js README.md GIT_GUIDE.md
+git commit -m "fix: never settle an expired horizon with the current price (v7.9.1)
+
+getEffectivePrice fell through to autoPrices (current price) when an expired
+horizon had no historical close loaded, so saveBatch froze a wrong verdict and
+priceOnDate. This mis-graded the 1M of the March batches and corrupted the
+accuracy stats.
+
+Add a snapshot flag to getEffectivePrice: in snapshot mode an expired horizon
+with no real close returns null, so the verdict stays awaiting and the cron
+(save_expired_verdict) settles it later with the true close. Live/provisional
+badges are unchanged (snapshot defaults to false). saveBatch opts in.
+
+New getEffectivePrice.test.js (6 regression tests). Frontend only, no Supabase
+changes. Pre-existing corrupt verdicts need a separate one-time DB reset."
+git push origin fix/expired-snapshot-current-price
+# -> verify the Vercel preview, then merge:
+git checkout main
+git merge --no-ff --no-edit fix/expired-snapshot-current-price
+git tag -a v7.9.1 -m "v7.9.1: never settle an expired horizon with the current price"
+git push origin main
+git push origin v7.9.1
+git branch -d fix/expired-snapshot-current-price
+git push origin --delete fix/expired-snapshot-current-price   # opcional
