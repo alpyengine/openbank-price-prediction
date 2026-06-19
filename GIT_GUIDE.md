@@ -3979,3 +3979,74 @@ git push origin main
 git push origin v7.9.1
 git branch -d fix/expired-snapshot-current-price
 git push origin --delete fix/expired-snapshot-current-price   # opcional
+
+
+# ===========================================================================
+# STEP 170 — v7.9.2  Fix: Horizon Results cards show the real verdict
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install needed. Frontend only — one file.
+# Presentational change: no tested module touched (170 tests stay green).
+#
+# WHAT'S NEW:
+#
+#   src/components/StockRow.jsx:
+#     - Root cause of "todo en AWAITING": HorizonCards computed verdicts live
+#       from autoPrice, but its label/colour map only had hit/close/miss — so
+#       'exceeded' and 'wrong_way' fell through to the AWAITING fallback, and
+#       every settled horizon looked AWAITING. It also evaluated expired
+#       horizons against the current price, not the settled close.
+#     - Rewrote HorizonCards:
+#         * EXPIRED + real close  -> settled verdict (HIT/EXCEEDED/CLOSE/MISS/
+#           WRONG-WAY), evaluated in snapshot mode via
+#           getEffectivePrice(..., snapshot:true) so it matches the stored
+#           verdict and the accuracy stats (single source of truth).
+#         * FUTURE -> AWAITING badge + live tracking hint
+#           (up adelantado / en camino / down retrasado) from today's price.
+#         * EXPIRED but close not loaded yet -> stays AWAITING (cron settles it;
+#           never settled against the current price).
+#         * Added per-stock roll-up header ("N/M vencidos acertados · hoy +X%
+#           vs obj.") and a target+gap row per card.
+#     - Now passes histPrices + override to HorizonCards (needed for the close).
+#     - Two new verdict colours: exceeded = blue, wrong_way = purple (shadcn
+#       bg-x-50 / text-x-700 / border-x-200, matching the app's Badge pattern).
+#     - The collapsed-row bars, MarketComparison, FundamentalsPanel and Notes
+#       are untouched.
+#
+#   README.md: v7.9.2 changelog row.
+#
+#   NOTE: relies on the snapshot flag added to getEffectivePrice in v7.9.1
+#   (already on main). Pairs with the DB re-grade of the 25 March 1M verdicts
+#   (separate Supabase step) — once those settle, these cards show real verdicts.
+#
+# Apply on a feature branch (see docs/GIT_WORKFLOW.md):
+git checkout main && git pull origin main
+git checkout -b fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.2.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "fix: Horizon Results cards show the real settled verdict (v7.9.2)
+
+HorizonCards computed verdicts live but its label/colour map only covered
+hit/close/miss, so exceeded and wrong_way fell through to the AWAITING
+fallback and every settled horizon looked AWAITING. Expired horizons were
+also evaluated against the current price instead of the settled close.
+
+Rewrote HorizonCards: an expired horizon shows its settled verdict (HIT/
+EXCEEDED/CLOSE/MISS/WRONG-WAY) computed in snapshot mode from the real close
+(getEffectivePrice snapshot:true), matching the stored verdict and stats; a
+future horizon shows AWAITING plus a live tracking hint; an expired horizon
+with no close yet stays AWAITING. Added a per-stock roll-up header and a
+target+gap row, two new verdict colours (exceeded blue, wrong_way purple),
+and now passes histPrices/override to the component.
+
+Presentational only, no tested module touched. Frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge:
+git checkout main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git push origin main
+git push origin v7.9.2
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
