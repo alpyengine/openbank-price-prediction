@@ -49,6 +49,24 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 
+// ── Compact collapsed-row horizon indicator (v7.9.4) ─────────────────────────
+// Shared vocabulary with HorizonCards.
+// RV — settled verdict → compact label + text colour (expired horizons).
+const RV = {
+  hit:       { l: 'HIT',    c: 'text-green-700'  },
+  exceeded:  { l: 'EXCEED', c: 'text-blue-700'   },
+  close:     { l: 'CLOSE',  c: 'text-amber-700'  },
+  miss:      { l: 'MISS',   c: 'text-red-700'    },
+  wrong_way: { l: 'WRONG',  c: 'text-purple-700' },
+}
+// LV — live tracking state → arrow + word + text colour (future horizons).
+const LV = {
+  ahead:   { a: '↗', w: 'adelantado', c: 'text-green-700' },
+  ontrack: { a: '→', w: 'en camino',  c: 'text-amber-700' },
+  behind:  { a: '↘', w: 'retrasado',  c: 'text-amber-700' },
+  against: { a: '⤬', w: 'en contra',  c: 'text-red-700'   },
+}
+
 // ── Main StockRow ─────────────────────────────────────────────────────────────
 
 const StockRow = memo(function StockRow({
@@ -230,114 +248,69 @@ const StockRow = memo(function StockRow({
           const hKey = KEYS[i]
           const ds   = date ? dateStatus(date) : null
 
-          // ── Bug 3 fix: each column resolves its OWN price independently ──
-          // Previously all columns used `p` (the global horizon's price).
-          // Now each column calls getEffectivePrice with its specific hKey,
-          // so closed columns (e.g. 1M) always show their historical price
-          // even when the user has 3M/6M/12M selected in the dropdown.
-          const colExpired  = ds === 'past'
-          const { price: colPrice } = getEffectivePrice(
+          // ── Compact horizon indicator (v7.9.4) ─────────────────────────
+          // Each column resolves its OWN price: expired → settled close
+          // (snapshot, never the current price) → settled verdict; future →
+          // live arrow/%/state; not imported → N/D. Mirrors HorizonCards.
+          const noForecast = !t || t <= 0
+          const colExpired = ds === 'past'
+          const { price: rp } = getEffectivePrice(
             stock.t, hKey,
             { [stock.t]: autoPrice },
             histPrices,
             override ? { [stock.t]: override } : {},
-            colExpired
+            colExpired, /* snapshot */ true,
           )
+          const settled = colExpired && rp != null && !noForecast
 
-          // Use resolved column price — fall back to autoPrice if unavailable
-          const currentP = colPrice ?? autoPrice
-
-          // Distance % from current price to target (signed: + above, − below)
-          let distPct = null
-          if (currentP && t) distPct = ((currentP - t) / t) * 100
-
-          // Verdict via evaluatePrediction — live mode with slider values
-          const { verdict: barVerdict } = currentP && t
-            ? evaluatePrediction(currentP, t, stock.b, hitMargin, { closeRatio })
-            : { verdict: null }
-
-          // Map verdict to display zone — now includes exceeded and wrong_way
-          let zone = 'awaiting'
-          if (currentP && t) {
-            if      (barVerdict === 'hit')       zone = 'hit'
-            else if (barVerdict === 'exceeded')  zone = 'exceeded'
-            else if (barVerdict === 'close')     zone = 'close'
-            else if (barVerdict === 'miss')      zone = 'miss'
-            else if (barVerdict === 'wrong_way') zone = 'wrong_way'
+          // Settled verdict (snapshot params → matches stored verdict + stats)
+          let rVerdict = null
+          if (settled) {
+            rVerdict = evaluatePrediction(rp, t, stock.b, hitMargin, { horizon: hKey }).verdict
           }
 
-          /**
-           * Proportional bar width per zone:
-           *   exceeded  → 100% (full bar — surpassed target)
-           *   hit       → 100%
-           *   close     → 75-95% proportional (nearly there)
-           *   miss      → 0-60% inversely proportional (farther = shorter)
-           *   wrong_way → 15% (minimal bar — wrong direction)
-           *   awaiting  → 0%
-           */
-          const fillWidth = (() => {
-            if (zone === 'awaiting' || distPct == null) return 0
-            if (zone === 'exceeded')  return 100
-            if (zone === 'hit')       return 100
-            if (zone === 'wrong_way') return 15
-            if (zone === 'close') {
-              const absDist = Math.abs(distPct)
-              return Math.round(Math.max(75, Math.min(95, 95 - absDist * 1.5)))
-            }
-            // miss — shorter bar the further away
-            const absDist = Math.abs(distPct)
-            return Math.round(Math.max(0, Math.min(60, 60 - absDist * 0.8)))
-          })()
+          // Live state for future horizons (arrow/%/word)
+          let lstate = null, ldist = null
+          if (!noForecast && !colExpired && autoPrice != null) {
+            const dir      = t >= stock.b ? 1 : -1
+            const wrongWay = dir === 1 ? autoPrice < stock.b : autoPrice > stock.b
+            const reached  = dir === 1 ? autoPrice >= t : autoPrice <= t
+            ldist  = ((autoPrice - t) / t) * 100
+            lstate = wrongWay ? 'against' : reached ? 'ahead' : Math.abs(ldist) <= 12 ? 'ontrack' : 'behind'
+          }
 
-          // Zone label colors
-          const zoneColor = zone === 'hit'       ? '#15803d'
-            : zone === 'exceeded'                ? '#1d4ed8'
-            : zone === 'close'                   ? '#a16207'
-            : zone === 'miss'                    ? '#b91c1c'
-            : zone === 'wrong_way'               ? '#6d28d9'
-            : 'var(--muted-foreground)'
-
-          // Zone bar fill colors
-          const zoneFill = zone === 'hit'        ? '#16a34a'
-            : zone === 'exceeded'                ? '#3b82f6'
-            : zone === 'close'                   ? '#eab308'
-            : zone === 'miss'                    ? '#ef4444'
-            : zone === 'wrong_way'               ? '#8b5cf6'
-            : 'var(--border)'
-
-          const pctStr = distPct != null ? ` ${distPct >= 0 ? '+' : ''}${distPct.toFixed(1)}%` : ''
-          const label  = zone === 'hit'          ? `HIT${pctStr}`
-            : zone === 'exceeded'                ? `EXCEED${pctStr}`
-            : zone === 'close'                   ? `CLOSE${pctStr}`
-            : zone === 'miss'                    ? `MISS${pctStr}`
-            : zone === 'wrong_way'               ? `WRONG${pctStr}`
-            : '--'
+          const rv  = rVerdict ? RV[rVerdict] : null
+          const lv  = lstate   ? LV[lstate]   : null
+          const gap = settled  ? ((rp - t) / t) * 100 : null
 
           return (
-            <td key={i} className={cn(tdClass, 'min-w-[72px]')}>
-              <div className="flex flex-col gap-0.5">
-                {/* Line 1 — horizon key (e.g. "1M") */}
-                <span className="text-[9px] font-semibold text-muted-foreground leading-tight">
-                  {hKey}
-                </span>
-                {/* Line 2 — verdict label + % (e.g. "EXCEED +14.2%") */}
-                <span
-                  className="text-[9px] font-bold leading-tight break-all"
-                  style={{ color: zoneColor }}
-                >
-                  {label}
-                </span>
-                {/* Progress bar */}
-                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden mt-0.5">
-                  <div
-                    className="h-full rounded-full transition-[width] duration-300"
-                    style={{
-                      background: zoneFill,
-                      width: `${Math.max(0, Math.min(100, fillWidth))}%`,
-                    }}
-                  />
+            <td key={i} className={cn(tdClass, 'min-w-[64px] text-center')}>
+              {noForecast ? (
+                <div className="flex flex-col items-center gap-0.5 text-muted-foreground leading-none">
+                  <span className="text-[13px]">—</span>
+                  <span className="text-[9px] font-semibold">N/D</span>
                 </div>
-              </div>
+              ) : settled && rv ? (
+                <div className="flex flex-col items-center gap-0.5 leading-none">
+                  <span className={cn('text-[11px] font-extrabold', rv.c)}>{rv.l}</span>
+                  <span className={cn('text-[10px] font-semibold', gap >= 0 ? 'text-success' : 'text-destructive')}>
+                    {gap >= 0 ? '+' : ''}{gap.toFixed(1)}%
+                  </span>
+                </div>
+              ) : colExpired ? (
+                <div className="flex flex-col items-center gap-0.5 text-muted-foreground leading-none">
+                  <span className="text-[12px]">⏳</span>
+                  <span className="text-[9px] font-medium">sin cierre</span>
+                </div>
+              ) : lv ? (
+                <div className={cn('flex flex-col items-center gap-0.5 leading-none', lv.c)}>
+                  <span className="text-[15px] font-black">{lv.a}</span>
+                  <span className="text-[12px] font-bold">{ldist >= 0 ? '+' : ''}{ldist.toFixed(1)}%</span>
+                  <span className="text-[9px] font-semibold lowercase">{lv.w}</span>
+                </div>
+              ) : (
+                <span className="text-[11px] text-muted-foreground">--</span>
+              )}
             </td>
           )
         })}

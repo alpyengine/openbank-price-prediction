@@ -4125,3 +4125,74 @@ git push origin main
 git push origin v7.9.2 v7.9.3
 git branch -d fix/horizon-results-real-verdict
 git push origin --delete fix/horizon-results-real-verdict   # opcional
+
+
+# ===========================================================================
+# STEP 172 — v7.9.4  Collapsed-row compact indicator + legend + vs SPY/Sector help
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — two files.
+# Presentational: no tested module touched (170 tests stay green).
+# Builds on v7.9.3 — same branch fix/horizon-results-real-verdict.
+#
+# WHAT'S NEW:
+#
+#   src/components/StockRow.jsx — collapsed-row horizon columns (1M/3M/6M/12M):
+#     - Replaced the dense purple progress bars with a compact STACKED indicator
+#       (no repeated horizon label — the column header already says 1M/3M/…):
+#         · expired + real close → settled verdict (HIT/EXCEED/CLOSE/MISS/WRONG)
+#           in snapshot mode + gap%  (matches stored verdict + stats)
+#         · future → arrow + % + mini-state (↗ adelantado / → en camino /
+#           ↘ retrasado / ⤬ en contra), live from today's price
+#         · expired but no close yet → ⏳ "sin cierre"
+#         · not imported (no target) → "— N/D"
+#     - Added module-scope lookup tables RV (settled verdict) and LV (live state).
+#
+#   src/components/StockTable.jsx:
+#     - Header legend: replaced the obsolete "Hit / Close/Awaiting / Miss" 3-dot
+#       legend with a compact 4-colour key (bien / cerca / fallo / pendiente)
+#       plus a "?" that opens a full state legend modal (new COL_HELP.legend).
+#     - Fixed the vs SPY / vs Sector column help: both headers used colKey="hit"
+#       so the "?" showed the "Hit? — Prediction result" text. They now use
+#       colKey="vsSpy" / "vsSector" with correct help text describing relative
+#       performance since the base date (stock return − benchmark return), the
+#       EU local-benchmark note (iShares country ETF), and the fetch states.
+#
+#   README.md: v7.9.4 changelog row.
+#
+#   NOTE: the collapsed-row indicator relies on the snapshot flag in
+#   getEffectivePrice (v7.9.1, already on the branch). Window for vs SPY/Sector
+#   help confirmed against useMarketData.js (base-date close → current price).
+#
+# Apply on the SAME branch (continues v7.9.3, before the merge):
+git checkout fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.4.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx src/components/StockTable.jsx README.md GIT_GUIDE.md
+git commit -m "feat: collapsed-row compact indicator + legend + vs SPY/Sector help (v7.9.4)
+
+StockRow: replace the dense purple horizon bars in the collapsed row with a
+compact stacked indicator sharing the cards' vocabulary — expired shows the
+settled verdict (HIT/EXCEED/CLOSE/MISS/WRONG) + gap%, future shows arrow + %
++ mini-state (adelantado/en camino/retrasado/en contra), expired-no-close
+shows 'sin cierre', not-imported shows N/D. Horizon label no longer repeated
+per cell (it's in the column header).
+
+StockTable: replace the obsolete Hit/Close-Awaiting/Miss legend with a compact
+4-colour key + '?' opening a full state legend. Fix vs SPY / vs Sector help:
+both columns used colKey='hit' (showing the 'Hit? — Prediction result' text);
+they now have correct help describing relative performance since the base date
+vs SPY / vs the sector ETF, with the EU local-benchmark note.
+
+Presentational only, no tested module touched. Frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge v7.9.2 + v7.9.3 + v7.9.4 to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git tag -a v7.9.3 -m "v7.9.3: Horizon Results glanceable cards — target/close colours + N/D state"
+git tag -a v7.9.4 -m "v7.9.4: collapsed-row compact indicator + legend + vs SPY/Sector help"
+git push origin main
+git push origin v7.9.2 v7.9.3 v7.9.4
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
