@@ -49,23 +49,37 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 
-// ── Compact collapsed-row horizon indicator (v7.9.4) ─────────────────────────
-// Shared vocabulary with HorizonCards.
-// RV — settled verdict → compact label + text colour (expired horizons).
-const RV = {
-  hit:       { l: 'HIT',    c: 'text-green-700'  },
-  exceeded:  { l: 'EXCEED', c: 'text-blue-700'   },
-  close:     { l: 'CLOSE',  c: 'text-amber-700'  },
-  miss:      { l: 'MISS',   c: 'text-red-700'    },
-  wrong_way: { l: 'WRONG',  c: 'text-purple-700' },
+// ── Horizon state vocabulary + direction-aware helpers (v7.9.5) ───────────────
+// Shared by the collapsed-row cells and the HorizonCards.
+// SETTLED — verdict for an expired horizon (real close available).
+const SETTLED = {
+  hit:       { pill: '🎯 HIT',     txt: 'text-green-700',  badge: 'bg-green-50 text-green-700 border-green-200',    card: 'border-green-200' },
+  exceeded:  { pill: '▲ EXCEED',   txt: 'text-blue-700',   badge: 'bg-blue-50 text-blue-700 border-blue-200',       card: 'border-blue-200'  },
+  close:     { pill: '◑ CLOSE',    txt: 'text-amber-700',  badge: 'bg-amber-50 text-amber-700 border-amber-200',    card: 'border-amber-200' },
+  miss:      { pill: '▼ MISS',     txt: 'text-red-700',    badge: 'bg-red-50 text-red-700 border-red-200',          card: 'border-red-200'   },
+  wrong_way: { pill: '⤬ WRONG',    txt: 'text-purple-700', badge: 'bg-purple-50 text-purple-700 border-purple-200', card: 'border-purple-200'},
 }
-// LV — live tracking state → arrow + word + text colour (future horizons).
-const LV = {
-  ahead:   { a: '↗', w: 'adelantado', c: 'text-green-700' },
-  ontrack: { a: '→', w: 'en camino',  c: 'text-amber-700' },
-  behind:  { a: '↘', w: 'retrasado',  c: 'text-amber-700' },
-  against: { a: '⤬', w: 'en contra',  c: 'text-red-700'   },
+// LIVE — tracking state for a future horizon (badge stays AWAITING).
+const LIVE = {
+  ahead:   { pill: '↗ adelantado', txt: 'text-green-700' },
+  ontrack: { pill: '→ en camino',  txt: 'text-amber-700' },
+  behind:  { pill: '↘ retrasado',  txt: 'text-amber-700' },
+  against: { pill: '⤬ en contra',  txt: 'text-red-700'   },
 }
+// Forecast direction of a horizon: +1 bullish (target above base), −1 bearish.
+const fdir = (target, base) => (target >= base ? 1 : -1)
+// Direction-aware gap vs target: +% = toward/beyond target (good); −% = short/against (bad).
+const signedPct = (price, target, base) => ((price - target) / target) * 100 * fdir(target, base)
+// Live state from today's price vs target, relative to the forecast direction.
+const liveState = (price, target, base) => {
+  const dir      = fdir(target, base)
+  const wrongWay = dir === 1 ? price < base : price > base
+  const reached  = dir === 1 ? price >= target : price <= target
+  const d        = ((price - target) / target) * 100
+  return wrongWay ? 'against' : reached ? 'ahead' : Math.abs(d) <= 12 ? 'ontrack' : 'behind'
+}
+// "esperaba ↑/↓" cue — only meaningful for wrong/against (price went the other way).
+const expArrow = (target, base) => (fdir(target, base) === 1 ? '↑' : '↓')
 
 // ── Main StockRow ─────────────────────────────────────────────────────────────
 
@@ -248,12 +262,13 @@ const StockRow = memo(function StockRow({
           const hKey = KEYS[i]
           const ds   = date ? dateStatus(date) : null
 
-          // ── Compact horizon indicator (v7.9.4) ─────────────────────────
-          // Each column resolves its OWN price: expired → settled close
-          // (snapshot, never the current price) → settled verdict; future →
-          // live arrow/%/state; not imported → N/D. Mirrors HorizonCards.
+          // ── Compact horizon indicator (v7.9.5) ─────────────────────────
+          // Headline = the forecast (target) price; below it the state and a
+          // direction-aware % (+ "esperaba ↑/↓" when the price went the wrong way).
           const noForecast = !t || t <= 0
           const colExpired = ds === 'past'
+          const soonDays   = date ? daysLeft(date) : null
+          const colSoon    = !colExpired && soonDays != null && soonDays >= 0 && soonDays < 15
           const { price: rp } = getEffectivePrice(
             stock.t, hKey,
             { [stock.t]: autoPrice },
@@ -261,55 +276,48 @@ const StockRow = memo(function StockRow({
             override ? { [stock.t]: override } : {},
             colExpired, /* snapshot */ true,
           )
-          const settled = colExpired && rp != null && !noForecast
+          const settled  = colExpired && rp != null && !noForecast
+          const rVerdict = settled ? evaluatePrediction(rp, t, stock.b, hitMargin, { horizon: hKey }).verdict : null
+          const lstate   = (!noForecast && !colExpired && autoPrice != null) ? liveState(autoPrice, t, stock.b) : null
 
-          // Settled verdict (snapshot params → matches stored verdict + stats)
-          let rVerdict = null
-          if (settled) {
-            rVerdict = evaluatePrediction(rp, t, stock.b, hitMargin, { horizon: hKey }).verdict
-          }
-
-          // Live state for future horizons (arrow/%/word)
-          let lstate = null, ldist = null
-          if (!noForecast && !colExpired && autoPrice != null) {
-            const dir      = t >= stock.b ? 1 : -1
-            const wrongWay = dir === 1 ? autoPrice < stock.b : autoPrice > stock.b
-            const reached  = dir === 1 ? autoPrice >= t : autoPrice <= t
-            ldist  = ((autoPrice - t) / t) * 100
-            lstate = wrongWay ? 'against' : reached ? 'ahead' : Math.abs(ldist) <= 12 ? 'ontrack' : 'behind'
-          }
-
-          const rv  = rVerdict ? RV[rVerdict] : null
-          const lv  = lstate   ? LV[lstate]   : null
-          const gap = settled  ? ((rp - t) / t) * 100 : null
+          const sv   = rVerdict ? SETTLED[rVerdict] : null
+          const lv   = lstate   ? LIVE[lstate]      : null
+          const sPct = settled ? signedPct(rp, t, stock.b)
+                     : (lstate ? signedPct(autoPrice, t, stock.b) : null)
+          const pctCol = sPct == null ? 'text-muted-foreground'
+                       : (rVerdict === 'wrong_way' || lstate === 'against' || rVerdict === 'miss') ? 'text-destructive'
+                       : sPct >= 0 ? 'text-success' : 'text-amber-600'
+          const showExp = rVerdict === 'wrong_way' || lstate === 'against'
+          const fcCol = colSoon ? 'text-orange-600 dark:text-orange-400'
+                      : settled  ? 'text-foreground'
+                      : 'text-blue-900 dark:text-blue-300'
 
           return (
-            <td key={i} className={cn(tdClass, 'min-w-[64px] text-center')}>
+            <td key={i} className={cn(tdClass, 'min-w-[64px] text-center align-top')}>
               {noForecast ? (
                 <div className="flex flex-col items-center gap-0.5 text-muted-foreground leading-none">
                   <span className="text-[13px]">—</span>
                   <span className="text-[9px] font-semibold">N/D</span>
                 </div>
-              ) : settled && rv ? (
+              ) : (colExpired && !settled) ? (
                 <div className="flex flex-col items-center gap-0.5 leading-none">
-                  <span className={cn('text-[11px] font-extrabold', rv.c)}>{rv.l}</span>
-                  <span className={cn('text-[10px] font-semibold', gap >= 0 ? 'text-success' : 'text-destructive')}>
-                    {gap >= 0 ? '+' : ''}{gap.toFixed(1)}%
-                  </span>
-                </div>
-              ) : colExpired ? (
-                <div className="flex flex-col items-center gap-0.5 text-muted-foreground leading-none">
-                  <span className="text-[12px]">⏳</span>
-                  <span className="text-[9px] font-medium">sin cierre</span>
-                </div>
-              ) : lv ? (
-                <div className={cn('flex flex-col items-center gap-0.5 leading-none', lv.c)}>
-                  <span className="text-[15px] font-black">{lv.a}</span>
-                  <span className="text-[12px] font-bold">{ldist >= 0 ? '+' : ''}{ldist.toFixed(1)}%</span>
-                  <span className="text-[9px] font-semibold lowercase">{lv.w}</span>
+                  <span className="text-[8px] font-semibold text-muted-foreground uppercase">previsto</span>
+                  <span className="text-[13px] font-bold text-foreground">{batchCurrency ?? ''}{t.toFixed(2)}</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">⏳ sin cierre</span>
                 </div>
               ) : (
-                <span className="text-[11px] text-muted-foreground">--</span>
+                <div className="flex flex-col items-center gap-0.5 leading-none">
+                  <span className="text-[8px] font-semibold text-muted-foreground uppercase">previsto</span>
+                  <span className={cn('text-[13px] font-extrabold', fcCol)}>{batchCurrency ?? ''}{t.toFixed(2)}</span>
+                  {(sv || lv) && (
+                    <span className={cn('text-[10px] font-bold mt-0.5', (sv ?? lv).txt)}>{(sv ?? lv).pill}</span>
+                  )}
+                  {sPct != null && (
+                    <span className={cn('text-[9px] font-semibold', pctCol)}>
+                      {sPct >= 0 ? '+' : ''}{sPct.toFixed(1)}%{showExp ? ` · esperaba ${expArrow(t, stock.b)}` : ''}
+                    </span>
+                  )}
+                </div>
               )}
             </td>
           )
@@ -459,40 +467,29 @@ export default StockRow
 // ── HorizonCards ──────────────────────────────────────────────────────────────
 
 /**
- * HorizonCards
+ * HorizonCards (v7.9.5)
  *
- * 4 cards, one per horizon. Three card states, kept visually distinct:
+ * One card per horizon. The big line shows TWO prices side by side, same size:
+ *   - settled → "objetivo {target} → cerró {close}"
+ *   - future  → "objetivo {target} → hoy {price}"
+ * The objetivo (Openbank's forecast) is always shown, in the same place.
+ * The bottom line never repeats those prices — it carries only the state, a
+ * direction-aware % and the date.
  *
- *   SETTLED  (target date passed + a real close is available)
- *     · big number = the settled CLOSE, in the default foreground colour (black/white)
- *     · verdict badge (HIT / EXCEEDED / CLOSE / MISS / WRONG-WAY), evaluated in
- *       snapshot mode so it matches the stored verdict + accuracy stats
- *     · sub-line: "cierre · objetivo era {cu}{target} {gap%}"
+ * Direction-aware %: signedPct() multiplies the gap-vs-target by the forecast
+ * direction, so "+%" always means "toward/beyond the target" (good) and "−%"
+ * means "short or against" (bad), whether the horizon was bullish or bearish.
+ * For wrong-way / against, an "esperaba ↑/↓" cue shows the forecast direction.
  *
- *   OPEN / future (has a target, not expired yet)
- *     · big number = the horizon's TARGET (not today's price — today's price is
- *       the same for every horizon, so showing it 4× was noise). Coloured:
- *         - dark blue normally
- *         - orange + "⏱ Nd" chip when < SOON_DAYS (15) days to expiry
- *     · sub-line: "hoy {cu}{price} {gap%}"
- *     · live tracking chip (badge stays AWAITING):
- *         ↗ adelantado  → today's price already reached/exceeded the target
- *         → en camino    → near but still below
- *         ↘ retrasado    → far short (still moving the forecast way)
- *         ⤬ en contra    → moved AGAINST the forecast vs the base price
- *
- *   NO FORECAST (this horizon wasn't in the imported CSV → no target)
- *     · dashed card · "⨯ N/D" pill · big "—" · "Sin previsión a {key} ·
- *       no incluida en este batch". No AWAITING, no fake date, no days-left.
- *
- * getEffectivePrice() is called in snapshot mode (last arg true) so an expired
- * horizon is never settled against the current price — if the real close isn't
- * loaded it stays AWAITING ("sin cierre"; the cron settles it later).
+ * States: settled verdict (HIT/EXCEED/CLOSE/MISS/WRONG) · future AWAITING +
+ * live state (↗ adelantado / → en camino / ↘ retrasado / ⤬ en contra) ·
+ * expired-no-close AWAITING "sin cierre aún" · not imported N/D. The objetivo
+ * turns orange + "⏱ Nd" when a future horizon is < 15 days from expiry.
  */
 function HorizonCards({ stock, tg, autoPrice, histPrices, override, batchCurrency, hitMargin = 5 }) {
   if (!tg) return null
   const cu = batchCurrency ?? '$'
-  const SOON_DAYS = 15  // a future horizon this close to expiry turns orange
+  const SOON_DAYS = 15
 
   const horizons = [
     { key: '1M',  target: stock.t1,  date: tg.d1  },
@@ -501,196 +498,136 @@ function HorizonCards({ stock, tg, autoPrice, histPrices, override, batchCurrenc
     { key: '12M', target: stock.t12, date: tg.d12 },
   ]
 
-  // Settled verdict → label / badge / card-border (covers exceeded + wrong_way).
-  const V = {
-    hit:       { label: '🎯 HIT',      badge: 'bg-green-50 text-green-700 border-green-200',    card: 'border-green-200' },
-    exceeded:  { label: '▲ EXCEEDED',  badge: 'bg-blue-50 text-blue-700 border-blue-200',       card: 'border-blue-200' },
-    close:     { label: '◑ CLOSE',     badge: 'bg-amber-50 text-amber-700 border-amber-200',    card: 'border-amber-200' },
-    miss:      { label: '▼ MISS',      badge: 'bg-red-50 text-red-700 border-red-200',          card: 'border-red-200' },
-    wrong_way: { label: '⤬ WRONG',     badge: 'bg-purple-50 text-purple-700 border-purple-200', card: 'border-purple-200' },
-    awaiting:  { label: '⏳ AWAITING', badge: 'bg-muted text-muted-foreground border-border',   card: 'border-border' },
-  }
-  // Live tracking chip styles (future horizons only).
-  const liveChip = {
-    ahead:   { label: '↗ adelantado', cls: 'bg-green-50 text-green-700' },
-    ontrack: { label: '→ en camino',  cls: 'bg-amber-50 text-amber-700' },
-    behind:  { label: '↘ retrasado',  cls: 'bg-amber-50 text-amber-700' },
-    against: { label: '⤬ en contra',  cls: 'bg-red-50 text-red-700'   },
-  }
-
   const cards = horizons.map(({ key, target, date }) => {
     const noForecast = !target || target <= 0
     const expired    = date ? dateStatus(date) === 'past' : false
     const dleft      = date ? daysLeft(date) : null
-
-    // snapshot=true → expired uses the settled close (or null, never the current
-    // price); future falls through to the current price for live tracking.
+    const soon       = !expired && dleft != null && dleft >= 0 && dleft < SOON_DAYS
     const { price: rp } = getEffectivePrice(
-      stock.t, key,
-      { [stock.t]: autoPrice }, histPrices ?? {},
-      override ? { [stock.t]: override } : {},
-      expired, /* snapshot */ true,
+      stock.t, key, { [stock.t]: autoPrice }, histPrices ?? {},
+      override ? { [stock.t]: override } : {}, expired, /* snapshot */ true,
     )
-
-    const settled = expired && rp != null && !noForecast
-
-    // Settled verdict (snapshot params → matches stored verdict + stats).
-    let verdict = 'awaiting'
-    if (settled) {
-      verdict = evaluatePrediction(rp, target, stock.b, hitMargin, { horizon: key }).verdict ?? 'awaiting'
-    }
-
-    // Live tracking for future horizons (badge stays AWAITING).
-    // 'against' = moved opposite to the forecast direction relative to base.
-    let live = null
-    if (!noForecast && !expired && autoPrice != null) {
-      const dir = target >= stock.b ? 1 : -1
-      const wrongWay = dir === 1 ? autoPrice < stock.b : autoPrice > stock.b
-      const d = ((autoPrice - target) / target) * 100      // signed vs target
-      const reached = dir === 1 ? autoPrice >= target : autoPrice <= target
-      live = wrongWay ? 'against'
-           : reached  ? 'ahead'
-           : Math.abs(d) <= 12 ? 'ontrack'
-           : 'behind'
-    }
-
-    return { key, target, date, noForecast, expired, dleft, rp, settled, verdict, live }
+    const settled  = expired && rp != null && !noForecast
+    const rVerdict = settled ? evaluatePrediction(rp, target, stock.b, hitMargin, { horizon: key }).verdict : null
+    const lstate   = (!noForecast && !expired && autoPrice != null) ? liveState(autoPrice, target, stock.b) : null
+    return { key, target, date, noForecast, expired, dleft, soon, rp, settled, rVerdict, lstate }
   })
 
   // Roll-up across settled horizons + today's distance to the best target.
   const settledCards = cards.filter(c => c.settled)
-  const wins         = settledCards.filter(c => c.verdict === 'hit' || c.verdict === 'exceeded').length
-  const targets      = [stock.t1, stock.t3, stock.t6, stock.t12].filter(t => t && t > 0)
+  const wins         = settledCards.filter(c => c.rVerdict === 'hit' || c.rVerdict === 'exceeded').length
+  const targets      = cards.map(c => c.target).filter(t => t && t > 0)
   const best         = targets.length ? Math.max(...targets) : null
   const bestLabel    = best === stock.t12 ? '12M' : best === stock.t6 ? '6M' : best === stock.t3 ? '3M' : '1M'
-  const todayVsBest  = (autoPrice && best) ? ((autoPrice - best) / best) * 100 : null
+  const todayVsBest  = (autoPrice && best) ? signedPct(autoPrice, best, stock.b) : null
 
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between gap-2 mb-2.5">
-        <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-          <span>◎</span> Horizon Results
-        </span>
+        <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><span>◎</span> Horizon Results</span>
         {(settledCards.length > 0 || todayVsBest != null) && (
           <span className="text-[11px] text-muted-foreground text-right leading-tight">
-            {settledCards.length > 0 && (
-              <><b className="text-foreground font-semibold">{wins}/{settledCards.length}</b> vencidos acertados</>
-            )}
+            {settledCards.length > 0 && (<><b className="text-foreground font-semibold">{wins}/{settledCards.length}</b> vencidos acertados</>)}
             {settledCards.length > 0 && todayVsBest != null && ' · '}
-            {todayVsBest != null && (
-              <>hoy <b className={cn('font-semibold', todayVsBest >= 0 ? 'text-success' : 'text-destructive')}>
-                {todayVsBest >= 0 ? '+' : ''}{todayVsBest.toFixed(0)}%
-              </b> vs obj. {bestLabel}</>
-            )}
+            {todayVsBest != null && (<>hoy <b className={cn('font-semibold', todayVsBest >= 0 ? 'text-success' : 'text-destructive')}>{todayVsBest >= 0 ? '+' : ''}{todayVsBest.toFixed(0)}%</b> vs obj. {bestLabel}</>)}
           </span>
         )}
       </div>
 
       <div className="grid grid-cols-4 gap-2.5">
-        {cards.map(({ key, target, date, noForecast, expired, dleft, rp, settled, verdict, live }) => {
+        {cards.map(({ key, target, date, noForecast, expired, dleft, soon, rp, settled, rVerdict, lstate }) => {
 
-          /* ── NO FORECAST: horizon wasn't imported in this batch ───────── */
+          /* ── NO FORECAST ─────────────────────────────────────────────── */
           if (noForecast) {
             return (
               <div key={key} className="bg-card/40 rounded-lg px-4 py-3.5 border border-dashed border-border">
                 <div className="flex justify-between items-center mb-2 gap-1">
                   <span className="text-[11px] text-muted-foreground font-medium">{key}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border whitespace-nowrap">
-                    ⨯ N/D
-                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border whitespace-nowrap">⨯ N/D</span>
                 </div>
                 <div className="text-lg font-bold mb-1 text-muted-foreground">—</div>
                 <div className="text-[11px] text-muted-foreground leading-snug">
-                  <span className="text-foreground font-semibold">Sin previsión a {key}</span><br />
-                  no incluida en este batch
+                  <span className="text-foreground font-semibold">Sin previsión a {key}</span><br />no incluida en este batch
                 </div>
               </div>
             )
           }
 
-          /* ── SETTLED: expired with a real close ───────────────────────── */
+          const expA = expArrow(target, stock.b)
+
+          /* ── SETTLED ─────────────────────────────────────────────────── */
           if (settled) {
-            const v   = V[verdict] ?? V.awaiting
-            const gap = ((rp - target) / target) * 100
-            const gapColor = gap >= 0 ? 'text-success' : 'text-destructive'
+            const v       = SETTLED[rVerdict] ?? SETTLED.miss
+            const sp      = signedPct(rp, target, stock.b)
+            const spCol   = (rVerdict === 'wrong_way' || rVerdict === 'miss') ? 'text-destructive' : sp >= 0 ? 'text-success' : 'text-amber-600'
+            const showExp = rVerdict === 'wrong_way'
             return (
               <div key={key} className={cn('bg-card rounded-lg px-4 py-3.5 border', v.card)}>
-                <div className="flex justify-between items-center mb-2 gap-1">
+                <div className="flex justify-between items-center mb-2.5 gap-1">
                   <span className="text-[11px] text-muted-foreground font-medium">{key}</span>
-                  <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap', v.badge)}>
-                    {v.label}
-                  </span>
+                  <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap', v.badge)}>{v.pill}</span>
                 </div>
-                {/* settled close — default foreground colour (black/white) */}
-                <div className="text-lg font-bold mb-1 text-foreground">{cu}{rp.toFixed(2)}</div>
-                <div className="text-[11px] text-muted-foreground mb-1">
-                  {date ? formatDate(date) : '--'}<span className="ml-1 text-destructive font-medium">· vencido</span>
+                <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end mb-1.5">
+                  <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">objetivo</span>
+                  <span></span>
+                  <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">cerró</span>
+                  <span className="text-lg font-bold text-foreground leading-none">{cu}{target.toFixed(2)}</span>
+                  <span className="text-muted-foreground self-center text-sm">→</span>
+                  <span className="text-lg font-bold text-foreground leading-none">{cu}{rp.toFixed(2)}</span>
                 </div>
-                <div className="text-[11px] text-muted-foreground">
-                  cierre · objetivo era {cu}{target.toFixed(2)}{' '}
-                  <span className={cn('font-semibold', gapColor)}>{gap >= 0 ? '+' : ''}{gap.toFixed(1)}%</span>
+                <div className="text-[11px] flex items-center gap-1.5 flex-wrap">
+                  <span className={cn('font-bold', v.txt)}>{v.pill}</span>
+                  <span className={cn('font-semibold', spCol)}>{sp >= 0 ? '+' : ''}{sp.toFixed(1)}%{showExp ? ` · esperaba ${expA}` : ''}</span>
+                  <span className="text-muted-foreground">· {date ? formatDate(date) : '--'}</span>
                 </div>
               </div>
             )
           }
 
-          /* ── EXPIRED but no close yet → genuine AWAITING ("sin cierre") ─ */
+          /* ── EXPIRED, no close yet ───────────────────────────────────── */
           if (expired) {
             return (
               <div key={key} className="bg-card rounded-lg px-4 py-3.5 border border-border">
-                <div className="flex justify-between items-center mb-2 gap-1">
+                <div className="flex justify-between items-center mb-2.5 gap-1">
                   <span className="text-[11px] text-muted-foreground font-medium">{key}</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border whitespace-nowrap">
-                    ⏳ AWAITING
-                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border whitespace-nowrap">⏳ AWAITING</span>
                 </div>
-                <div className="text-lg font-bold mb-1 text-foreground">{cu}{target.toFixed(2)}</div>
-                <div className="text-[11px] text-muted-foreground mb-1">
-                  objetivo · {date ? formatDate(date) : '--'}<span className="ml-1 text-destructive font-medium">· vencido</span>
-                </div>
-                <div className="text-[11px] text-muted-foreground">sin cierre aún</div>
+                <div className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">objetivo</div>
+                <div className="text-lg font-bold text-foreground leading-none mb-1.5">{cu}{target.toFixed(2)}</div>
+                <div className="text-[11px] text-muted-foreground">{date ? formatDate(date) : '--'} · <span className="text-destructive font-medium">vencido</span> · sin cierre aún</div>
               </div>
             )
           }
 
-          /* ── FUTURE: open horizon with a target ───────────────────────── */
-          const soon     = dleft != null && dleft < SOON_DAYS
-          const priceCol = soon ? 'text-orange-600 dark:text-orange-400' : 'text-blue-900 dark:text-blue-300'
-          const d        = autoPrice != null ? ((autoPrice - target) / target) * 100 : null
-          const dColor   = d == null ? 'text-muted-foreground' : d >= 0 ? 'text-success' : 'text-destructive'
-          const lc       = live ? liveChip[live] : null
+          /* ── FUTURE ──────────────────────────────────────────────────── */
+          const lv      = lstate ? LIVE[lstate] : null
+          const sp      = autoPrice != null ? signedPct(autoPrice, target, stock.b) : null
+          const spCol   = lstate === 'against' ? 'text-destructive' : sp == null ? 'text-muted-foreground' : sp >= 0 ? 'text-success' : 'text-amber-600'
+          const hoyCol  = lstate === 'against' ? 'text-destructive' : lstate === 'ahead' ? 'text-success' : 'text-amber-600'
+          const objCol  = soon ? 'text-orange-600 dark:text-orange-400' : 'text-blue-900 dark:text-blue-300'
+          const showExp = lstate === 'against'
           return (
             <div key={key} className="bg-card rounded-lg px-4 py-3.5 border border-border">
-              <div className="flex justify-between items-center mb-2 gap-1">
+              <div className="flex justify-between items-center mb-2.5 gap-1">
                 <span className="text-[11px] text-muted-foreground font-medium">{key}</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border whitespace-nowrap">
-                  ⏳ AWAITING
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border whitespace-nowrap">⏳ AWAITING</span>
+              </div>
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end mb-1.5">
+                <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">objetivo</span>
+                <span></span>
+                <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">hoy</span>
+                <span className={cn('text-lg font-bold leading-none', objCol)}>
+                  {cu}{target.toFixed(2)}
+                  {soon && <span className="ml-1 align-middle text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-900">⏱ {dleft}d</span>}
                 </span>
+                <span className="text-muted-foreground self-center text-sm">→</span>
+                <span className={cn('text-lg font-bold leading-none', autoPrice != null ? hoyCol : 'text-muted-foreground')}>{autoPrice != null ? `${cu}${autoPrice.toFixed(2)}` : '--'}</span>
               </div>
-              {/* future → big number is the TARGET, colour-coded by proximity */}
-              <div className={cn('text-lg font-bold mb-1', priceCol)}>
-                {cu}{target.toFixed(2)}
-                {soon && (
-                  <span className="ml-1.5 align-middle text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-900">
-                    ⏱ {dleft}d
-                  </span>
-                )}
-              </div>
-              <div className="text-[11px] text-muted-foreground mb-1">
-                objetivo · {date ? formatDate(date) : '--'}{date && <span className="ml-1">· +{dleft}d</span>}
-              </div>
-              {d != null && (
-                <div className="text-[11px] text-muted-foreground mb-1.5">
-                  hoy {cu}{autoPrice.toFixed(2)}{' '}
-                  <span className={cn('font-semibold', dColor)}>{d >= 0 ? '+' : ''}{d.toFixed(1)}%</span>
-                </div>
-              )}
-              {lc && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">en vivo</span>
-                  <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap', lc.cls)}>
-                    {lc.label}
-                  </span>
+              {lv && (
+                <div className="text-[11px] flex items-center gap-1.5 flex-wrap">
+                  <span className={cn('font-bold', lv.txt)}>{lv.pill}</span>
+                  {sp != null && <span className={cn('font-semibold', spCol)}>{sp >= 0 ? '+' : ''}{sp.toFixed(1)}%{showExp ? ` · esperaba ${expA}` : ''}</span>}
+                  <span className="text-muted-foreground">· {date ? formatDate(date) : '--'}</span>
                 </div>
               )}
             </div>

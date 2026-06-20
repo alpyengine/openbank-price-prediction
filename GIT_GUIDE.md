@@ -4196,3 +4196,71 @@ git push origin main
 git push origin v7.9.2 v7.9.3 v7.9.4
 git branch -d fix/horizon-results-real-verdict
 git push origin --delete fix/horizon-results-real-verdict   # opcional
+
+
+# ===========================================================================
+# STEP 173 — v7.9.5  Forecast visibility + direction-aware %
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (StockRow.jsx).
+# Presentational: evaluatePrediction untouched → 170 tests stay green.
+# Builds on v7.9.4 — same branch fix/horizon-results-real-verdict.
+#
+# WHAT'S NEW (all inside StockRow.jsx):
+#
+#   Module-scope helpers (shared by collapsed row + HorizonCards):
+#     - SETTLED / LIVE display tables (verdict + live state).
+#     - fdir(t,base): forecast direction (+1 bullish / −1 bearish).
+#     - signedPct(price,t,base): direction-aware gap vs target — "+%" = toward/
+#       beyond target (good), "−%" = short/against (bad), for bull AND bear.
+#     - liveState(price,t,base): ahead / ontrack / behind / against.
+#     - expArrow(t,base): "↑/↓" expected-direction cue.
+#
+#   Collapsed-row horizon cells: lead with the OBJETIVO PREVISTO price (it had
+#   vanished from the row) — blue, orange + "⏱ Nd" when < 15d, foreground when
+#   settled — then the state pill and a direction-aware % (+ "esperaba ↑/↓" for
+#   wrong/against). Negative days-left no longer leak into the soon chip.
+#
+#   HorizonCards (cards): big line shows TWO prices the same size side by side —
+#   "objetivo {target} → cerró {close}" (settled) / "objetivo {target} → hoy
+#   {price}" (future). Bottom line carries only state + direction-aware % +
+#   (esperaba cue) + date — no duplicated price. N/D and expired-no-close states
+#   kept. The objetivo turns orange + "⏱ Nd" within 15 days of expiry.
+#
+#   Fixes the contradiction Alex spotted: a bearish WRONG used to show a green
+#   "+42.4%". Now it shows "−42.4%" red + "esperaba ↓", consistent with WRONG.
+#
+#   README.md: v7.9.5 changelog row.
+#
+# Apply on the SAME branch (continues v7.9.4, before the merge):
+git checkout fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.5.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "feat: forecast visibility + direction-aware % (v7.9.5)
+
+The predicted (target) price is shown for every horizon again — it had
+disappeared from the collapsed row. Collapsed cells now lead with the
+objetivo previsto + state + direction-aware %. Cards show two prices the
+same size side by side (objetivo -> cerró / objetivo -> hoy) with a
+deduplicated bottom line.
+
+Direction-aware %: signedPct multiplies the gap vs target by the forecast
+direction, so '+%' always means toward/beyond target (good) and '-%' short
+or against (bad), for bullish and bearish alike — fixing the bearish WRONG
+that used to show a green +42.4%. A 'esperaba up/down' cue is shown for
+wrong-way / against.
+
+evaluatePrediction untouched. Presentational, frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge v7.9.2..v7.9.5 to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git tag -a v7.9.3 -m "v7.9.3: Horizon Results glanceable cards — target/close colours + N/D state"
+git tag -a v7.9.4 -m "v7.9.4: collapsed-row compact indicator + legend + vs SPY/Sector help"
+git tag -a v7.9.5 -m "v7.9.5: forecast visibility + direction-aware %"
+git push origin main
+git push origin v7.9.2 v7.9.3 v7.9.4 v7.9.5
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
