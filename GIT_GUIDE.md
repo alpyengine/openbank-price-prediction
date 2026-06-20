@@ -4050,3 +4050,78 @@ git push origin main
 git push origin v7.9.2
 git branch -d fix/horizon-results-real-verdict
 git push origin --delete fix/horizon-results-real-verdict   # opcional
+
+
+# ===========================================================================
+# STEP 171 — v7.9.3  Horizon Results: glanceable cards (target/close/state colours, N/D)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (StockRow.jsx).
+# Presentational: no tested module touched (170 tests stay green).
+# Builds on top of v7.9.2 — same branch fix/horizon-results-real-verdict.
+#
+# WHAT'S NEW (all inside HorizonCards in src/components/StockRow.jsx):
+#
+#   1. Target no longer repeats as its own line in every card.
+#
+#   2. SETTLED horizon (expired + real close):
+#        - big number = the settled CLOSE, in the default foreground colour
+#          (black in light / white in dark).
+#        - sub-line: "cierre · objetivo era {cu}{target} · {gap%}".
+#
+#   3. FUTURE horizon (has target, not expired):
+#        - big number = that horizon's TARGET (today's price was identical
+#          across all 4 cards, so it's demoted to a sub-line).
+#        - colour-coded number: dark blue normally; ORANGE + "⏱ Nd" chip when
+#          fewer than SOON_DAYS (15) days remain to expiry.
+#        - sub-line: "hoy {cu}{price} · {gap%}".
+#        - live tracking chip (badge stays AWAITING):
+#            ↗ adelantado  today's price already reached/exceeded the target
+#            → en camino    near but still below
+#            ↘ retrasado    far short (still moving the forecast way)
+#            ⤬ en contra    moved AGAINST the forecast direction vs base (red)
+#
+#   4. NO-FORECAST horizon (not imported in the CSV → no target):
+#        - dedicated card: dashed border, "⨯ N/D" pill, big "—",
+#          "Sin previsión a {key} · no incluida en este batch".
+#        - NO AWAITING, NO fake date, NO days-left. Applies to ANY missing
+#          horizon, not only 12M.
+#
+#   5. EXPIRED-but-no-close-yet stays a genuine AWAITING card ("sin cierre aún")
+#      with the target shown — cron settles it later.
+#
+#   Roll-up header, collapsed-row bars, MarketComparison, Fundamentals and
+#   Notes are untouched. The "best target" calc now ignores missing horizons.
+#
+#   README.md: v7.9.3 changelog row.
+#
+# Apply on the SAME branch (continues v7.9.2, before the merge):
+git checkout fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.3.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Horizon Results glanceable cards — target/close colours + N/D state (v7.9.3)
+
+Refines HorizonCards (presentational):
+- target no longer repeated as its own line in every card
+- settled horizon: big number = real close (foreground colour) + 'objetivo era X · gap%'
+- future horizon: big number = that horizon's target, colour-coded
+  (dark blue, orange + 'Nd' chip when <15 days to expiry), with 'hoy {price} {gap%}'
+- live chip refined: adelantado only when target reached/exceeded, en camino,
+  retrasado, and a new red 'en contra' when price moved against the forecast vs base
+- horizon not imported in the batch (no target): dedicated N/D card
+  (dashed, '⨯ N/D' pill, '—', 'Sin previsión a {key} · no incluida en este batch'),
+  no AWAITING / no fake date / no days-left — applies to any missing horizon
+- expired-but-no-close stays a genuine AWAITING card ('sin cierre aún')
+
+Presentational only, no tested module touched. Frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge BOTH v7.9.2 + v7.9.3 to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git tag -a v7.9.3 -m "v7.9.3: Horizon Results glanceable cards — target/close colours + N/D state"
+git push origin main
+git push origin v7.9.2 v7.9.3
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
