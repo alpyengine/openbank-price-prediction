@@ -59,12 +59,13 @@ const SETTLED = {
   miss:      { pill: '▼ MISS',     txt: 'text-red-700',    badge: 'bg-red-50 text-red-700 border-red-200',          card: 'border-red-200'   },
   wrong_way: { pill: '⤬ WRONG',    txt: 'text-purple-700', badge: 'bg-purple-50 text-purple-700 border-purple-200', card: 'border-purple-200'},
 }
-// LIVE — tracking state for a future horizon (badge stays AWAITING).
-const LIVE = {
-  ahead:   { pill: '↗ adelantado', txt: 'text-green-700' },
-  ontrack: { pill: '→ en camino',  txt: 'text-amber-700' },
-  behind:  { pill: '↘ retrasado',  txt: 'text-amber-700' },
-  against: { pill: '⤬ en contra',  txt: 'text-red-700'   },
+// LIVE — tracking state for a future horizon, direction-aware (v7.9.6).
+// Arrows here reflect the FORECAST direction (needed move), never a contradictory
+// price arrow: ✓ sobrepasado (reached/overshot) · ↑/↓ falta subir/bajar · ⤬ en contra.
+const liveDisplay = (state, dir) => {
+  if (state === 'against') return { pill: '⤬ en contra',  txt: 'text-red-700'   }
+  if (state === 'ahead')   return { pill: '✓ sobrepasado', txt: 'text-green-700' }
+  return { pill: dir === 1 ? '↑ falta subir' : '↓ falta bajar', txt: 'text-amber-700' }
 }
 // Forecast direction of a horizon: +1 bullish (target above base), −1 bearish.
 const fdir = (target, base) => (target >= base ? 1 : -1)
@@ -281,7 +282,7 @@ const StockRow = memo(function StockRow({
           const lstate   = (!noForecast && !colExpired && autoPrice != null) ? liveState(autoPrice, t, stock.b) : null
 
           const sv   = rVerdict ? SETTLED[rVerdict] : null
-          const lv   = lstate   ? LIVE[lstate]      : null
+          const lv   = lstate   ? liveDisplay(lstate, fdir(t, stock.b)) : null
           const sPct = settled ? signedPct(rp, t, stock.b)
                      : (lstate ? signedPct(autoPrice, t, stock.b) : null)
           const pctCol = sPct == null ? 'text-muted-foreground'
@@ -467,29 +468,31 @@ export default StockRow
 // ── HorizonCards ──────────────────────────────────────────────────────────────
 
 /**
- * HorizonCards (v7.9.5)
+ * HorizonCards (v7.9.6)
  *
- * One card per horizon. The big line shows TWO prices side by side, same size:
- *   - settled → "objetivo {target} → cerró {close}"
- *   - future  → "objetivo {target} → hoy {price}"
- * The objetivo (Openbank's forecast) is always shown, in the same place.
- * The bottom line never repeats those prices — it carries only the state, a
- * direction-aware % and the date.
+ * One card per horizon. Each card opens with a base-reference strip
+ * ("base {price} · {base date} · bajista↓ / alcista↑") so the forecast
+ * direction is always visible — that's the context that makes a bearish
+ * "objetivo > hoy" read as good instead of "fell short".
  *
- * Direction-aware %: signedPct() multiplies the gap-vs-target by the forecast
- * direction, so "+%" always means "toward/beyond the target" (good) and "−%"
- * means "short or against" (bad), whether the horizon was bullish or bearish.
- * For wrong-way / against, an "esperaba ↑/↓" cue shows the forecast direction.
+ * Big line: two prices the same size — "objetivo {target} {↑/↓} cerró/hoy {price}".
+ * The separator arrow follows the REAL price move vs the base (price ≥ base → ↑,
+ * else ↓), so a falling price never shows an upward arrow.
  *
- * States: settled verdict (HIT/EXCEED/CLOSE/MISS/WRONG) · future AWAITING +
- * live state (↗ adelantado / → en camino / ↘ retrasado / ⤬ en contra) ·
- * expired-no-close AWAITING "sin cierre aún" · not imported N/D. The objetivo
- * turns orange + "⏱ Nd" when a future horizon is < 15 days from expiry.
+ * Direction-aware %: signedPct() → "+%" toward/beyond target (good), "−%" short
+ * or against (bad), for bull and bear alike. Live state vocabulary is
+ * direction-aware too: ✓ sobrepasado · ↑/↓ falta subir/bajar · ⤬ en contra.
+ * (The base strip carries the direction, so no extra "esperaba" cue is needed.)
+ *
+ * Settled verdict (HIT/EXCEED/CLOSE/MISS/WRONG) unchanged · expired-no-close
+ * AWAITING "sin cierre aún" · not imported N/D. Objetivo turns orange + "⏱ Nd"
+ * within 15 days of expiry.
  */
 function HorizonCards({ stock, tg, autoPrice, histPrices, override, batchCurrency, hitMargin = 5 }) {
   if (!tg) return null
   const cu = batchCurrency ?? '$'
   const SOON_DAYS = 15
+  const baseDateStr = stock.base ? formatDate(stock.base) : '?'
 
   const horizons = [
     { key: '1M',  target: stock.t1,  date: tg.d1  },
@@ -513,13 +516,26 @@ function HorizonCards({ stock, tg, autoPrice, histPrices, override, batchCurrenc
     return { key, target, date, noForecast, expired, dleft, soon, rp, settled, rVerdict, lstate }
   })
 
-  // Roll-up across settled horizons + today's distance to the best target.
   const settledCards = cards.filter(c => c.settled)
   const wins         = settledCards.filter(c => c.rVerdict === 'hit' || c.rVerdict === 'exceeded').length
   const targets      = cards.map(c => c.target).filter(t => t && t > 0)
   const best         = targets.length ? Math.max(...targets) : null
   const bestLabel    = best === stock.t12 ? '12M' : best === stock.t6 ? '6M' : best === stock.t3 ? '3M' : '1M'
   const todayVsBest  = (autoPrice && best) ? signedPct(autoPrice, best, stock.b) : null
+
+  // Base-reference strip — shows the batch base price + forecast direction of this horizon.
+  const BaseStrip = ({ target }) => {
+    const bear = target < stock.b
+    return (
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-2 pb-1.5 border-b border-dashed border-border">
+        <span>base <b className="text-foreground font-semibold text-[11px]">{cu}{(stock.b ?? 0).toFixed(2)}</b></span>
+        <span>· {baseDateStr}</span>
+        <span className={cn('ml-auto font-bold px-1.5 py-0.5 rounded-full text-[9px] whitespace-nowrap', bear ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700')}>
+          {bear ? 'bajista ↓' : 'alcista ↑'}
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div className="mb-4">
@@ -553,31 +569,31 @@ function HorizonCards({ stock, tg, autoPrice, histPrices, override, batchCurrenc
             )
           }
 
-          const expA = expArrow(target, stock.b)
+          const priceArrow = (val) => (val != null && stock.b != null && val < stock.b) ? '↓' : '↑'
 
           /* ── SETTLED ─────────────────────────────────────────────────── */
           if (settled) {
-            const v       = SETTLED[rVerdict] ?? SETTLED.miss
-            const sp      = signedPct(rp, target, stock.b)
-            const spCol   = (rVerdict === 'wrong_way' || rVerdict === 'miss') ? 'text-destructive' : sp >= 0 ? 'text-success' : 'text-amber-600'
-            const showExp = rVerdict === 'wrong_way'
+            const v     = SETTLED[rVerdict] ?? SETTLED.miss
+            const sp    = signedPct(rp, target, stock.b)
+            const spCol = (rVerdict === 'wrong_way' || rVerdict === 'miss') ? 'text-destructive' : sp >= 0 ? 'text-success' : 'text-amber-600'
             return (
               <div key={key} className={cn('bg-card rounded-lg px-4 py-3.5 border', v.card)}>
-                <div className="flex justify-between items-center mb-2.5 gap-1">
+                <div className="flex justify-between items-center mb-2 gap-1">
                   <span className="text-[11px] text-muted-foreground font-medium">{key}</span>
                   <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap', v.badge)}>{v.pill}</span>
                 </div>
+                <BaseStrip target={target} />
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end mb-1.5">
                   <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">objetivo</span>
                   <span></span>
                   <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">cerró</span>
                   <span className="text-lg font-bold text-foreground leading-none">{cu}{target.toFixed(2)}</span>
-                  <span className="text-muted-foreground self-center text-sm">→</span>
+                  <span className="text-muted-foreground self-center text-sm">{priceArrow(rp)}</span>
                   <span className="text-lg font-bold text-foreground leading-none">{cu}{rp.toFixed(2)}</span>
                 </div>
                 <div className="text-[11px] flex items-center gap-1.5 flex-wrap">
                   <span className={cn('font-bold', v.txt)}>{v.pill}</span>
-                  <span className={cn('font-semibold', spCol)}>{sp >= 0 ? '+' : ''}{sp.toFixed(1)}%{showExp ? ` · esperaba ${expA}` : ''}</span>
+                  <span className={cn('font-semibold', spCol)}>{sp >= 0 ? '+' : ''}{sp.toFixed(1)}%</span>
                   <span className="text-muted-foreground">· {date ? formatDate(date) : '--'}</span>
                 </div>
               </div>
@@ -588,10 +604,11 @@ function HorizonCards({ stock, tg, autoPrice, histPrices, override, batchCurrenc
           if (expired) {
             return (
               <div key={key} className="bg-card rounded-lg px-4 py-3.5 border border-border">
-                <div className="flex justify-between items-center mb-2.5 gap-1">
+                <div className="flex justify-between items-center mb-2 gap-1">
                   <span className="text-[11px] text-muted-foreground font-medium">{key}</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border whitespace-nowrap">⏳ AWAITING</span>
                 </div>
+                <BaseStrip target={target} />
                 <div className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">objetivo</div>
                 <div className="text-lg font-bold text-foreground leading-none mb-1.5">{cu}{target.toFixed(2)}</div>
                 <div className="text-[11px] text-muted-foreground">{date ? formatDate(date) : '--'} · <span className="text-destructive font-medium">vencido</span> · sin cierre aún</div>
@@ -600,18 +617,19 @@ function HorizonCards({ stock, tg, autoPrice, histPrices, override, batchCurrenc
           }
 
           /* ── FUTURE ──────────────────────────────────────────────────── */
-          const lv      = lstate ? LIVE[lstate] : null
+          const dir     = fdir(target, stock.b)
+          const lv      = lstate ? liveDisplay(lstate, dir) : null
           const sp      = autoPrice != null ? signedPct(autoPrice, target, stock.b) : null
           const spCol   = lstate === 'against' ? 'text-destructive' : sp == null ? 'text-muted-foreground' : sp >= 0 ? 'text-success' : 'text-amber-600'
           const hoyCol  = lstate === 'against' ? 'text-destructive' : lstate === 'ahead' ? 'text-success' : 'text-amber-600'
           const objCol  = soon ? 'text-orange-600 dark:text-orange-400' : 'text-blue-900 dark:text-blue-300'
-          const showExp = lstate === 'against'
           return (
             <div key={key} className="bg-card rounded-lg px-4 py-3.5 border border-border">
-              <div className="flex justify-between items-center mb-2.5 gap-1">
+              <div className="flex justify-between items-center mb-2 gap-1">
                 <span className="text-[11px] text-muted-foreground font-medium">{key}</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border whitespace-nowrap">⏳ AWAITING</span>
               </div>
+              <BaseStrip target={target} />
               <div className="grid grid-cols-[1fr_auto_1fr] gap-1.5 items-end mb-1.5">
                 <span className="text-[8px] font-semibold uppercase tracking-wide text-muted-foreground">objetivo</span>
                 <span></span>
@@ -620,13 +638,13 @@ function HorizonCards({ stock, tg, autoPrice, histPrices, override, batchCurrenc
                   {cu}{target.toFixed(2)}
                   {soon && <span className="ml-1 align-middle text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-900">⏱ {dleft}d</span>}
                 </span>
-                <span className="text-muted-foreground self-center text-sm">→</span>
+                <span className="text-muted-foreground self-center text-sm">{autoPrice != null ? priceArrow(autoPrice) : '→'}</span>
                 <span className={cn('text-lg font-bold leading-none', autoPrice != null ? hoyCol : 'text-muted-foreground')}>{autoPrice != null ? `${cu}${autoPrice.toFixed(2)}` : '--'}</span>
               </div>
               {lv && (
                 <div className="text-[11px] flex items-center gap-1.5 flex-wrap">
                   <span className={cn('font-bold', lv.txt)}>{lv.pill}</span>
-                  {sp != null && <span className={cn('font-semibold', spCol)}>{sp >= 0 ? '+' : ''}{sp.toFixed(1)}%{showExp ? ` · esperaba ${expA}` : ''}</span>}
+                  {sp != null && <span className={cn('font-semibold', spCol)}>{sp >= 0 ? '+' : ''}{sp.toFixed(1)}%</span>}
                   <span className="text-muted-foreground">· {date ? formatDate(date) : '--'}</span>
                 </div>
               )}

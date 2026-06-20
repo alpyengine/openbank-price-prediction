@@ -4264,3 +4264,70 @@ git push origin main
 git push origin v7.9.2 v7.9.3 v7.9.4 v7.9.5
 git branch -d fix/horizon-results-real-verdict
 git push origin --delete fix/horizon-results-real-verdict   # opcional
+
+
+# ===========================================================================
+# STEP 174 — v7.9.6  Bearish-forecast clarity (base strip + price-following arrow)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (StockRow.jsx).
+# Presentational: evaluatePrediction untouched → 170 tests stay green.
+# Builds on v7.9.5 — same branch fix/horizon-results-real-verdict.
+#
+# WHY: a bearish horizon (target below base) read as contradictory —
+# "objetivo €59.22 → hoy €53.30 · ↗ adelantado +10%": up arrow on a falling
+# price, and nothing told you it was a down-forecast. (That's correct maths:
+# bearish target, price fell below it → overshot the bearish target = +10%.)
+#
+# WHAT'S NEW (all inside StockRow.jsx):
+#   - HorizonCards: each card opens with a base-reference strip
+#       "base {price} · {base date} · bajista↓ / alcista↑"
+#     so the forecast direction of that horizon is always visible.
+#   - Big-line separator arrow now follows the REAL price move vs base
+#       (price ≥ base → ↑, else ↓) — a falling price never shows ↑.
+#   - liveDisplay(state, dir): direction-aware live vocabulary replacing the
+#     old LIVE table — ✓ sobrepasado · ↑/↓ falta subir/bajar · ⤬ en contra.
+#     (Old ↗/↘ implied price up/down and clashed on bearish horizons.)
+#   - Collapsed-row cells use liveDisplay too (same vocabulary).
+#   - "esperaba ↑/↓" cue dropped from the cards (the base strip carries the
+#     direction); kept in the compact collapsed cell, which has no strip.
+#
+#   README.md: v7.9.6 changelog row.
+#
+#   SANITY: this only makes sense when the stock's base price is really above
+#   the bearish target. If a base looked wrong, that would be a data issue,
+#   not display — worth a glance at the Base price column.
+#
+# Apply on the SAME branch (continues v7.9.5, before the merge):
+git checkout fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.6.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "feat: bearish-forecast clarity — base strip + price-following arrow (v7.9.6)
+
+A bearish horizon (target below base) read as contradictory — e.g.
+'objetivo 59.22 -> hoy 53.30 . adelantado +10%': an up arrow on a falling
+price, with nothing showing it was a down-forecast.
+
+Each Horizon Results card now opens with a base-reference strip
+'base {price} . {base date} . bajista/alcista', so the forecast direction is
+always visible. The big-line separator arrow follows the real price move vs
+base (>= base -> up, else down), so a falling price never shows an up arrow.
+Live-state vocabulary is direction-aware (sobrepasado / falta subir-bajar /
+en contra), replacing adelantado/en camino/retrasado whose arrows implied
+price direction. Collapsed-row cells use the same labels.
+
+evaluatePrediction untouched. Presentational, frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge v7.9.2..v7.9.6 to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git tag -a v7.9.3 -m "v7.9.3: Horizon Results glanceable cards — target/close colours + N/D state"
+git tag -a v7.9.4 -m "v7.9.4: collapsed-row compact indicator + legend + vs SPY/Sector help"
+git tag -a v7.9.5 -m "v7.9.5: forecast visibility + direction-aware %"
+git tag -a v7.9.6 -m "v7.9.6: bearish-forecast clarity — base strip + price-following arrow"
+git push origin main
+git push origin v7.9.2 v7.9.3 v7.9.4 v7.9.5 v7.9.6
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
