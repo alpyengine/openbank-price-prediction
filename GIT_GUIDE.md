@@ -4331,3 +4331,52 @@ git push origin main
 git push origin v7.9.2 v7.9.3 v7.9.4 v7.9.5 v7.9.6
 git branch -d fix/horizon-results-real-verdict
 git push origin --delete fix/horizon-results-real-verdict   # opcional
+
+
+# ===========================================================================
+# STEP 175 — v7.9.7  Fix EU price fetch (Yahoo 429): User-Agent + < current_date
+# ===========================================================================
+#
+# BACKEND ONLY. No src/ changes. Follow-up patch to the v7.9.0 Edge Functions.
+# The deploy was done in the Supabase dashboard (no CLI): both functions
+# redeployed with the User-Agent, and get_pending_expired re-run with the
+# < current_date filter. This commit just captures it in the repo.
+#
+# WHAT'S NEW:
+#
+#   supabase/functions/fetch-weekly-prices/index.ts     — Yahoo calls now send a
+#   supabase/functions/fetch-expired-horizons/index.ts    browser User-Agent header
+#   supabase/sql/02_expired_horizons_rpcs.sql           — get_pending_expired: < current_date
+#
+#   WHY: Yahoo returned HTTP 429 to the "naked" requests from the Edge runtime,
+#   so the 4 .DE tickers failed every weekly run. A browser User-Agent fixes it
+#   (the expired function already had one and worked; the weekly didn't and 429'd
+#   — which pinpointed the cause). The < current_date filter stops the function
+#   re-attempting today's not-yet-settled expiries every minute (the loop that
+#   hammered Yahoo ~480x per window). Recovered the 4 missing .DE Friday closes.
+#
+# Apply on a feature branch:
+git checkout main && git pull origin main
+git checkout -b fix/edge-yahoo-user-agent
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.7.zip -d .
+git add supabase/functions/fetch-weekly-prices/index.ts \
+        supabase/functions/fetch-expired-horizons/index.ts \
+        supabase/sql/02_expired_horizons_rpcs.sql \
+        README.md GIT_GUIDE.md
+git commit -m "fix: EU price fetch — Yahoo User-Agent + get_pending_expired < current_date (v7.9.7)
+
+Yahoo returned HTTP 429 to the naked requests from the Edge runtime, so the
+4 .DE tickers failed every weekly run. Add a browser User-Agent header to the
+Yahoo calls in both Edge Functions (the expired one already had it and worked;
+the weekly didn't and 429'd). get_pending_expired now filters < current_date so
+a horizon expiring today isn't evaluated until its close exists, removing the
+per-minute retry loop that hammered Yahoo. Recovered the 4 missing .DE Friday
+closes. Backend only — no src changes."
+git push origin fix/edge-yahoo-user-agent
+git checkout main
+git merge --no-ff --no-edit fix/edge-yahoo-user-agent
+git tag -a v7.9.7 -m "v7.9.7: EU price fetch fix (Yahoo User-Agent + < current_date)"
+git push origin main
+git push origin v7.9.7
+git branch -d fix/edge-yahoo-user-agent
+git push origin --delete fix/edge-yahoo-user-agent   # opcional

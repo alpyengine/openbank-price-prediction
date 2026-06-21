@@ -32,7 +32,7 @@ language sql stable as $$
    and pc.target_date = to_date(r.value->>'targetDate', 'DD Mon YYYY')
   where r.value->>'verdict' = 'awaiting'
     and (r.value->>'targetDate') is not null
-    and to_date(r.value->>'targetDate', 'DD Mon YYYY') <= current_date
+    and to_date(r.value->>'targetDate', 'DD Mon YYYY') < current_date  -- v7.9.7: solo lo ya vencido (su cierre ya existe); evita reintentar lo de hoy
   order by target_date, ticker
   limit p_limit;
 $$;
