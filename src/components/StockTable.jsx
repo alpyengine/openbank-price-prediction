@@ -105,6 +105,24 @@ const COL_HELP = {
     body:  'Shows the specific result at the best target horizon — whether the price reached the target, how far it was, and the date it was evaluated. Updates automatically as horizons expire and real historical prices are loaded.',
     example: 'TER 12M (18 Mar 2027): awaiting · current +19.6% vs base',
   },
+  vsSpy: {
+    title: '📊 vs SPY — Rendimiento vs mercado',
+    sub:   '¿La acción bate al S&P 500?',
+    body:  'Compara cuánto ha rendido la acción desde su fecha base con lo que ha hecho el S&P 500 (SPY) en el mismo periodo (cierre en la fecha base → precio actual). El número son puntos porcentuales de diferencia: rendimiento de la acción − rendimiento del SPY.\n\n✅ Verde = la acción bate al SPY (sube más, o cae menos)\n❌ Rojo = la acción va por detrás del SPY\n\nEn batches europeos el benchmark no es el SPY sino el ETF iShares del país (EWG Alemania, EWP España, EWQ Francia…).',
+    example: 'AIXA: acción +84.6% · SPY +5.9% → ✅ +78.7%\n(rinde 78.7 puntos más que el SPY desde la base)',
+  },
+  vsSector: {
+    title: '🏭 vs Sector — Rendimiento vs su sector',
+    sub:   '¿La acción bate a su sector?',
+    body:  'Igual que vs SPY, pero comparando con el ETF del sector de la acción (XLK tecnología, XLF financieras, XLE energía, XLV salud…), elegido según el sector de los fundamentales, en el mismo periodo desde la fecha base.\n\n✅ Verde = bate a su sector · ❌ Rojo = por detrás del sector\n\nEstados: "fetch funds" = faltan fundamentales (sin sector); "{ETF} fetch mkt" = falta el precio del ETF; "{ETF} no price" = falta el precio de la acción.',
+    example: 'AIXA (XLK): acción +84.6% · XLK +12.2% → ✅ +72.4%',
+  },
+  legend: {
+    title: '🎨 Leyenda de estados',
+    sub:   'Qué significa cada símbolo y color',
+    body:  'VENCIDO (la fecha ya pasó, hay cierre real):\n🎯 HIT — alcanzó el objetivo (±margen)\n▲ EXCEEDED — superó el objetivo\n◑ CLOSE — quedó cerca del objetivo\n▼ MISS — no llegó\n⤬ WRONG — se movió en contra del pronóstico\n\nEN VIVO (aún no vencido, seguimiento desde el precio de hoy):\n↗ adelantado — ya alcanzó/superó el objetivo\n→ en camino — cerca, por debajo\n↘ retrasado — lejos del objetivo\n⤬ en contra — va al revés del pronóstico\n\n⏳ sin cierre — venció pero falta el precio de cierre (lo liquida el cron)\n— N/D — ese plazo no se importó en este batch\n\nColor: verde = bien/superado · ámbar = cerca/en camino · rojo = fallo/en contra · gris = pendiente/sin dato.',
+    example: 'Vencido → veredicto liquidado · Futuro → seguimiento en vivo',
+  },
 }
 
 // ── Column help modal ─────────────────────────────────────────────────────────
@@ -307,18 +325,24 @@ export default function StockTable({
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Verdict legend */}
-          <div className="flex gap-3 text-[11px] text-muted-foreground items-center">
+          {/* Verdict legend — compact colour key (full key behind ?) */}
+          <div className="flex gap-2.5 text-[11px] text-muted-foreground items-center">
             {[
-              { color: 'bg-success',     label: 'Hit' },
-              { color: 'bg-warning',     label: 'Close/Awaiting' },
-              { color: 'bg-destructive', label: 'Miss' },
+              { color: 'bg-success',          label: 'bien' },
+              { color: 'bg-warning',          label: 'cerca' },
+              { color: 'bg-destructive',      label: 'fallo' },
+              { color: 'bg-muted-foreground', label: 'pendiente' },
             ].map(({ color, label }) => (
               <span key={label} className="flex items-center gap-1">
                 <span className={cn('w-1.5 h-1.5 rounded-full inline-block', color)} />
                 {label}
               </span>
             ))}
+            <button
+              onClick={() => setHelpCol('legend')}
+              className="w-4 h-4 rounded-full border border-border text-muted-foreground hover:text-foreground text-[10px] leading-none flex items-center justify-center"
+              title="Ver leyenda completa"
+            >?</button>
           </div>
 
           {/* Expand / collapse all */}
@@ -341,8 +365,8 @@ export default function StockTable({
               <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d3}>3M</Th>
               <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d6}>6M</Th>
               <Th w={95}  colKey="horizon" onOpen={setHelpCol} date={tg?.d12}>12M</Th>
-              <Th w={80}  colKey="hit"     onOpen={setHelpCol}>vs SPY</Th>
-              <Th w={80}  colKey="hit"     onOpen={setHelpCol}>vs Sector</Th>
+              <Th w={80}  colKey="vsSpy"    onOpen={setHelpCol}>vs SPY</Th>
+              <Th w={80}  colKey="vsSector" onOpen={setHelpCol}>vs Sector</Th>
               <Th w={40}  colKey="tv"      onOpen={setHelpCol}></Th>
             </tr>
           </thead>

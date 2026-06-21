@@ -3979,3 +3979,355 @@ git push origin main
 git push origin v7.9.1
 git branch -d fix/expired-snapshot-current-price
 git push origin --delete fix/expired-snapshot-current-price   # opcional
+
+
+# ===========================================================================
+# STEP 170 — v7.9.2  Fix: Horizon Results cards show the real verdict
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install needed. Frontend only — one file.
+# Presentational change: no tested module touched (170 tests stay green).
+#
+# WHAT'S NEW:
+#
+#   src/components/StockRow.jsx:
+#     - Root cause of "todo en AWAITING": HorizonCards computed verdicts live
+#       from autoPrice, but its label/colour map only had hit/close/miss — so
+#       'exceeded' and 'wrong_way' fell through to the AWAITING fallback, and
+#       every settled horizon looked AWAITING. It also evaluated expired
+#       horizons against the current price, not the settled close.
+#     - Rewrote HorizonCards:
+#         * EXPIRED + real close  -> settled verdict (HIT/EXCEEDED/CLOSE/MISS/
+#           WRONG-WAY), evaluated in snapshot mode via
+#           getEffectivePrice(..., snapshot:true) so it matches the stored
+#           verdict and the accuracy stats (single source of truth).
+#         * FUTURE -> AWAITING badge + live tracking hint
+#           (up adelantado / en camino / down retrasado) from today's price.
+#         * EXPIRED but close not loaded yet -> stays AWAITING (cron settles it;
+#           never settled against the current price).
+#         * Added per-stock roll-up header ("N/M vencidos acertados · hoy +X%
+#           vs obj.") and a target+gap row per card.
+#     - Now passes histPrices + override to HorizonCards (needed for the close).
+#     - Two new verdict colours: exceeded = blue, wrong_way = purple (shadcn
+#       bg-x-50 / text-x-700 / border-x-200, matching the app's Badge pattern).
+#     - The collapsed-row bars, MarketComparison, FundamentalsPanel and Notes
+#       are untouched.
+#
+#   README.md: v7.9.2 changelog row.
+#
+#   NOTE: relies on the snapshot flag added to getEffectivePrice in v7.9.1
+#   (already on main). Pairs with the DB re-grade of the 25 March 1M verdicts
+#   (separate Supabase step) — once those settle, these cards show real verdicts.
+#
+# Apply on a feature branch (see docs/GIT_WORKFLOW.md):
+git checkout main && git pull origin main
+git checkout -b fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.2.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "fix: Horizon Results cards show the real settled verdict (v7.9.2)
+
+HorizonCards computed verdicts live but its label/colour map only covered
+hit/close/miss, so exceeded and wrong_way fell through to the AWAITING
+fallback and every settled horizon looked AWAITING. Expired horizons were
+also evaluated against the current price instead of the settled close.
+
+Rewrote HorizonCards: an expired horizon shows its settled verdict (HIT/
+EXCEEDED/CLOSE/MISS/WRONG-WAY) computed in snapshot mode from the real close
+(getEffectivePrice snapshot:true), matching the stored verdict and stats; a
+future horizon shows AWAITING plus a live tracking hint; an expired horizon
+with no close yet stays AWAITING. Added a per-stock roll-up header and a
+target+gap row, two new verdict colours (exceeded blue, wrong_way purple),
+and now passes histPrices/override to the component.
+
+Presentational only, no tested module touched. Frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge:
+git checkout main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git push origin main
+git push origin v7.9.2
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
+
+
+# ===========================================================================
+# STEP 171 — v7.9.3  Horizon Results: glanceable cards (target/close/state colours, N/D)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (StockRow.jsx).
+# Presentational: no tested module touched (170 tests stay green).
+# Builds on top of v7.9.2 — same branch fix/horizon-results-real-verdict.
+#
+# WHAT'S NEW (all inside HorizonCards in src/components/StockRow.jsx):
+#
+#   1. Target no longer repeats as its own line in every card.
+#
+#   2. SETTLED horizon (expired + real close):
+#        - big number = the settled CLOSE, in the default foreground colour
+#          (black in light / white in dark).
+#        - sub-line: "cierre · objetivo era {cu}{target} · {gap%}".
+#
+#   3. FUTURE horizon (has target, not expired):
+#        - big number = that horizon's TARGET (today's price was identical
+#          across all 4 cards, so it's demoted to a sub-line).
+#        - colour-coded number: dark blue normally; ORANGE + "⏱ Nd" chip when
+#          fewer than SOON_DAYS (15) days remain to expiry.
+#        - sub-line: "hoy {cu}{price} · {gap%}".
+#        - live tracking chip (badge stays AWAITING):
+#            ↗ adelantado  today's price already reached/exceeded the target
+#            → en camino    near but still below
+#            ↘ retrasado    far short (still moving the forecast way)
+#            ⤬ en contra    moved AGAINST the forecast direction vs base (red)
+#
+#   4. NO-FORECAST horizon (not imported in the CSV → no target):
+#        - dedicated card: dashed border, "⨯ N/D" pill, big "—",
+#          "Sin previsión a {key} · no incluida en este batch".
+#        - NO AWAITING, NO fake date, NO days-left. Applies to ANY missing
+#          horizon, not only 12M.
+#
+#   5. EXPIRED-but-no-close-yet stays a genuine AWAITING card ("sin cierre aún")
+#      with the target shown — cron settles it later.
+#
+#   Roll-up header, collapsed-row bars, MarketComparison, Fundamentals and
+#   Notes are untouched. The "best target" calc now ignores missing horizons.
+#
+#   README.md: v7.9.3 changelog row.
+#
+# Apply on the SAME branch (continues v7.9.2, before the merge):
+git checkout fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.3.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Horizon Results glanceable cards — target/close colours + N/D state (v7.9.3)
+
+Refines HorizonCards (presentational):
+- target no longer repeated as its own line in every card
+- settled horizon: big number = real close (foreground colour) + 'objetivo era X · gap%'
+- future horizon: big number = that horizon's target, colour-coded
+  (dark blue, orange + 'Nd' chip when <15 days to expiry), with 'hoy {price} {gap%}'
+- live chip refined: adelantado only when target reached/exceeded, en camino,
+  retrasado, and a new red 'en contra' when price moved against the forecast vs base
+- horizon not imported in the batch (no target): dedicated N/D card
+  (dashed, '⨯ N/D' pill, '—', 'Sin previsión a {key} · no incluida en este batch'),
+  no AWAITING / no fake date / no days-left — applies to any missing horizon
+- expired-but-no-close stays a genuine AWAITING card ('sin cierre aún')
+
+Presentational only, no tested module touched. Frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge BOTH v7.9.2 + v7.9.3 to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git tag -a v7.9.3 -m "v7.9.3: Horizon Results glanceable cards — target/close colours + N/D state"
+git push origin main
+git push origin v7.9.2 v7.9.3
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
+
+
+# ===========================================================================
+# STEP 172 — v7.9.4  Collapsed-row compact indicator + legend + vs SPY/Sector help
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — two files.
+# Presentational: no tested module touched (170 tests stay green).
+# Builds on v7.9.3 — same branch fix/horizon-results-real-verdict.
+#
+# WHAT'S NEW:
+#
+#   src/components/StockRow.jsx — collapsed-row horizon columns (1M/3M/6M/12M):
+#     - Replaced the dense purple progress bars with a compact STACKED indicator
+#       (no repeated horizon label — the column header already says 1M/3M/…):
+#         · expired + real close → settled verdict (HIT/EXCEED/CLOSE/MISS/WRONG)
+#           in snapshot mode + gap%  (matches stored verdict + stats)
+#         · future → arrow + % + mini-state (↗ adelantado / → en camino /
+#           ↘ retrasado / ⤬ en contra), live from today's price
+#         · expired but no close yet → ⏳ "sin cierre"
+#         · not imported (no target) → "— N/D"
+#     - Added module-scope lookup tables RV (settled verdict) and LV (live state).
+#
+#   src/components/StockTable.jsx:
+#     - Header legend: replaced the obsolete "Hit / Close/Awaiting / Miss" 3-dot
+#       legend with a compact 4-colour key (bien / cerca / fallo / pendiente)
+#       plus a "?" that opens a full state legend modal (new COL_HELP.legend).
+#     - Fixed the vs SPY / vs Sector column help: both headers used colKey="hit"
+#       so the "?" showed the "Hit? — Prediction result" text. They now use
+#       colKey="vsSpy" / "vsSector" with correct help text describing relative
+#       performance since the base date (stock return − benchmark return), the
+#       EU local-benchmark note (iShares country ETF), and the fetch states.
+#
+#   README.md: v7.9.4 changelog row.
+#
+#   NOTE: the collapsed-row indicator relies on the snapshot flag in
+#   getEffectivePrice (v7.9.1, already on the branch). Window for vs SPY/Sector
+#   help confirmed against useMarketData.js (base-date close → current price).
+#
+# Apply on the SAME branch (continues v7.9.3, before the merge):
+git checkout fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.4.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx src/components/StockTable.jsx README.md GIT_GUIDE.md
+git commit -m "feat: collapsed-row compact indicator + legend + vs SPY/Sector help (v7.9.4)
+
+StockRow: replace the dense purple horizon bars in the collapsed row with a
+compact stacked indicator sharing the cards' vocabulary — expired shows the
+settled verdict (HIT/EXCEED/CLOSE/MISS/WRONG) + gap%, future shows arrow + %
++ mini-state (adelantado/en camino/retrasado/en contra), expired-no-close
+shows 'sin cierre', not-imported shows N/D. Horizon label no longer repeated
+per cell (it's in the column header).
+
+StockTable: replace the obsolete Hit/Close-Awaiting/Miss legend with a compact
+4-colour key + '?' opening a full state legend. Fix vs SPY / vs Sector help:
+both columns used colKey='hit' (showing the 'Hit? — Prediction result' text);
+they now have correct help describing relative performance since the base date
+vs SPY / vs the sector ETF, with the EU local-benchmark note.
+
+Presentational only, no tested module touched. Frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge v7.9.2 + v7.9.3 + v7.9.4 to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git tag -a v7.9.3 -m "v7.9.3: Horizon Results glanceable cards — target/close colours + N/D state"
+git tag -a v7.9.4 -m "v7.9.4: collapsed-row compact indicator + legend + vs SPY/Sector help"
+git push origin main
+git push origin v7.9.2 v7.9.3 v7.9.4
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
+
+
+# ===========================================================================
+# STEP 173 — v7.9.5  Forecast visibility + direction-aware %
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (StockRow.jsx).
+# Presentational: evaluatePrediction untouched → 170 tests stay green.
+# Builds on v7.9.4 — same branch fix/horizon-results-real-verdict.
+#
+# WHAT'S NEW (all inside StockRow.jsx):
+#
+#   Module-scope helpers (shared by collapsed row + HorizonCards):
+#     - SETTLED / LIVE display tables (verdict + live state).
+#     - fdir(t,base): forecast direction (+1 bullish / −1 bearish).
+#     - signedPct(price,t,base): direction-aware gap vs target — "+%" = toward/
+#       beyond target (good), "−%" = short/against (bad), for bull AND bear.
+#     - liveState(price,t,base): ahead / ontrack / behind / against.
+#     - expArrow(t,base): "↑/↓" expected-direction cue.
+#
+#   Collapsed-row horizon cells: lead with the OBJETIVO PREVISTO price (it had
+#   vanished from the row) — blue, orange + "⏱ Nd" when < 15d, foreground when
+#   settled — then the state pill and a direction-aware % (+ "esperaba ↑/↓" for
+#   wrong/against). Negative days-left no longer leak into the soon chip.
+#
+#   HorizonCards (cards): big line shows TWO prices the same size side by side —
+#   "objetivo {target} → cerró {close}" (settled) / "objetivo {target} → hoy
+#   {price}" (future). Bottom line carries only state + direction-aware % +
+#   (esperaba cue) + date — no duplicated price. N/D and expired-no-close states
+#   kept. The objetivo turns orange + "⏱ Nd" within 15 days of expiry.
+#
+#   Fixes the contradiction Alex spotted: a bearish WRONG used to show a green
+#   "+42.4%". Now it shows "−42.4%" red + "esperaba ↓", consistent with WRONG.
+#
+#   README.md: v7.9.5 changelog row.
+#
+# Apply on the SAME branch (continues v7.9.4, before the merge):
+git checkout fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.5.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "feat: forecast visibility + direction-aware % (v7.9.5)
+
+The predicted (target) price is shown for every horizon again — it had
+disappeared from the collapsed row. Collapsed cells now lead with the
+objetivo previsto + state + direction-aware %. Cards show two prices the
+same size side by side (objetivo -> cerró / objetivo -> hoy) with a
+deduplicated bottom line.
+
+Direction-aware %: signedPct multiplies the gap vs target by the forecast
+direction, so '+%' always means toward/beyond target (good) and '-%' short
+or against (bad), for bullish and bearish alike — fixing the bearish WRONG
+that used to show a green +42.4%. A 'esperaba up/down' cue is shown for
+wrong-way / against.
+
+evaluatePrediction untouched. Presentational, frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge v7.9.2..v7.9.5 to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git tag -a v7.9.3 -m "v7.9.3: Horizon Results glanceable cards — target/close colours + N/D state"
+git tag -a v7.9.4 -m "v7.9.4: collapsed-row compact indicator + legend + vs SPY/Sector help"
+git tag -a v7.9.5 -m "v7.9.5: forecast visibility + direction-aware %"
+git push origin main
+git push origin v7.9.2 v7.9.3 v7.9.4 v7.9.5
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
+
+
+# ===========================================================================
+# STEP 174 — v7.9.6  Bearish-forecast clarity (base strip + price-following arrow)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (StockRow.jsx).
+# Presentational: evaluatePrediction untouched → 170 tests stay green.
+# Builds on v7.9.5 — same branch fix/horizon-results-real-verdict.
+#
+# WHY: a bearish horizon (target below base) read as contradictory —
+# "objetivo €59.22 → hoy €53.30 · ↗ adelantado +10%": up arrow on a falling
+# price, and nothing told you it was a down-forecast. (That's correct maths:
+# bearish target, price fell below it → overshot the bearish target = +10%.)
+#
+# WHAT'S NEW (all inside StockRow.jsx):
+#   - HorizonCards: each card opens with a base-reference strip
+#       "base {price} · {base date} · bajista↓ / alcista↑"
+#     so the forecast direction of that horizon is always visible.
+#   - Big-line separator arrow now follows the REAL price move vs base
+#       (price ≥ base → ↑, else ↓) — a falling price never shows ↑.
+#   - liveDisplay(state, dir): direction-aware live vocabulary replacing the
+#     old LIVE table — ✓ sobrepasado · ↑/↓ falta subir/bajar · ⤬ en contra.
+#     (Old ↗/↘ implied price up/down and clashed on bearish horizons.)
+#   - Collapsed-row cells use liveDisplay too (same vocabulary).
+#   - "esperaba ↑/↓" cue dropped from the cards (the base strip carries the
+#     direction); kept in the compact collapsed cell, which has no strip.
+#
+#   README.md: v7.9.6 changelog row.
+#
+#   SANITY: this only makes sense when the stock's base price is really above
+#   the bearish target. If a base looked wrong, that would be a data issue,
+#   not display — worth a glance at the Base price column.
+#
+# Apply on the SAME branch (continues v7.9.5, before the merge):
+git checkout fix/horizon-results-real-verdict
+unzip -o ~/Downloads/openbank-price-prediction_v7.9.6.zip -d .
+npm run test:run
+git add src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "feat: bearish-forecast clarity — base strip + price-following arrow (v7.9.6)
+
+A bearish horizon (target below base) read as contradictory — e.g.
+'objetivo 59.22 -> hoy 53.30 . adelantado +10%': an up arrow on a falling
+price, with nothing showing it was a down-forecast.
+
+Each Horizon Results card now opens with a base-reference strip
+'base {price} . {base date} . bajista/alcista', so the forecast direction is
+always visible. The big-line separator arrow follows the real price move vs
+base (>= base -> up, else down), so a falling price never shows an up arrow.
+Live-state vocabulary is direction-aware (sobrepasado / falta subir-bajar /
+en contra), replacing adelantado/en camino/retrasado whose arrows implied
+price direction. Collapsed-row cells use the same labels.
+
+evaluatePrediction untouched. Presentational, frontend, no Supabase changes."
+git push origin fix/horizon-results-real-verdict
+# -> verify the Vercel preview, then merge v7.9.2..v7.9.6 to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/horizon-results-real-verdict
+git tag -a v7.9.2 -m "v7.9.2: Horizon Results cards show the real settled verdict"
+git tag -a v7.9.3 -m "v7.9.3: Horizon Results glanceable cards — target/close colours + N/D state"
+git tag -a v7.9.4 -m "v7.9.4: collapsed-row compact indicator + legend + vs SPY/Sector help"
+git tag -a v7.9.5 -m "v7.9.5: forecast visibility + direction-aware %"
+git tag -a v7.9.6 -m "v7.9.6: bearish-forecast clarity — base strip + price-following arrow"
+git push origin main
+git push origin v7.9.2 v7.9.3 v7.9.4 v7.9.5 v7.9.6
+git branch -d fix/horizon-results-real-verdict
+git push origin --delete fix/horizon-results-real-verdict   # opcional
