@@ -4380,3 +4380,55 @@ git push origin main
 git push origin v7.9.7
 git branch -d fix/edge-yahoo-user-agent
 git push origin --delete fix/edge-yahoo-user-agent   # opcional
+
+
+# ===========================================================================
+# STEP 176 — v7.10.1  All Stocks: Watchlist-style horizon pill + sortable columns
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (AllStocksPage.jsx).
+# Presentational (no data-model change): AllStocksPage is not a tested module,
+# so the 170 tests stay green. First change of Tanda 1 (All Stocks redesign).
+# v7.10.0 was the EU price-fetch line (already on main as v7.9.7); this series
+# starts at v7.10.1.
+#
+# WHAT'S NEW (all inside src/components/AllStocksPage.jsx):
+#
+#   #1 Horizon selector — replaced the per-column Upside dropdown with a
+#      Watchlist-style pill (1M / 3M / 6M / 12M) at the start of the filters
+#      toolbar. The Upside and Left-to-target headers show the active horizon
+#      as a small tag. Removed the unused HorizonDropdown component + HORIZONS.
+#
+#   #2 Sortable columns — every column now sorts asc/desc: added Market,
+#      Sector, PEG, Margin and Batch (by date) to the comparator, next to the
+#      existing Ticker / Upside / Left-to-target / Score. One convention:
+#      sortDir 1 = ascending, -1 = descending (first click on a column = desc).
+#      Missing values (null / NaN / '—') always sort to the bottom in both
+#      directions. Footer sort label + sort buttons added to every header.
+#
+#   README.md: v7.10.1 changelog row.
+#
+#   (Tanda 1 still pending in v7.10.2: review all column help texts (#3) and
+#    add a "Best only" help tooltip (#4) — kept score >= 60 threshold.)
+#
+# Branch from main (main already has v7.9.2..v7.9.7):
+git checkout main && git pull origin main
+git checkout -b feat/allstocks-header-sort
+unzip -o ~/Downloads/openbank-price-prediction_v7.10.1.zip -d .
+npm run test:run
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks — Watchlist-style horizon pill + sortable columns (v7.10.1)
+
+#1 Replace the per-column Upside horizon dropdown with a Watchlist-style pill
+(1M/3M/6M/12M) in the filters toolbar; Upside and Left-to-target headers show
+the active horizon as a tag. Removed the unused HorizonDropdown + HORIZONS.
+
+#2 All columns sortable asc/desc: added Market, Sector, PEG, Margin and Batch
+(by date) to the comparator alongside Ticker/Upside/Left-to-target/Score. One
+convention (sortDir 1=asc, -1=desc); missing values always sort last in both
+directions. Sort buttons on every header + footer label updated.
+
+Presentational, AllStocksPage is not a tested module (170 tests stay green).
+Frontend only, no Supabase changes."
+git push origin feat/allstocks-header-sort
+# -> verify the Vercel preview, then (after v7.10.2) merge the tanda to main.
