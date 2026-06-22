@@ -4432,3 +4432,59 @@ Presentational, AllStocksPage is not a tested module (170 tests stay green).
 Frontend only, no Supabase changes."
 git push origin feat/allstocks-header-sort
 # -> verify the Vercel preview, then (after v7.10.2) merge the tanda to main.
+
+
+# ===========================================================================
+# STEP 177 — v7.10.2  All Stocks: column help-text review + Best only help
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (AllStocksPage.jsx).
+# Presentational (help text only). 170 tests stay green. Second change of Tanda 1
+# — continues on the SAME branch feat/allstocks-header-sort (on top of v7.10.1).
+#
+# WHAT'S NEW (all inside src/components/AllStocksPage.jsx):
+#
+#   #3 Help-text review — fixed the "Left to target" tooltip incongruence: the
+#      sub-line said (lastWeeklyPrice − target) / target × 100 but the real
+#      formula is (target − refPrice) / refPrice, and the colour key was
+#      inverted. Now: 🟢 positive = upside remains (price still below target),
+#      🔴 negative = price already above target, correct formula + price-source
+#      cascade. Upside tooltip made English-consistent (child "Green = positive
+#      · Red = negative") and given its formula. Other column texts (Score, PEG,
+#      Margin, Sparkline, Batch) reviewed — already accurate, left as-is.
+#
+#   #4 "Best only" help — added a ColTooltip explaining the filter: remaining
+#      upside > 0 for the selected horizon AND Score ≥ 60 (the Score condition
+#      only applies when a Score exists, so score-less tickers are never hidden).
+#      Score ≥ 60 threshold unchanged.
+#
+#   README.md: v7.10.2 changelog row.
+#
+#   Tanda 1 (All Stocks header/help) COMPLETE after this. Next: Tanda 2 (v7.11.x)
+#   — #6 ticker/company search, #5 click→batch-detail auto-scroll, #7 Top Picks
+#   by sector.
+#
+# Apply on the SAME branch (continues v7.10.1):
+git checkout feat/allstocks-header-sort
+unzip -o ~/Downloads/openbank-price-prediction_v7.10.2.zip -d .
+npm run test:run
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks — column help-text review + Best only help (v7.10.2)
+
+#3 Fix the Left to target tooltip incongruence: the sub-line stated
+(lastWeeklyPrice - target) / target x 100 but the real formula is
+(target - refPrice) / refPrice, and the colour key was inverted. Now
+positive = upside remains (price below target), negative = price already
+above target, with the correct formula and price-source cascade. Upside
+tooltip made English-consistent + formula added. Other texts reviewed,
+already accurate.
+
+#4 Add a Best only help tooltip: remaining upside > 0 for the selected
+horizon AND Score >= 60 (Score condition only when a Score exists, so
+score-less tickers are never hidden). Threshold unchanged.
+
+Presentational (help text), AllStocksPage not a tested module (170 tests
+stay green). Frontend only, no Supabase changes."
+git push origin feat/allstocks-header-sort
+# -> verify the Vercel preview. Tanda 1 done; then merge to main OR continue
+#    with Tanda 2 on a new branch.

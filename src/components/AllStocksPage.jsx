@@ -842,6 +842,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           <Zap size={11} />
           Best only
         </button>
+        <ColTooltip text="Filters to today's best opportunities: only stocks with remaining upside > 0 for the selected horizon (from today's price there's still room to the target) AND Score ≥ 60. The Score ≥ 60 condition applies only when the stock has a Score — stocks without fundamentals are never hidden by it." />
         {bestOnly && (
           <span className="text-[10px] text-muted-foreground">
             upside &gt; 0{stocks.some(s => s.score != null) ? ' · score ≥ 60 if available' : ''}
@@ -908,9 +909,9 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   >
                     Upside <span className="text-primary">{horizon}</span> {sortIcon('upside')}
                   </button>
-                  <ColTooltip text="Expected % gain from batch base price to Openbank AI target for the selected horizon.">
+                  <ColTooltip text="Expected % gain forecast by Openbank, from the batch base price to the target for the selected horizon. Formula: (target − base) / base × 100.">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-semibold text-foreground">Verde = positivo · Rojo = negativo</span>
+                      <span className="text-[10px] font-semibold text-foreground">Green = positive · Red = negative</span>
                     </div>
                   </ColTooltip>
                 </div>
@@ -930,10 +931,10 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   </button>
                   <ColTooltip text="How much upside remains from today's price to the Openbank AI target. Formula: (target − refPrice) / refPrice. refPrice = latest weekly close (Sat cron) → live fetch → batch base price. Green = target still reachable. Red = price already above target.">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-semibold text-foreground">Formula: (lastWeeklyPrice − target) / target × 100</span>
-                      <span className="text-[10px] text-blue-700">🔵 Positive = above target</span>
-                      <span className="text-[10px] text-red-600">🔴 Negative = below target</span>
-                      <span className="text-[10px] text-muted-foreground">Price source: weekly_prices table (max 7 days old)</span>
+                      <span className="text-[10px] font-semibold text-foreground">Formula: (target − refPrice) / refPrice × 100</span>
+                      <span className="text-[10px] text-green-700">🟢 Positive = upside remains (price still below target)</span>
+                      <span className="text-[10px] text-red-600">🔴 Negative = price already above target</span>
+                      <span className="text-[10px] text-muted-foreground">Price source: weekly_prices (max 7 days) → live fetch → base</span>
                     </div>
                   </ColTooltip>
                 </div>
