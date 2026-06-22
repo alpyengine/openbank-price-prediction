@@ -82,6 +82,23 @@ to guarantee correct 3-letter abbreviations. Fixed in v7.0.4.
 
 ---
 
+## Alerts & monitoring (v7.6.0+)
+
+The backend emails a **health alert** when price-fetching or its crons misbehave.
+All alert emails go out through one function — `notify_fetch_failure()` → EmailJS →
+`alpyengine@gmail.com`. A watchdog, `check_cron_health()` (job 9, Mon & Thu 07:00
+UTC), runs three checks: stuck evaluations (a horizon `awaiting` > 3 days), weekly
+cron liveness (> 8 days silent) and expired cron liveness (> 4 days silent). Checks
+2 & 3 read pg-cron's own run log (`cron.job_run_details`) by job name, so they stay
+correct even in weeks with no expirations.
+
+> The new Edge Functions only **log** failures (they don't email), so the alert
+> emails you actually receive are essentially from the watchdog. These
+> *system-health* alerts are separate from the in-app **price alerts** (v7.4.4).
+
+**See [`docs/ALERTS.md`](docs/ALERTS.md)** for the full list of alerts, what each
+one means, and the queries to check the system by hand.
+
 ## Authentication (v7.0.2+)
 
 Supabase Auth with email/password and Google OAuth.
@@ -213,6 +230,7 @@ npm run test       # watch mode
 170 tests across 10 files — utils, hooks, services, components.
 
 ---
+| v7.10.3 | Fix cron watchdog after the Edge migration + alerts doc (backend/docs). `check_cron_health()` still monitored the **old SQL function names** in `fetch_log_summary` (`fetch_expired_horizons`, `fetch_weekly_prices`) — paused since v7.9.0 — so it fired a false *"fetch_expired_horizons sin ejecucion desde …"* email every Mon/Thu even though the `_edge` functions were running fine (they log to `fetch_log`, never to `fetch_log_summary`). Rewrote Checks 2 & 3 to read **pg-cron's own run log** (`cron.job_run_details`) by `jobname` (`fetch-weekly-prices-edge`, `recovery-weekly-prices`, `fetch-expired-horizons-edge`) — true cron liveness, correct even in weeks with no expirations; Check 1 (stuck `awaiting` > 3d, data-based) unchanged · new `supabase/sql/04_check_cron_health.sql` · new **`docs/ALERTS.md`** (plain-language guide + table of every alert) + README "Alerts & monitoring" section. No `src/` changes |
 | v7.10.2 | **All Stocks** help-text pass (presentational, `AllStocksPage.jsx`): fixed the **Left to target** tooltip incongruence — the sub-line wrongly stated `(lastWeeklyPrice − target) / target × 100` (the real formula is `(target − refPrice) / refPrice`) and the colour key was inverted; now **🟢 positive = upside remains (price still below target)** and **🔴 negative = price already above target**, with the correct formula and price-source cascade. Made the **Upside** tooltip English-consistent (child now "Green = positive · Red = negative") and added its formula. Added a **"Best only" help tooltip** explaining the filter: remaining upside > 0 for the selected horizon AND Score ≥ 60 (Score condition only applies when a Score exists — never hides score-less tickers). Score threshold unchanged. No data-model or backend changes |
 | v7.10.1 | **All Stocks** header + sorting (presentational, `AllStocksPage.jsx`): replaced the per-column **Upside** horizon dropdown with a **Watchlist-style horizon pill** (`1M / 3M / 6M / 12M`) in the filters toolbar; the Upside and Left-to-target headers now show the active horizon as a small tag. **All columns are now sortable** asc/desc — added Market, Sector, PEG, Margin and Batch (date) to the comparator alongside the existing Ticker / Upside / Left-to-target / Score, with a single convention (`sortDir 1 = asc, −1 = desc`) and missing values (null/NaN/`—`) always sorted to the bottom in both directions. Removed the now-unused `HorizonDropdown` component + `HORIZONS` const. No data-model or backend changes |
 | v7.9.7 | Fix EU price fetch (Yahoo HTTP 429) — Yahoo throttled the "naked" requests coming from the Edge runtime, so the 4 `.DE` tickers (AIXA/EVT/IFX/NEM) failed every weekly run with 429. Added a browser **User-Agent** header to the Yahoo calls in both Edge Functions (`fetch-weekly-prices`, `fetch-expired-horizons`) — the expired function already had one and worked, the weekly didn't and 429'd, which pinpointed the cause. Also `get_pending_expired` now filters **`< current_date`** instead of `<=`, so a horizon expiring *today* isn't evaluated until its close exists — removing the per-minute retry loop that hammered Yahoo (~480 failed calls per window). Recovered the 4 missing `.DE` Friday closes. Backend only — no `src/` changes |

@@ -4488,3 +4488,45 @@ stay green). Frontend only, no Supabase changes."
 git push origin feat/allstocks-header-sort
 # -> verify the Vercel preview. Tanda 1 done; then merge to main OR continue
 #    with Tanda 2 on a new branch.
+
+
+# ===========================================================================
+# STEP 178 — v7.10.3  Fix cron watchdog (Edge names) + docs/ALERTS.md
+# ===========================================================================
+#
+# BACKEND + DOCS. No src/ changes. (Captures a fix already live in Supabase.)
+# The watchdog check_cron_health() still watched the OLD SQL function names in
+# fetch_log_summary, so it false-alarmed every Mon/Thu after the v7.9.0 migration
+# (the _edge functions log to fetch_log, never to fetch_log_summary).
+# The corrected function was already applied in the dashboard SQL editor
+# (create or replace function) and tested: `select check_cron_health();`
+# -> "all crons healthy", no email. This commit just captures it + the docs.
+#
+# WHAT'S NEW:
+#   supabase/sql/04_check_cron_health.sql  — corrected watchdog (reads cron.job_run_details)
+#   docs/ALERTS.md                         — plain-language alerts guide + table
+#   README.md                              — new "Alerts & monitoring" section + link
+#
+# No tests needed (no src/ changes). Apply on a feature branch:
+git checkout main && git pull origin main
+git checkout -b fix/cron-watchdog-edge-names
+unzip -o ~/Downloads/openbank-price-prediction_v7.10.3.zip -d .
+git add supabase/sql/04_check_cron_health.sql docs/ALERTS.md README.md GIT_GUIDE.md
+git commit -m "fix: cron watchdog watched old SQL names -> false alarms; read cron.job_run_details (v7.10.3)
+
+check_cron_health() still checked fetch_log_summary for the old SQL function
+names (fetch_expired_horizons, fetch_weekly_prices), paused since v7.9.0, so it
+emailed a false 'sin ejecucion' alert every Mon/Thu while the _edge functions
+ran fine (they log to fetch_log, never fetch_log_summary). Rewrote Checks 2 & 3
+to read pg_cron's run log (cron.job_run_details) by jobname -> true liveness,
+correct even in weeks with no expirations. Check 1 unchanged. Adds
+supabase/sql/04_check_cron_health.sql, docs/ALERTS.md and a README section.
+Backend/docs only - no src changes."
+git push origin fix/cron-watchdog-edge-names
+git checkout main
+git merge --no-ff --no-edit fix/cron-watchdog-edge-names
+git tag -a v7.10.3 -m "v7.10.3: fix cron watchdog (Edge names) + docs/ALERTS.md"
+git push origin main
+git push origin v7.10.3
+git branch -d fix/cron-watchdog-edge-names
+git push origin --delete fix/cron-watchdog-edge-names   # opcional
