@@ -266,60 +266,6 @@ function PegCell({ peg }) {
   return <span className="font-bold text-red-500">{peg.toFixed(2)}</span>
 }
 
-// ── Horizon dropdown ──────────────────────────────────────────────────────────
-
-const HORIZONS = [
-  { key: '1M',  label: '1M',  sub: '~4 weeks'  },
-  { key: '3M',  label: '3M',  sub: '~13 weeks' },
-  { key: '6M',  label: '6M',  sub: '~26 weeks' },
-  { key: '12M', label: '12M', sub: '~52 weeks' },
-]
-
-function HorizonDropdown({ value, onChange }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1 px-2 py-1 rounded-md border border-primary bg-primary/10 text-primary text-[11px] font-bold cursor-pointer"
-      >
-        {value} <ChevronDown size={11} />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[140px] overflow-hidden">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border">
-            Horizon
-          </div>
-          {HORIZONS.map(h => (
-            <button
-              key={h.key}
-              onClick={() => { onChange(h.key); setOpen(false) }}
-              className={cn(
-                'w-full flex items-center justify-between px-3 py-2 text-[12px] font-semibold cursor-pointer border-none bg-transparent hover:bg-muted',
-                h.key === value ? 'text-primary bg-primary/5' : 'text-foreground'
-              )}
-              style={{ fontFamily: 'inherit' }}
-            >
-              <span>{h.label}</span>
-              <span className={cn('text-[10px] font-normal', h.key === value ? 'text-primary' : 'text-muted-foreground')}>
-                {h.key === value ? '✓' : h.sub}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Legend ────────────────────────────────────────────────────────────────────
 
 /**
@@ -619,20 +565,46 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   //          → basePrice (batch snapshot — least accurate for old batches)
   // Used by: topPicks upsideHoy, Left to target column, bestOnly filter.
   // Sort — supports ticker (alphabetical), upside, score, vsTarget (numeric)
-  const sorted = useMemo(() => [...filteredFinal].sort((a, b) => {
-    if (sortCol === 'ticker') {
-      return sortDir * a.t.localeCompare(b.t)
+  // Sort — all columns, asc/desc. sortDir: 1 = ascending, -1 = descending.
+  // Missing values (null / NaN / '—') always sort to the bottom, in both directions.
+  const sorted = useMemo(() => {
+    const numCmp = (x, y) => {
+      const ax = x == null || Number.isNaN(x)
+      const ay = y == null || Number.isNaN(y)
+      if (ax && ay) return 0
+      if (ax) return 1
+      if (ay) return -1
+      return sortDir * (x - y)
     }
-    if (sortCol === 'vsTarget') {
-      const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
-      const va = getUpsideHoy(a, tKey) ?? -999
-      const vb = getUpsideHoy(b, tKey) ?? -999
-      return sortDir * (vb - va)
+    const strCmp = (x, y) => {
+      const ax = !x || x === '—'
+      const ay = !y || y === '—'
+      if (ax && ay) return 0
+      if (ax) return 1
+      if (ay) return -1
+      return sortDir * x.localeCompare(y)
     }
-    const va = sortCol === 'upside' ? (a[hKey] ?? -999) : (a.score ?? -1)
-    const vb = sortCol === 'upside' ? (b[hKey] ?? -999) : (b.score ?? -1)
-    return sortDir * (vb - va)
-  }), [filtered, sortCol, sortDir, hKey, horizon, weeklyPrices])
+    const batchTime = d => {
+      if (!d) return null
+      const [dd, mm, yy] = d.split('/').map(Number)
+      return new Date(yy, mm - 1, dd).getTime()
+    }
+    const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
+    return [...filteredFinal].sort((a, b) => {
+      switch (sortCol) {
+        case 'ticker':   return sortDir * a.t.localeCompare(b.t)
+        case 'market':   return strCmp(a.market, b.market)
+        case 'sector':   return strCmp(a.sector, b.sector)
+        case 'upside':   return numCmp(a[hKey], b[hKey])
+        case 'vsTarget': return numCmp(getUpsideHoy(a, tKey), getUpsideHoy(b, tKey))
+        case 'score':    return numCmp(a.score, b.score)
+        case 'peg':      return numCmp(a.peg, b.peg)
+        case 'margin':   return numCmp(a.margin, b.margin)
+        case 'batch':    return numCmp(batchTime(a.batchDate), batchTime(b.batchDate))
+        default:         return sortDir * a.t.localeCompare(b.t)
+      }
+    })
+  }, [filteredFinal, sortCol, sortDir, hKey, horizon, getUpsideHoy])
 
   function toggleSort(col) {
     if (sortCol === col) setSortDir(d => d * -1)
@@ -767,6 +739,27 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       {/* ── Filters ────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 flex-wrap">
 
+        {/* Horizon selector — Watchlist-style pill (replaces the per-column dropdown) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11px] text-muted-foreground">Horizon:</span>
+          <div className="flex items-center gap-0.5 bg-muted rounded-full p-0.5 border border-border">
+            {['1M', '3M', '6M', '12M'].map(h => (
+              <button
+                key={h}
+                onClick={() => setHorizon(h)}
+                className={cn(
+                  'text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors cursor-pointer bg-transparent',
+                  horizon === h
+                    ? 'bg-card text-foreground shadow-sm border border-border'
+                    : 'text-muted-foreground hover:text-foreground border border-transparent'
+                )}
+                style={{ fontFamily: 'inherit' }}
+              >{h}</button>
+            ))}
+          </div>
+        </div>
+        <div className="w-px h-3.5 bg-border" />
+
         {/* Market filter — badge buttons, shown only when >1 market detected */}
         {markets.length > 1 && (
           <div className="flex items-center gap-1.5 mr-1">
@@ -849,6 +842,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           <Zap size={11} />
           Best only
         </button>
+        <ColTooltip text="Filters to today's best opportunities: only stocks with remaining upside > 0 for the selected horizon (from today's price there's still room to the target) AND Score ≥ 60. The Score ≥ 60 condition applies only when the stock has a Score — stocks without fundamentals are never hidden by it." />
         {bestOnly && (
           <span className="text-[10px] text-muted-foreground">
             upside &gt; 0{stocks.some(s => s.score != null) ? ' · score ≥ 60 if available' : ''}
@@ -880,58 +874,69 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 </button>
               </th>
               {markets.length > 1 && (
-                <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide sticky top-0 z-10 bg-card">Market</th>
+                <th className="px-3 py-2.5 text-left sticky top-0 z-10 bg-card">
+                  <button
+                    onClick={() => toggleSort('market')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'market' ? 'text-primary' : 'text-muted-foreground')}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    Market {sortIcon('market')}
+                  </button>
+                </th>
               )}
-              <th className="px-3 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide sticky top-0 z-10 bg-card">Sector</th>
+              <th className="px-3 py-2.5 text-left sticky top-0 z-10 bg-card">
+                <button
+                    onClick={() => toggleSort('sector')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'sector' ? 'text-primary' : 'text-muted-foreground')}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    Sector {sortIcon('sector')}
+                  </button>
+              </th>
               <th className="px-2 py-2.5 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wide sticky top-0 z-10 bg-card">⭐</th>
 
-              {/* Upside column — sort button above horizon dropdown */}
+              {/* Upside column — horizon controlled by the top selector */}
               <th className="px-3 py-2.5 text-right sticky top-0 z-10 bg-card">
-                <div className="flex flex-col items-end gap-0.5">
-                  <div className="flex items-center gap-0.5">
-                    <button
-                      onClick={() => toggleSort('upside')}
-                      className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
-                        sortCol === 'upside' ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                      style={{ fontFamily: 'inherit' }}
-                    >
-                      Upside {sortIcon('upside')}
-                    </button>
-                    <ColTooltip text="Expected % gain from batch base price to Openbank AI target for the selected horizon.">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-foreground">Verde = positivo · Rojo = negativo</span>
-                      </div>
-                    </ColTooltip>
-                  </div>
-                  <HorizonDropdown value={horizon} onChange={setHorizon} />
+                <div className="flex items-center justify-end gap-0.5">
+                  <button
+                    onClick={() => toggleSort('upside')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'upside' ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    Upside <span className="text-primary">{horizon}</span> {sortIcon('upside')}
+                  </button>
+                  <ColTooltip text="Expected % gain forecast by Openbank, from the batch base price to the target for the selected horizon. Formula: (target − base) / base × 100.">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold text-foreground">Green = positive · Red = negative</span>
+                    </div>
+                  </ColTooltip>
                 </div>
               </th>
 
               {/* Left to target — how much upside remains from today's price */}
               <th className="px-3 py-2.5 text-right sticky top-0 z-10 bg-card">
-                <div className="flex flex-col items-end gap-0.5">
-                  <div className="flex items-center gap-0.5">
-                    <button
-                      onClick={() => toggleSort('vsTarget')}
-                      className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
-                        sortCol === 'vsTarget' ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                      style={{ fontFamily: 'inherit' }}
-                    >
-                      Left to target {sortIcon('vsTarget')}
-                    </button>
-                    <ColTooltip text="How much upside remains from today's price to the Openbank AI target. Formula: (target − refPrice) / refPrice. refPrice = latest weekly close (Sat cron) → live fetch → batch base price. Green = target still reachable. Red = price already above target.">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-foreground">Formula: (lastWeeklyPrice − target) / target × 100</span>
-                        <span className="text-[10px] text-blue-700">🔵 Positive = above target</span>
-                        <span className="text-[10px] text-red-600">🔴 Negative = below target</span>
-                        <span className="text-[10px] text-muted-foreground">Price source: weekly_prices table (max 7 days old)</span>
-                      </div>
-                    </ColTooltip>
-                  </div>
-                  {/* Empty space to align with Upside dropdown */}
-                  <div className="h-[22px]" />
+                <div className="flex items-center justify-end gap-0.5">
+                  <button
+                    onClick={() => toggleSort('vsTarget')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'vsTarget' ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    Left to target <span className="text-primary">{horizon}</span> {sortIcon('vsTarget')}
+                  </button>
+                  <ColTooltip text="How much upside remains from today's price to the Openbank AI target. Formula: (target − refPrice) / refPrice. refPrice = latest weekly close (Sat cron) → live fetch → batch base price. Green = target still reachable. Red = price already above target.">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold text-foreground">Formula: (target − refPrice) / refPrice × 100</span>
+                      <span className="text-[10px] text-green-700">🟢 Positive = upside remains (price still below target)</span>
+                      <span className="text-[10px] text-red-600">🔴 Negative = price already above target</span>
+                      <span className="text-[10px] text-muted-foreground">Price source: weekly_prices (max 7 days) → live fetch → base</span>
+                    </div>
+                  </ColTooltip>
                 </div>
               </th>
 
@@ -961,7 +966,14 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               {/* PEG column + info tooltip */}
               <th className="px-3 py-2.5 text-right sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-end gap-0.5">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">PEG</span>
+                  <button
+                    onClick={() => toggleSort('peg')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'peg' ? 'text-primary' : 'text-muted-foreground')}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    PEG {sortIcon('peg')}
+                  </button>
                   <ColTooltip text="Price/Earnings to Growth ratio (Peter Lynch). Measures if the stock is cheap or expensive relative to its growth rate.">
                     <div className="flex flex-wrap gap-1">
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-800 font-bold">🟢 &lt;1 undervalued</span>
@@ -976,7 +988,14 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               {/* Margin column + info tooltip */}
               <th className="px-3 py-2.5 text-right sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-end gap-0.5">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Margin</span>
+                  <button
+                    onClick={() => toggleSort('margin')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'margin' ? 'text-primary' : 'text-muted-foreground')}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    Margin {sortIcon('margin')}
+                  </button>
                   <ColTooltip text="Net profit margin TTM — % of revenue kept as profit in the last 12 months. Higher is better." />
                 </div>
               </th>
@@ -1007,7 +1026,14 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               {/* Batch column + info tooltip */}
               <th className="px-3 py-2.5 text-center sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-center gap-0.5">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Batch</span>
+                  <button
+                    onClick={() => toggleSort('batch')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'batch' ? 'text-primary' : 'text-muted-foreground')}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    Batch {sortIcon('batch')}
+                  </button>
                   <ColTooltip text="Date of the most recent batch containing this ticker. · Nx means the ticker appears in N different batches — most recent data wins." />
                 </div>
               </th>
@@ -1169,7 +1195,17 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       </div>
 
       <div className="text-[10px] text-muted-foreground text-right">
-        Sorted by {sortCol === 'upside' ? `Upside ${horizon}` : sortCol === 'score' ? 'Score' : sortCol === 'vsTarget' ? `Left to target ${horizon}` : 'Ticker'} {sortDir === -1 ? 'desc' : 'asc'} · Click column headers to re-sort
+        Sorted by {({
+          upside:   `Upside ${horizon}`,
+          vsTarget: `Left to target ${horizon}`,
+          score:    'Score',
+          peg:      'PEG',
+          margin:   'Margin',
+          batch:    'Batch',
+          market:   'Market',
+          sector:   'Sector',
+          ticker:   'Ticker',
+        }[sortCol] ?? 'Ticker')} {sortDir === -1 ? 'desc' : 'asc'} · Click column headers to re-sort
       </div>
 
       {/* TradingView modal — opens when TV icon clicked */}
