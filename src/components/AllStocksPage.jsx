@@ -368,6 +368,114 @@ function Legend() {
   )
 }
 
+// ── Ticker / company search (#6) ──────────────────────────────────────────────
+
+/**
+ * StockSearch — search box with live filtering + a suggestions dropdown.
+ * Matches by display ticker, raw ticker or company name. Picking a suggestion
+ * (click / Enter) calls onPick; typing calls onChange (filters the table).
+ * Keyboard: ↑/↓ navigate, Enter selects, Esc closes. ✕ clears the text only.
+ */
+function StockSearch({ stocks, value, onChange, onPick }) {
+  const [open, setOpen]     = useState(false)
+  const [active, setActive] = useState(-1)
+  const ref                 = useRef(null)
+
+  useEffect(() => {
+    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const term = value.trim().toLowerCase()
+  const suggestions = useMemo(() => {
+    if (!term) return []
+    return stocks
+      .filter(s =>
+        s.tDisplay.toLowerCase().includes(term) ||
+        s.t.toLowerCase().includes(term) ||
+        (s.co || '').toLowerCase().includes(term))
+      .slice(0, 6)
+  }, [stocks, term])
+
+  // highlight the matched substring (no regex — index-based)
+  const hl = (text, t) => {
+    if (!t) return text
+    const i = text.toLowerCase().indexOf(t)
+    if (i < 0) return text
+    return (
+      <>{text.slice(0, i)}<span className="bg-amber-200 dark:bg-amber-500/40 rounded-sm">{text.slice(i, i + t.length)}</span>{text.slice(i + t.length)}</>
+    )
+  }
+
+  function choose(s) { if (s) { onPick(s); setOpen(false); setActive(-1) } }
+
+  function onKey(e) {
+    if (!open || suggestions.length === 0) return
+    if (e.key === 'ArrowDown')      { e.preventDefault(); setActive(a => Math.min(a + 1, suggestions.length - 1)) }
+    else if (e.key === 'ArrowUp')   { e.preventDefault(); setActive(a => Math.max(a - 1, 0)) }
+    else if (e.key === 'Enter')     { e.preventDefault(); choose(suggestions[active >= 0 ? active : 0]) }
+    else if (e.key === 'Escape')    { setOpen(false) }
+  }
+
+  return (
+    <div className="relative" ref={ref} style={{ width: '230px' }}>
+      <div className="flex items-center gap-1.5 bg-card border border-border rounded-md px-2 py-1 focus-within:border-primary">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-muted-foreground shrink-0">
+          <circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          type="text"
+          value={value}
+          onChange={e => { onChange(e.target.value); setOpen(true); setActive(-1) }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKey}
+          placeholder="Search ticker or company…"
+          className="flex-1 min-w-0 bg-transparent border-none outline-none text-[11.5px] text-foreground placeholder:text-muted-foreground"
+          style={{ fontFamily: 'inherit' }}
+          autoComplete="off"
+        />
+        {value && (
+          <button
+            onClick={() => { onChange(''); setActive(-1) }}
+            className="text-muted-foreground hover:text-foreground bg-transparent border-none cursor-pointer text-[12px] leading-none p-0 shrink-0"
+            aria-label="Clear search"
+          >✕</button>
+        )}
+      </div>
+
+      {open && term && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+          {suggestions.length === 0 ? (
+            <div className="px-3 py-2.5 text-[11px] text-muted-foreground text-center">No matches</div>
+          ) : (
+            suggestions.map((s, i) => (
+              <button
+                key={s.t}
+                onClick={() => choose(s)}
+                onMouseMove={() => setActive(i)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-2.5 py-1.5 text-left bg-transparent border-none cursor-pointer border-b border-border last:border-0',
+                  i === active ? 'bg-primary/10' : 'hover:bg-muted/50'
+                )}
+                style={{ fontFamily: 'inherit' }}
+              >
+                <span className="w-6 h-6 rounded bg-primary/10 text-primary flex items-center justify-center text-[8px] font-black shrink-0">{s.tDisplay.slice(0, 3)}</span>
+                <span className="min-w-0">
+                  <span className="block text-[11.5px] font-bold text-foreground leading-tight">{hl(s.tDisplay, term)}</span>
+                  <span className="block text-[10px] text-muted-foreground leading-tight truncate">{hl(s.co || '', term)}</span>
+                </span>
+                <span className={cn('ml-auto text-[9px] font-semibold px-1 py-0.5 rounded shrink-0',
+                  s.market === 'US' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700')}>{s.market}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── CSV export ────────────────────────────────────────────────────────────────
 
 function exportCSV(rows, horizon) {
@@ -407,6 +515,9 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   const [topPicksCriteria, setTopPicksCriteria] = useState('upside')
   // bestOnly — when true, filters table to upside > 0 (+ score >= 60 if available)
   const [bestOnly, setBestOnly] = useState(false)
+  // #6 ticker/company search (v7.11.1) — filters the table live; respects other filters + sort.
+  const [searchQuery, setSearchQuery] = useState('')
+  const [highlight,   setHighlight]   = useState(null)  // tNorm to flash after picking a suggestion
   // weeklyPrices passed from App.jsx (loaded once, shared with WatchlistPage)
   const weeklyPrices = weeklyPricesProps
   // tvTicker — ticker currently open in TradingView modal (null = closed)
@@ -490,8 +601,23 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     if (filterPeg === 'mid'  && !(s.peg != null && s.peg >= 1 && s.peg <= 2)) return false
     if (filterPeg === 'high' && !(s.peg != null && s.peg > 2))                return false
     if (minScore > 0 && (s.score == null || s.score < minScore)) return false
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      if (!s.tDisplay.toLowerCase().includes(q) &&
+          !s.t.toLowerCase().includes(q) &&
+          !(s.co || '').toLowerCase().includes(q)) return false
+    }
     return true
-  }), [stocks, filterSec, filterMkt, filterPeg, minScore])
+  }), [stocks, filterSec, filterMkt, filterPeg, minScore, searchQuery])
+
+  // #6 — scroll to + flash the row when a suggestion is picked, then clear the flash.
+  useEffect(() => {
+    if (!highlight) return
+    const el = typeof document !== 'undefined' ? document.getElementById('asrow-' + highlight) : null
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => setHighlight(null), 1500)
+    return () => clearTimeout(t)
+  }, [highlight])
 
   // getRefPrice — reference price for a stock, using the best available source.
   // Cascade: latest weekly close (Supabase, updated Saturdays)
@@ -818,6 +944,15 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           <option value="high">PEG &gt; 2 (expensive)</option>
         </select>
 
+        {/* #6 ticker/company search — live filter + suggestions, before Score min */}
+        <StockSearch
+          stocks={stocks}
+          value={searchQuery}
+          onChange={setSearchQuery}
+          onPick={s => { setSearchQuery(s.tDisplay); setHighlight(s.tNorm) }}
+        />
+        <div className="w-px h-3.5 bg-border" />
+
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
           Score min:
           <input
@@ -1057,7 +1192,12 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
             {sorted.map(s => {
               const u = s[hKey]
               return (
-                <tr key={s.t} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                <tr
+                  key={s.t}
+                  id={'asrow-' + s.tNorm}
+                  className={cn('border-b border-border last:border-0 transition-colors',
+                    highlight === s.tNorm ? 'bg-amber-100 dark:bg-amber-500/20' : 'hover:bg-muted/30')}
+                >
                   {/* Ticker — clickable link to Batch Overview Details */}
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">

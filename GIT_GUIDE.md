@@ -4530,3 +4530,51 @@ git push origin main
 git push origin v7.10.3
 git branch -d fix/cron-watchdog-edge-names
 git push origin --delete fix/cron-watchdog-edge-names   # opcional
+
+
+# ===========================================================================
+# STEP 179 — v7.11.1  All Stocks: ticker/company search (Tanda 2 #6)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (AllStocksPage.jsx).
+# Presentational (AllStocksPage is not a tested module → 170 tests stay green).
+# First change of Tanda 2 (All Stocks navigation/search). New branch from main.
+#
+# WHAT'S NEW (all inside src/components/AllStocksPage.jsx):
+#   #6 Search box in the filters toolbar, placed before "Score min" (start of
+#      the second filter row). Dual behaviour:
+#        - filters the table live as you type (matches display ticker, raw
+#          ticker, or company name)
+#        - shows a suggestions dropdown (up to 6, matched-substring highlight,
+#          ticker badge + market). Picking one (click / Enter) filters to that
+#          ticker and scrolls to + flashes its row (amber, ~1.5s).
+#      Keyboard ↑/↓/Enter/Esc; ✕ clears the text only (leaves other filters).
+#      Composes with all existing filters + sort (search added to the `filtered`
+#      memo, so Market/Sector/PEG/Score/Best only + column sort all still apply).
+#      New StockSearch component + searchQuery/highlight state + a scroll/flash
+#      effect; rows got id="asrow-<tNorm>".
+#
+#   README.md: v7.11.1 changelog row.
+#
+#   Tanda 2 still pending: #7 Top Picks by sector (v7.11.2), #5 click→batch-detail
+#   auto-scroll (v7.11.3 — needs the Batch Detail page + nav/router files).
+#
+# Branch from main (main has v7.9.2..v7.10.3):
+git checkout main && git pull origin main
+git checkout -b feat/allstocks-search-nav
+unzip -o ~/Downloads/openbank-price-prediction_v7.11.1.zip -d .
+npm run test:run
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks — ticker/company search (v7.11.1)
+
+#6 New search box in the filters toolbar (before Score min). Filters the table
+live as you type (display ticker / raw ticker / company name) AND shows a
+suggestions dropdown (up to 6, matched-substring highlight, ticker badge +
+market). Picking a suggestion filters to that ticker and scrolls to + flashes
+its row. Keyboard nav; clear button wipes the text only. Composes with all
+existing filters and column sort (search added to the filtered memo).
+
+Presentational, AllStocksPage not a tested module (170 tests stay green).
+Frontend only, no Supabase changes."
+git push origin feat/allstocks-search-nav
+# -> verify the Vercel preview, then continue with v7.11.2 (#7) on the SAME branch.
