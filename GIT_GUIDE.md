@@ -4673,3 +4673,118 @@ Frontend only, no Supabase changes."
 git push origin feat/allstocks-search-nav
 # -> verify the Vercel preview. Tanda 2 complete (v7.11.1/2/3); then merge the
 #    branch to main with tags v7.11.1, v7.11.2, v7.11.3 (keep the branch).
+
+
+# ===========================================================================
+# STEP 181 — v7.11.3  All Stocks → Batch Detail click-to-scroll (Tanda 2 #5)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only. Presentational → 170 tests
+# stay green. Completes Tanda 2. Continues on the SAME branch
+# feat/allstocks-search-nav (on top of v7.11.2).
+#
+# FILES (4): src/App.jsx, src/components/AllStocksPage.jsx,
+#            src/components/StockTable.jsx, src/components/StockRow.jsx
+#
+# NOTE: the #5 wiring already existed in App.jsx / StockTable.jsx / StockRow.jsx
+#       in the working tree (from the earlier implementation). The only piece
+#       missing after v7.11.1/v7.11.2 was the trigger in AllStocksPage. The ZIP
+#       ships all 4 files for consistency; when you unzip, git will likely show
+#       ONLY AllStocksPage.jsx as changed if the other 3 already match your repo.
+#       (Run `git status` after unzip to confirm what actually changed.)
+#
+# WHAT'S NEW:
+#   #5 Click a ticker in All Stocks (table row or Top Picks card) → loads its
+#      batch, navigates to Batch Detail, and scrolls to + flashes that ticker's
+#      row. App.jsx: new scrollToTicker state, onScrollToTicker prop to
+#      AllStocksPage, scrollToTicker + onScrollHandled to the batch-detail
+#      StockTable. AllStocksPage: onScrollToTicker?.(s.t) on both click sites.
+#      StockTable: scrolls to bdrow-<ticker>, flashes, then calls onScrollHandled
+#      (~1.6s); passes rowId/highlight to StockRow. StockRow: id={rowId} + amber
+#      flash on its main <tr>. Independent of the Watchlist→BatchSimple
+#      highlightTicker path (different page, different state).
+#
+#   README.md: v7.11.3 changelog row.
+#
+#   Tanda 2 COMPLETE (v7.11.1 search + v7.11.2 Top Picks by sector + v7.11.3
+#   click-to-scroll). Next: merge feat/allstocks-search-nav to main with tags
+#   v7.11.1 / v7.11.2 / v7.11.3, then Tanda 3 (v7.12.x).
+#
+# Apply on the SAME branch (continues v7.11.2):
+git checkout feat/allstocks-search-nav
+unzip -o ~/Downloads/openbank-price-prediction_v7.11.3.zip -d .
+git status        # see which of the 4 files actually changed
+npm run test:run
+git add src/App.jsx src/components/AllStocksPage.jsx src/components/StockTable.jsx src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks -> Batch Detail click-to-scroll (v7.11.3)
+
+#5 Clicking a ticker in All Stocks (table row or Top Picks card) loads its
+batch, navigates to Batch Detail and scrolls to + flashes that ticker's row.
+App.jsx: scrollToTicker state + onScrollToTicker prop to AllStocksPage +
+scrollToTicker/onScrollHandled to the batch-detail StockTable. AllStocksPage:
+onScrollToTicker(s.t) on both click sites. StockTable: scroll to bdrow-<t> +
+flash + onScrollHandled reset; passes rowId/highlight to StockRow. StockRow:
+id + amber flash on its main <tr>. Independent of the Watchlist highlightTicker
+path. Completes Tanda 2.
+
+Presentational, 170 tests stay green. Frontend only, no Supabase changes."
+git push origin feat/allstocks-search-nav
+# -> verify the Vercel preview, then merge Tanda 2 to main:
+#    git checkout main && git pull origin main
+#    git merge --no-ff --no-edit feat/allstocks-search-nav
+#    git tag -a v7.11.1 -m "v7.11.1: All Stocks ticker/company search"
+#    git tag -a v7.11.2 -m "v7.11.2: All Stocks Top Picks by sector"
+#    git tag -a v7.11.3 -m "v7.11.3: All Stocks -> Batch Detail click-to-scroll"
+#    git push origin main && git push origin v7.11.1 v7.11.2 v7.11.3
+#    (do NOT delete the branch — kept as historical reference)
+
+
+# ===========================================================================
+# STEP 182 — v7.12.1  All Stocks: Sparkline → Entry Quality + Entry Momentum
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (AllStocksPage.jsx).
+# Presentational (AllStocksPage not a tested module → 170 tests stay green).
+# First change of Tanda 3 (#9). New branch from main (main has v7.11.x merged).
+# NOTE: we jumped straight to #9; the duplicate-batch rows (#8) come later as v7.12.2.
+#
+# WHAT'S NEW (all inside src/components/AllStocksPage.jsx):
+#   #9 Replaced the Sparkline column (and removed the SparkLine component) with
+#      TWO new sortable columns:
+#      - Entry Quality (0–100 badge, same look as Score):
+#          0.5·remaining-upside(norm 0–40%) + 0.35·Score/100 + 0.15·PEG-valuation.
+#          No fundamentals → reweighted 0.75·upside + 0.25·PEG, marked "~".
+#          Colours: violet 80+, blue 60+, amber 40+, gray <40.
+#      - Entry Momentum (pill + trend arrow ↗/→/↘):
+#          Strong  = upside left (>=8%) & weekly trend up
+#          Building= upside left (>=8%) & not turning up yet
+#          Late    = 0 < upside < 8%
+#          Missed  = upside <= 0 (price already above target)
+#          Trend from the same weekly series that fed the sparkline.
+#      Both depend on the selected horizon and plug into the existing sort
+#      (Entry Momentum ranks Strong>Building>Late>Missed; nulls last). Empty-state
+#      colSpan 10 -> 11.
+#
+#   README.md: v7.12.1 changelog row (and removed an accidental duplicate v7.11.3 row).
+#
+# Branch from main:
+git checkout main && git pull origin main
+git checkout -b feat/allstocks-entry-metrics
+unzip -o ~/Downloads/openbank-price-prediction_v7.12.1.zip -d .
+git status        # expect: AllStocksPage.jsx, README.md, GIT_GUIDE.md
+npm run test:run
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks — Entry Quality + Entry Momentum columns (v7.12.1)
+
+#9 Replace the Sparkline column with two sortable metric columns. Entry Quality
+(0-100 badge, same look as Score): 0.5*remaining-upside + 0.35*Score + 0.15*PEG;
+without fundamentals reweighted to 0.75*upside + 0.25*PEG and marked '~'. Entry
+Momentum (pill + trend arrow): Strong/Building/Late/Missed from remaining upside
+plus the recent weekly trend. Both depend on the selected horizon and sort with
+the existing comparator (momentum ranked Strong>Building>Late>Missed, nulls
+last). Removed the now-unused SparkLine component; empty-state colSpan 10->11.
+
+Presentational, AllStocksPage not a tested module (170 tests stay green).
+Frontend only, no Supabase changes."
+git push origin feat/allstocks-entry-metrics
+# -> verify the Vercel preview. Tanda 3 remaining: #8 duplicate-batch rows (v7.12.2).

@@ -210,45 +210,46 @@ function uColor(v) {
   return v >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'
 }
 
-/**
- * SparkLine — mini line chart showing weekly price evolution.
- *
- * Colour logic (Option A from spec):
- *   green  — current price (last point) > base price (first point)
- *   red    — current price (last point) < base price (first point)
- *   grey   — no data or flat
- *
- * @param {number[]} points — array of weekly close prices (oldest → newest)
- * @param {number}   base   — base price of the batch (first buy price)
- */
-function SparkLine({ points, base }) {
-  // Need at least 2 points to draw a line — show dash otherwise
-  if (!points?.length || points.length < 2) {
-    return <span className="text-[10px] text-muted-foreground">—</span>
-  }
-
-  const last  = points[points.length - 1]
-  const color = base == null ? '#6b7280'
-              : last > base  ? '#16a34a'   // green — above base
-              : last < base  ? '#dc2626'   // red   — below base
-              : '#6b7280'                  // grey  — flat
-
-  const mn = Math.min(...points)
-  const mx = Math.max(...points)
-  const rng = mx - mn || 1
-
-  const w = 55
-  const h = 22
-  const coords = points
-    .map((v, i) => `${(i / (points.length - 1)) * w},${h - ((v - mn) / rng) * (h - 2) - 1}`)
-    .join(' ')
-
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
-      <polyline points={coords} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  )
+// ── Entry metrics (#9) ────────────────────────────────────────────────────────
+// Entry Quality 0–100 — how attractive the entry is today: remaining upside (50%)
+// + Score (35%) + valuation/PEG (15%). Without a Score it reweights to 75% upside
+// + 25% PEG and flags noScore. remPct is the value from getUpsideHoy (already %).
+function entryQuality(remPct, score, peg) {
+  if (remPct == null) return null
+  const upN  = Math.max(0, Math.min(1, remPct / 40))
+  const pegN = (peg == null || peg <= 0) ? 0 : Math.max(0, Math.min(1, (2 - peg) / 2))
+  if (score == null) return { v: Math.round(100 * (0.75 * upN + 0.25 * pegN)), noScore: true }
+  return { v: Math.round(100 * (0.5 * upN + 0.35 * (score / 100) + 0.15 * pegN)), noScore: false }
 }
+function eqClasses(v) {
+  if (v >= 80) return 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300'
+  if (v >= 60) return 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+  if (v >= 40) return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+  return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+}
+// Recent weekly trend from the same series that feeds the sparkline (numbers, old→new).
+function weeklyTrend(points) {
+  if (!points || points.length < 2) return 'flat'
+  const last = points[points.length - 1]
+  const prev = points[points.length - 2]
+  if (last > prev * 1.005) return 'up'
+  if (last < prev * 0.995) return 'down'
+  return 'flat'
+}
+// Entry Momentum — timing signal from remaining upside + trend.
+function entryMomentum(remPct, trend) {
+  if (remPct == null) return null
+  if (remPct <= 0) return 'missed'
+  if (remPct < 8)  return 'late'
+  return trend === 'up' ? 'strong' : 'building'
+}
+const MOM_META = {
+  strong:   { label: 'Strong',   rank: 4, cls: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300', dot: 'bg-green-600 dark:bg-green-400' },
+  building: { label: 'Building', rank: 3, cls: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',     dot: 'bg-blue-600 dark:bg-blue-400' },
+  late:     { label: 'Late',     rank: 2, cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300', dot: 'bg-amber-500' },
+  missed:   { label: 'Missed',   rank: 1, cls: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',         dot: 'bg-red-600 dark:bg-red-400' },
+}
+const TREND_ARROW = { up: '↗', down: '↘', flat: '→' }
 
 function ScoreBadge({ score }) {
   if (score == null) return <span className="text-[11px] text-muted-foreground">—</span>
@@ -730,10 +731,20 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
         case 'peg':      return numCmp(a.peg, b.peg)
         case 'margin':   return numCmp(a.margin, b.margin)
         case 'batch':    return numCmp(batchTime(a.batchDate), batchTime(b.batchDate))
+        case 'equality': {
+          const ea = entryQuality(getUpsideHoy(a, tKey), a.score, a.peg)
+          const eb = entryQuality(getUpsideHoy(b, tKey), b.score, b.peg)
+          return numCmp(ea ? ea.v : null, eb ? eb.v : null)
+        }
+        case 'entryMom': {
+          const ma = entryMomentum(getUpsideHoy(a, tKey), weeklyTrend(weeklyPrices[a.tNorm]?.[a.batchId]))
+          const mb = entryMomentum(getUpsideHoy(b, tKey), weeklyTrend(weeklyPrices[b.tNorm]?.[b.batchId]))
+          return numCmp(ma ? MOM_META[ma].rank : null, mb ? MOM_META[mb].rank : null)
+        }
         default:         return sortDir * a.t.localeCompare(b.t)
       }
     })
-  }, [filteredFinal, sortCol, sortDir, hKey, horizon, getUpsideHoy])
+  }, [filteredFinal, sortCol, sortDir, hKey, horizon, getUpsideHoy, weeklyPrices])
 
   function toggleSort(col) {
     if (sortCol === col) setSortDir(d => d * -1)
@@ -1155,24 +1166,39 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 </div>
               </th>
 
-              {/* Sparkline column + info tooltip */}
+              {/* Entry Quality column (#9) — replaces Sparkline */}
               <th className="px-3 py-2.5 text-center sticky top-0 z-10 bg-card">
                 <div className="flex items-center justify-center gap-0.5">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Sparkline</span>
-                  <ColTooltip text="Weekly price evolution since the batch date. Colour shows position vs batch base price — not the direction of the line.">
-                    <div className="flex flex-col gap-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <svg width="40" height="14" viewBox="0 0 40 14"><polyline points="0,12 7,9 14,7 21,5 28,3 35,4 40,2" fill="none" stroke="#16a34a" strokeWidth="1.5"/></svg>
-                        <span className="text-[10px] text-green-700 font-semibold">verde = price &gt; base</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <svg width="40" height="14" viewBox="0 0 40 14"><polyline points="0,2 7,4 14,6 21,8 28,10 35,11 40,12" fill="none" stroke="#dc2626" strokeWidth="1.5"/></svg>
-                        <span className="text-[10px] text-red-600 font-semibold">rojo = price &lt; base</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <svg width="40" height="14" viewBox="0 0 40 14"><polyline points="0,12 7,9 14,7 21,6 28,5 35,4 40,3" fill="none" stroke="#dc2626" strokeWidth="1.5"/></svg>
-                        <span className="text-[10px] text-muted-foreground">rojo + subiendo = recovering, still below base</span>
-                      </div>
+                  <button
+                    onClick={() => toggleSort('equality')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'equality' ? 'text-primary' : 'text-muted-foreground')}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    Entry Quality {sortIcon('equality')}
+                  </button>
+                  <ColTooltip text="Entry Quality 0–100: how attractive the entry is today, blending remaining upside (50%), Score (35%) and valuation/PEG (15%). Without fundamentals (no Score) it reweights to 75% upside + 25% PEG and is marked with ~. Depends on the selected horizon.">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold text-foreground">🟣 80+ · 🔵 60+ · 🟡 40+ · ⚫ &lt;40</span>
+                    </div>
+                  </ColTooltip>
+                </div>
+              </th>
+
+              {/* Entry Momentum column (#9) */}
+              <th className="px-3 py-2.5 text-center sticky top-0 z-10 bg-card">
+                <div className="flex items-center justify-center gap-0.5">
+                  <button
+                    onClick={() => toggleSort('entryMom')}
+                    className={cn('text-[10px] font-bold uppercase tracking-wide cursor-pointer bg-transparent border-none',
+                      sortCol === 'entryMom' ? 'text-primary' : 'text-muted-foreground')}
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    Entry Momentum {sortIcon('entryMom')}
+                  </button>
+                  <ColTooltip text="Entry Momentum: a timing signal combining remaining upside with the recent weekly trend. Strong = upside left and turning up; Building = upside left but not turning yet; Late = little upside remains (<8%); Missed = price already above target. ↗/↘ shows the recent weekly trend.">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold text-foreground">🟢 Strong · 🔵 Building · 🟡 Late · 🔴 Missed</span>
                     </div>
                   </ColTooltip>
                 </div>
@@ -1204,7 +1230,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           <tbody>
             {sorted.length === 0 && (
               <tr>
-                <td colSpan="10" className="px-3 py-8 text-center text-muted-foreground text-[12px]">
+                <td colSpan="11" className="px-3 py-8 text-center text-muted-foreground text-[12px]">
                   No stocks match the current filters
                 </td>
               </tr>
@@ -1317,14 +1343,38 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                     {s.margin != null ? s.margin.toFixed(1) + '%' : '—'}
                   </td>
 
-                  {/* Sparkline — weekly price evolution from weekly_prices table.
-                      Uses the most recent batchId for this ticker.
-                      Colour: green if last price > base, red if below (Option A). */}
+                  {/* Entry Quality (#9) — replaces Sparkline */}
                   <td className="px-3 py-2.5 text-center">
-                    <SparkLine
-                      points={weeklyPrices[s.tNorm]?.[s.batchId] ?? null}
-                      base={s.b}
-                    />
+                    {(() => {
+                      const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
+                      const eq = entryQuality(getUpsideHoy(s, tKey), s.score, s.peg)
+                      if (!eq) return <span className="text-[10px] text-muted-foreground">—</span>
+                      return (
+                        <span className={cn('inline-flex items-center justify-center min-w-[34px] px-2 py-0.5 rounded-md text-[11px] font-bold', eqClasses(eq.v))}>
+                          {eq.v}{eq.noScore && <span className="text-[8px] ml-0.5 opacity-70">~</span>}
+                        </span>
+                      )
+                    })()}
+                  </td>
+
+                  {/* Entry Momentum (#9) */}
+                  <td className="px-3 py-2.5 text-center">
+                    {(() => {
+                      const tKey  = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
+                      const trend = weeklyTrend(weeklyPrices[s.tNorm]?.[s.batchId])
+                      const mom   = entryMomentum(getUpsideHoy(s, tKey), trend)
+                      if (!mom) return <span className="text-[10px] text-muted-foreground">—</span>
+                      const m = MOM_META[mom]
+                      return (
+                        <span className="inline-flex items-center gap-1">
+                          <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold', m.cls)}>
+                            <span className={cn('w-1.5 h-1.5 rounded-full', m.dot)} />
+                            {m.label}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">{TREND_ARROW[trend]}</span>
+                        </span>
+                      )
+                    })()}
                   </td>
 
                   {/* Batch */}
@@ -1363,6 +1413,8 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           peg:      'PEG',
           margin:   'Margin',
           batch:    'Batch',
+          equality: `Entry Quality ${horizon}`,
+          entryMom: `Entry Momentum ${horizon}`,
           market:   'Market',
           sector:   'Sector',
           ticker:   'Ticker',
