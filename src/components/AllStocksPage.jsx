@@ -513,6 +513,8 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   // 'upside': rank by upside of selected horizon (works without fundamentals)
   // 'score':  rank by Investment Score (requires Refresh Fundamentals)
   const [topPicksCriteria, setTopPicksCriteria] = useState('upside')
+  // #7 Top Picks sector filter (v7.11.2) — '' = all sectors
+  const [topPicksSec, setTopPicksSec] = useState('')
   // bestOnly — when true, filters table to upside > 0 (+ score >= 60 if available)
   const [bestOnly, setBestOnly] = useState(false)
   // #6 ticker/company search (v7.11.1) — filters the table live; respects other filters + sort.
@@ -669,6 +671,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   const topPicks = useMemo(() => {
     const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't6'
     const candidates = stocks
+      .filter(s => !topPicksSec || s.sector === topPicksSec)
       .map(s => ({ s, uHoy: getUpsideHoy(s, tKey) }))
       .filter(({ uHoy }) => uHoy != null && uHoy > 0)
     if (topPicksCriteria === 'score') {
@@ -683,7 +686,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       .sort((a, b) => b.uHoy - a.uHoy)
       .slice(0, 5)
       .map(({ s, uHoy }) => ({ ...s, uHoy }))
-  }, [stocks, horizon, topPicksCriteria, getUpsideHoy])
+  }, [stocks, horizon, topPicksCriteria, topPicksSec, getUpsideHoy])
 
   // getRefPrice — reference price for a stock, using the best available source.
   // Cascade: latest weekly close (Supabase, updated Saturdays)
@@ -781,45 +784,57 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       </div>
 
       {/* ── Top 5 picks ────────────────────────────────────────────────────── */}
-      {topPicks.length > 0 && (
+      {baseStocks.length > 0 && (
         <div>
-          {/* Header row: label + criteria toggle */}
-          <div className="flex items-center justify-between mb-2">
+          {/* Header row: label + sector filter + criteria toggle */}
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
                 Top picks
               </span>
               <span className="text-[10px] text-muted-foreground">
-                · {horizon} horizon · sorted by {topPicksCriteria === 'upside' ? 'upside' : 'score'}
+                · {horizon} horizon · {topPicksSec || 'all sectors'} · sorted by {topPicksCriteria === 'upside' ? 'upside' : 'score'}
               </span>
             </div>
-            {/* Criteria toggle — upside (default) vs score */}
-            <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-              <button
-                onClick={() => setTopPicksCriteria('upside')}
-                className={cn(
-                  'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
-                  topPicksCriteria === 'upside'
-                    ? 'bg-card text-foreground shadow-sm border border-border'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
+            <div className="flex items-center gap-2">
+              {/* #7 sector filter for Top Picks */}
+              <select
+                value={topPicksSec}
+                onChange={e => setTopPicksSec(e.target.value)}
+                className="px-2 py-1 rounded-md border border-border bg-card text-[11px] text-foreground"
               >
-                Upside
-              </button>
-              <button
-                onClick={() => setTopPicksCriteria('score')}
-                className={cn(
-                  'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
-                  topPicksCriteria === 'score'
-                    ? 'bg-card text-foreground shadow-sm border border-border'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                Score
-              </button>
+                <option value="">All sectors</option>
+                {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              {/* Criteria toggle — upside (default) vs score */}
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                <button
+                  onClick={() => setTopPicksCriteria('upside')}
+                  className={cn(
+                    'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
+                    topPicksCriteria === 'upside'
+                      ? 'bg-card text-foreground shadow-sm border border-border'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Upside
+                </button>
+                <button
+                  onClick={() => setTopPicksCriteria('score')}
+                  className={cn(
+                    'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
+                    topPicksCriteria === 'score'
+                      ? 'bg-card text-foreground shadow-sm border border-border'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Score
+                </button>
+              </div>
             </div>
           </div>
-          {/* Pick cards grid */}
+          {/* Pick cards grid (or empty state when a sector has no positive-upside picks) */}
+          {topPicks.length > 0 ? (
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${topPicks.length}, minmax(0,1fr))` }}>
             {topPicks.map((s, i) => {
               const uHoy = s.uHoy  // pre-computed in topPicks useMemo
@@ -859,6 +874,11 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               )
             })}
           </div>
+          ) : (
+            <div className="text-[11px] text-muted-foreground bg-card border border-border rounded-xl px-3 py-4 text-center">
+              No top picks with positive upside{topPicksSec ? ` in ${topPicksSec}` : ''} at {horizon}.
+            </div>
+          )}
         </div>
       )}
 

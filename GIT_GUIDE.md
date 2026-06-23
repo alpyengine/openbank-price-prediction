@@ -4578,3 +4578,46 @@ Presentational, AllStocksPage not a tested module (170 tests stay green).
 Frontend only, no Supabase changes."
 git push origin feat/allstocks-search-nav
 # -> verify the Vercel preview, then continue with v7.11.2 (#7) on the SAME branch.
+
+
+# ===========================================================================
+# STEP 180 — v7.11.2  All Stocks: Top Picks by sector (Tanda 2 #7)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (AllStocksPage.jsx).
+# Presentational (AllStocksPage not a tested module → 170 tests stay green).
+# Continues on the SAME branch feat/allstocks-search-nav (on top of v7.11.1).
+#
+# WHAT'S NEW (all inside src/components/AllStocksPage.jsx):
+#   #7 Top Picks sector filter — added a sector <select> in the Top Picks header
+#      next to the Upside/Score toggle; picks can now be narrowed to one sector.
+#      The subtitle shows the active sector. The Top Picks header now ALWAYS
+#      renders (was hidden when there were 0 picks) so the controls never vanish;
+#      when a chosen sector has no positive-upside candidates it shows an inline
+#      empty state instead of hiding the section. New topPicksSec state; the
+#      sector list is reused from the existing main filter. topPicks memo filters
+#      candidates by topPicksSec.
+#
+#   README.md: v7.11.2 changelog row.
+#
+#   Tanda 2 remaining: #5 click→batch-detail auto-scroll (v7.11.3 — needs the
+#   Batch Detail page component + the nav/router file; please upload them).
+#
+# Apply on the SAME branch (continues v7.11.1):
+git checkout feat/allstocks-search-nav
+unzip -o ~/Downloads/openbank-price-prediction_v7.11.2.zip -d .
+npm run test:run
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks — Top Picks by sector (v7.11.2)
+
+#7 Add a sector selector to the Top Picks header (next to the Upside/Score
+toggle) so picks can be narrowed to one sector; subtitle shows the active
+sector. The Top Picks header now always renders (was hidden at 0 picks) so the
+controls never disappear; a chosen sector with no positive-upside candidates
+shows an inline empty state instead of hiding the section. topPicks memo
+filters candidates by the new topPicksSec state; sector list reused.
+
+Presentational, AllStocksPage not a tested module (170 tests stay green).
+Frontend only, no Supabase changes."
+git push origin feat/allstocks-search-nav
+# -> verify the Vercel preview, then v7.11.3 (#5) once the Batch Detail + nav files are in.
