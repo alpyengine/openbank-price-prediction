@@ -35,7 +35,7 @@
  * @param {Function} onToggleWatchlist — toggle watchlist for a ticker
  * @param {string}   batchDirection   — 'bullish' | 'bearish' for badge in header
  */
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import StockRow from './StockRow.jsx'
 import { formatDate, targetDates } from '@/utils/dates.js'
 import { Button } from '@/components/ui/button'
@@ -213,6 +213,7 @@ export default function StockTable({
   onOverrideChange, notes, onNoteChange, marketData, batchCurrency,
   hitMargin = 5, batchId, closeRatio = 2.4, watchlist = new Set(), onToggleWatchlist,
   batchDirection = 'bullish',
+  scrollToTicker = null, onScrollHandled,
 }) {
   const base = stocks.find(s => s.base)?.base
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
@@ -261,11 +262,23 @@ export default function StockTable({
     return map
   }, [sorted, groupBySector, fundamentals])
 
+  // #5 — when arriving from All Stocks with a target ticker, scroll to its row,
+  // keep the flash for ~1.6s, then clear the target so it doesn't re-trigger.
+  useEffect(() => {
+    if (!scrollToTicker) return
+    const el = typeof document !== 'undefined' ? document.getElementById('bdrow-' + scrollToTicker) : null
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => onScrollHandled?.(), 1600)
+    return () => clearTimeout(t)
+  }, [scrollToTicker, sorted])
+
   /** Render a single StockRow with all required props */
   const renderRow = (stock) => (
     <StockRow
       key={stock.t}
       stock={stock}
+      rowId={'bdrow-' + stock.t}
+      highlight={scrollToTicker === stock.t}
       horizon={horizon}
       autoPrice={autoPrices[stock.t]}
       histPrices={histPrices}

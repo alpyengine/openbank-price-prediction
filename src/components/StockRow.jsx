@@ -88,7 +88,7 @@ const StockRow = memo(function StockRow({
   stock, horizon, autoPrice, histPrices, override, horizonExpired,
   fundamental, onOverrideChange, note, onNoteChange,
   marketData, collapseAll, allExpanded, batchCurrency, hitMargin = 5, batchId, totalCols = 17, closeRatio = 2.4,
-  isWatched = false, onToggleWatchlist,
+  isWatched = false, onToggleWatchlist, rowId, highlight = false,
 }) {
   const [expanded,  setExpanded]  = useState(false)
   const [showDesc,  setShowDesc]  = useState(false)
@@ -191,8 +191,10 @@ const StockRow = memo(function StockRow({
 
       {/* ── Main row ───────────────────────────────────────────────────── */}
       <tr
+        id={rowId}
         className={cn(
           'cursor-pointer transition-colors hover:bg-muted',
+          highlight && 'bg-amber-100 dark:bg-amber-500/20',
           !expanded && 'border-b border-border'
         )}
         onClick={() => setExpanded(v => !v)}
