@@ -500,7 +500,7 @@ function exportCSV(rows, horizon) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, weeklyPrices: weeklyPricesProps = {}, onNav, onLoadBatch, watchlist = new Set(), onToggleWatchlist }) {
+export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, weeklyPrices: weeklyPricesProps = {}, onNav, onLoadBatch, onScrollToTicker, watchlist = new Set(), onToggleWatchlist }) {
   const [horizon,      setHorizon]      = useState('12M')
   const [sortCol,      setSortCol]      = useState('ticker')
   const [sortDir,      setSortDir]      = useState(1)  // 1 = asc (default: A→Z by ticker)
@@ -850,7 +850,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                     const batch = [...(batches ?? [])]
                       .sort((a, b) => new Date(b.id) - new Date(a.id))
                       .find(b => b.results?.some(r => r.ticker === s.tNorm || r.ticker === s.t))
-                    if (batch) { onLoadBatch(batch); onNav('batch-detail') }
+                    if (batch) { onLoadBatch(batch); onNav('batch-detail'); onScrollToTicker?.(s.t) }
                   }}
                 >
                   <div className="flex items-center justify-between">
@@ -1236,6 +1236,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                             if (batch) {
                               onLoadBatch(batch)
                               onNav('batch-detail')
+                              onScrollToTicker?.(s.t)
                             }
                           }}
                           title={`Open ${s.tDisplay} in Batch Overview Details`}

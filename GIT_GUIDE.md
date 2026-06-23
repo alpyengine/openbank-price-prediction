@@ -4621,3 +4621,55 @@ Presentational, AllStocksPage not a tested module (170 tests stay green).
 Frontend only, no Supabase changes."
 git push origin feat/allstocks-search-nav
 # -> verify the Vercel preview, then v7.11.3 (#5) once the Batch Detail + nav files are in.
+
+
+# ===========================================================================
+# STEP 181 — v7.11.3  All Stocks → Batch Detail click-through + auto-scroll (Tanda 2 #5)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — FOUR files:
+#   src/App.jsx, src/components/AllStocksPage.jsx,
+#   src/components/StockTable.jsx, src/components/StockRow.jsx
+# Presentational. Changes are additive/backward-compatible (new props default to
+# null/false). NOTE: StockTable/StockRow are touched, so run the tests; row now
+# carries id="bdrow-<ticker>" — if any snapshot covers those rows, update with -u.
+# Continues on the SAME branch feat/allstocks-search-nav (on top of v7.11.2).
+#
+# WHAT'S NEW:
+#   #5 Clicking a ticker in All Stocks (table row OR Top Picks card) now loads its
+#      batch, navigates to Batch Detail AND scrolls to + flashes that ticker's row
+#      (amber, ~1.6s) — no more landing at the top of the list.
+#        - App.jsx: new scrollToTicker state; passes onScrollToTicker to
+#          AllStocksPage and scrollToTicker + onScrollHandled to the batch-detail
+#          StockTable.
+#        - AllStocksPage.jsx: accepts onScrollToTicker; both ticker-click handlers
+#          call onScrollToTicker(s.t) alongside onLoadBatch + onNav.
+#        - StockTable.jsx: accepts scrollToTicker + onScrollHandled; renderRow
+#          passes rowId="bdrow-<t>" + highlight to StockRow; a useEffect scrolls to
+#          the row and clears the target after the flash.
+#        - StockRow.jsx: accepts rowId + highlight; puts id={rowId} + an amber flash
+#          class on the main collapsed <tr>.
+#      (Note: the Batch Detail "page" is StockTable rendered inline in App.jsx when
+#       activePage === 'batch-detail' — there is no separate BatchDetail file.)
+#
+#   README.md: v7.11.3 changelog row. Completes Tanda 2 (#5/#6/#7).
+#
+# Apply on the SAME branch (continues v7.11.2):
+git checkout feat/allstocks-search-nav
+unzip -o ~/Downloads/openbank-price-prediction_v7.11.3.zip -d .
+npm run test:run            # if a StockTable/StockRow snapshot trips on the new id, re-run with: npm run test:run -- -u
+git add src/App.jsx src/components/AllStocksPage.jsx src/components/StockTable.jsx src/components/StockRow.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks -> Batch Detail click-through with auto-scroll (v7.11.3)
+
+#5 Clicking a ticker in All Stocks (table row or Top Picks card) now loads its
+batch, navigates to Batch Detail and scrolls to + flashes that ticker's row
+(~1.6s) instead of landing at the top. Threaded a scrollToTicker target through
+App -> AllStocksPage (onScrollToTicker) and -> StockTable (scrollToTicker +
+onScrollHandled); StockTable scrolls to the row and clears the target after the
+flash. Batch-detail rows got id='bdrow-<ticker>' + a highlight class on StockRow.
+Additive/backward-compatible (new props default to null/false). Completes Tanda 2.
+
+Frontend only, no Supabase changes."
+git push origin feat/allstocks-search-nav
+# -> verify the Vercel preview. Tanda 2 complete (v7.11.1/2/3); then merge the
+#    branch to main with tags v7.11.1, v7.11.2, v7.11.3 (keep the branch).

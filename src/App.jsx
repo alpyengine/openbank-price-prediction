@@ -80,6 +80,7 @@ export default function App() {
   const [showEmail,    setShowEmail]    = useState(false)
   const [darkMode,     setDarkMode]     = useState(false)
   const [activePage,   setActivePage]   = useState('batch')
+  const [scrollToTicker, setScrollToTicker] = useState(null)  // #5 — ticker to scroll to in batch-detail
   const role = useRole()
   const [hitMargin,      setHitMargin]      = useState(() => parseFloat(localStorage.getItem('openbank_hitMargin'))  || 5)
   const [closeRatio,     setCloseRatio]     = useState(() => parseFloat(localStorage.getItem('openbank_closeRatio')) || 2.4)
@@ -515,6 +516,8 @@ export default function App() {
                 hitMargin={hitMargin}
                 closeRatio={closeRatio}
                 batchId={loadedBatchId}
+                scrollToTicker={scrollToTicker}
+                onScrollHandled={() => setScrollToTicker(null)}
                 watchlist={watchlist}
                 onToggleWatchlist={toggleWatchlist}
                 batchDirection={batchDirection}
@@ -546,6 +549,7 @@ export default function App() {
               weeklyPrices={weeklyPrices}
               onNav={setActivePage}
               onLoadBatch={handleLoadBatch}
+              onScrollToTicker={setScrollToTicker}
               watchlist={watchlist}
               onToggleWatchlist={toggleWatchlist}
             />
