@@ -4788,3 +4788,56 @@ Presentational, AllStocksPage not a tested module (170 tests stay green).
 Frontend only, no Supabase changes."
 git push origin feat/allstocks-entry-metrics
 # -> verify the Vercel preview. Tanda 3 remaining: #8 duplicate-batch rows (v7.12.2).
+
+
+# ===========================================================================
+# STEP 183 — v7.12.2  All Stocks: duplicate-batch rows (Tanda 3 #8)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Frontend only — one file (AllStocksPage.jsx).
+# Presentational. The 21 AllStocksPage unit tests only cover pure functions
+# (calcScore/upsideScore/pegScore/marginScore + horizon map) which are UNCHANGED,
+# so all 170 tests stay green. Completes Tanda 3. New branch from main.
+#
+# WHAT'S NEW (all inside src/components/AllStocksPage.jsx):
+#   #8 The table shows one row per batch a ticker appears in (was: most recent
+#      only), grouped as a block per ticker, newest->oldest:
+#        - latest row keeps the avatar + a "latest" pill (when duplicates exist);
+#          older rows are indented with "↳", muted, block has a left accent.
+#        - each row links to ITS OWN batch (click -> that batch's Batch Detail +
+#          scroll/flash, reusing #5) via b.id === s.batchId.
+#        - sort keeps each ticker as a block ordered by its most-recent row;
+#          inside the block rows stay by date (newest first).
+#        - Best only / search COLLAPSE to the most-recent row per ticker.
+#        - Top Picks / KPIs / filters keep using the most recent (unchanged).
+#        - removed the "· N×" counter (duplicates are now visible rows).
+#      New expandStockInstances() helper + instancesByTicker memo (enriched like
+#      `stocks`). deduplicateStocks + the filter/sort pipeline are UNCHANGED.
+#
+#   README.md: v7.12.2 changelog row.
+#
+#   Tanda 3 COMPLETE (v7.12.1 Entry metrics + v7.12.2 duplicate rows). After
+#   verifying, merge feat/allstocks-dup-rows to main with tag v7.12.2.
+#
+# Branch from main (main has v7.12.1):
+git checkout main && git pull origin main
+git checkout -b feat/allstocks-dup-rows
+unzip -o ~/Downloads/openbank-price-prediction_v7.12.2.zip -d .
+git status        # expect: AllStocksPage.jsx, README.md, GIT_GUIDE.md
+npm run test:run
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks — duplicate-batch rows per ticker (v7.12.2)
+
+#8 Show one row per batch a ticker appears in (was most recent only), grouped
+as a block newest->oldest: latest row keeps avatar + 'latest' pill, older rows
+indented with a left accent. Each row links to its own batch (click -> that
+batch's Batch Detail + scroll/flash). Sort keeps each ticker as a block ordered
+by its most-recent row; Best only / search collapse to the latest row per
+ticker; Top Picks / KPIs / filters keep using the most recent. Removed the
+'N×' counter. New expandStockInstances helper + instancesByTicker memo;
+deduplicateStocks and the filter/sort pipeline unchanged. Completes Tanda 3.
+
+Presentational; the 21 AllStocksPage tests cover only unchanged pure functions,
+so 170 tests stay green. Frontend only, no Supabase changes."
+git push origin feat/allstocks-dup-rows
+# -> verify the Vercel preview, then merge Tanda 3 to main (tag v7.12.2).
