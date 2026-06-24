@@ -4806,3 +4806,26 @@ git tag -a v7.13.1 -m "v7.13.1: All Stocks inline expandable card (read-only)"
 git push origin main
 git push origin v7.13.1
 # keep the branch (historical reference)
+
+
+# STEP 185 — v7.13.2  All Stocks: fix expandable card (HorizonCards missing)
+# Bugfix on top of v7.13.1. The expandable card showed only Fundamentals — the
+# four HorizonCards were missing because the All Stocks row has no stock.base
+# Date (the base date is stock.batchDate, a "DD/MM/YYYY" string), so
+# targetDates(stock.base) was null. Fix: parse batchDate into a Date and feed it
+# as the card base. File: 1 changed (src/components/AllStocksExpandCard.jsx).
+git checkout main
+git pull origin main
+git checkout -b fix/allstocks-card-horizons    # or continue on feat/allstocks-expandable-card
+unzip -o ~/Downloads/openbank-price-prediction_v7.13.2.zip -d .
+# Only src/components/AllStocksExpandCard.jsx changes vs v7.13.1; if README/
+# GIT_GUIDE differ from your main, keep just that src file + paste this block.
+npm run test:run            # 170 tests stay green
+git add src/components/AllStocksExpandCard.jsx README.md GIT_GUIDE.md
+git commit -m "fix(allstocks): render HorizonCards in expandable card (parse batchDate as base) — v7.13.2"
+git push -u origin fix/allstocks-card-horizons
+# → Vercel preview → verify the four boxes render → then:
+git checkout main
+git merge --no-ff --no-edit fix/allstocks-card-horizons
+git tag -a v7.13.2 -m "v7.13.2: All Stocks expandable card — render HorizonCards"
+git push origin main && git push origin v7.13.2

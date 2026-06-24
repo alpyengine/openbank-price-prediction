@@ -344,17 +344,33 @@ function FundamentalsPanel({ fundamental, ticker, onShowDesc }) {
 }
 
 // ── Read-only wrapper for All Stocks ──────────────────────────────────────────
+// Parse a "DD/MM/YYYY" string (All Stocks batchDate) into a Date object.
+function parseDDMMYYYY(str) {
+  if (!str || typeof str !== 'string') return null
+  const [dd, mm, yy] = str.split('/').map(Number)
+  if (!dd || !mm || !yy) return null
+  return new Date(yy, mm - 1, dd)
+}
+
 export default function AllStocksExpandCard({
   stock, autoPrice, histPrices = {}, fundamental,
   batchCurrency = '$', hitMargin = 5, batchId,
 }) {
   const [showDesc, setShowDesc] = useState(false)
-  const tg = stock.base ? targetDates(stock.base) : null
+
+  // Batch Detail passes stock.base as a Date object. In All Stocks the base date
+  // is not on the row model as a Date — it lives in stock.batchDate as a
+  // "DD/MM/YYYY" string. Resolve a real Date so HorizonCards can render the four
+  // horizon boxes (without it, tg is null and only Fundamentals shows).
+  const baseDate =
+    stock.base instanceof Date ? stock.base : parseDDMMYYYY(stock.batchDate)
+  const stockForCard = baseDate ? { ...stock, base: baseDate } : stock
+  const tg = baseDate ? targetDates(baseDate) : null
 
   return (
     <div>
       <HorizonCards
-        stock={stock} tg={tg}
+        stock={stockForCard} tg={tg}
         autoPrice={autoPrice} histPrices={histPrices} override={null}
         batchCurrency={batchCurrency} hitMargin={hitMargin}
       />
