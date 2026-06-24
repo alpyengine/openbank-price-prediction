@@ -190,6 +190,53 @@ function deduplicateStocks(batches) {
   }))
 }
 
+// ── Expand instances (#8) — all batch instances per ticker, newest→oldest ──────
+// Same per-ticker/per-batch objects as deduplicateStocks, but instead of keeping
+// only the most recent we keep EVERY instance, grouped by normalised ticker.
+function expandStockInstances(batches) {
+  if (!batches?.length) return {}
+  const sorted = [...batches].sort((a, b) => {
+    const [da, ma, ya] = (a.date || '').split('/').map(Number)
+    const [db, mb, yb] = (b.date || '').split('/').map(Number)
+    return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db)
+  })
+  const out = {}  // normTicker → [instances] (built oldest→newest, reversed at the end)
+  for (const batch of sorted) {
+    if (!batch.results) continue
+    const byTicker = new Map()
+    for (const r of batch.results) {
+      const rawTicker  = r.ticker || r.t || ''
+      const normTicker = rawTicker.replace(/\.US$/i, '')
+      if (!normTicker) continue
+      if (!byTicker.has(normTicker)) byTicker.set(normTicker, { raw: rawTicker, rows: [] })
+      byTicker.get(normTicker).rows.push(r)
+    }
+    for (const [normTicker, { raw, rows }] of byTicker) {
+      const getTarget = h => {
+        const row = rows.find(r => (r.horizon || '').toUpperCase() === h)
+        return row?.targetPrice || 0
+      }
+      const r0   = rows[0]
+      const base = r0?.basePrice || r0?.b || 0
+      const t1 = getTarget('1M'), t3 = getTarget('3M'), t6 = getTarget('6M'), t12 = getTarget('12M')
+      const inst = {
+        t: raw, tNorm: normTicker, tDisplay: displayTicker(raw), market: getMarket(raw),
+        co: r0?.company || r0?.co || normTicker, b: base,
+        t1, t3, t6, t12, base: r0?.base || null,
+        batchId: batch.id, batchDate: batch.date,
+        u1:  base > 0 && t1  > 0 ? ((t1  - base) / base * 100) : null,
+        u3:  base > 0 && t3  > 0 ? ((t3  - base) / base * 100) : null,
+        u6:  base > 0 && t6  > 0 ? ((t6  - base) / base * 100) : null,
+        u12: base > 0 && t12 > 0 ? ((t12 - base) / base * 100) : null,
+      }
+      if (!out[normTicker]) out[normTicker] = []
+      out[normTicker].push(inst)
+    }
+  }
+  for (const k of Object.keys(out)) out[k].reverse()  // newest → oldest
+  return out
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -580,6 +627,29 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     }
   }), [baseStocks, allFundamentals])
 
+  // #8 — all batch instances per ticker (newest→oldest), enriched like `stocks`.
+  // Used by the table to expand each ticker into one row per batch.
+  const instancesByTicker = useMemo(() => {
+    const raw = expandStockInstances(batches)
+    const out = {}
+    for (const tNorm of Object.keys(raw)) {
+      out[tNorm] = raw[tNorm].map((s, i) => {
+        const f = allFundamentals[s.t] || allFundamentals[s.tNorm]
+        return {
+          ...s,
+          sector:    f?.sector       || '—',
+          peg:       f?.pegTTM       ?? null,
+          margin:    f?.netMarginTTM ?? null,
+          epsGrowth: f?.epsGrowthTTM ?? null,
+          score:     calcScore(s.u12, f),
+          instKey:   s.tNorm + '__' + s.batchId,
+          isLatest:  i === 0,
+        }
+      })
+    }
+    return out
+  }, [batches, allFundamentals])
+
   // Unique sectors for filter dropdown
   const sectors = useMemo(() => {
     const s = new Set(stocks.map(x => x.sector).filter(x => x && x !== '—'))
@@ -770,7 +840,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
         <div>
           <h1 className="text-base font-bold text-foreground">All Stocks</h1>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {batches?.length ?? 0} batches · {baseStocks.length} unique tickers · most recent batch wins on duplicates
+            {batches?.length ?? 0} batches · {baseStocks.length} unique tickers · one row per batch (newest first); collapses to latest on search / Best only
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => exportCSV(sorted, horizon)}>
@@ -1215,7 +1285,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   >
                     Batch {sortIcon('batch')}
                   </button>
-                  <ColTooltip text="Date of the most recent batch containing this ticker. · Nx means the ticker appears in N different batches — most recent data wins." />
+                  <ColTooltip text="Batch date of this row. Each ticker shows one row per batch it appears in (newest first); older batches are indented under the latest." />
                 </div>
               </th>
 
@@ -1235,43 +1305,66 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 </td>
               </tr>
             )}
-            {sorted.map(s => {
-              const u = s[hKey]
-              return (
-                <tr
-                  key={s.t}
-                  id={'asrow-' + s.tNorm}
-                  className={cn('border-b border-border last:border-0 transition-colors',
-                    highlight === s.tNorm ? 'bg-amber-100 dark:bg-amber-500/20' : 'hover:bg-muted/30')}
-                >
+            {sorted.flatMap(latest => {
+              // #8 — expand each ticker into its batch instances (newest→oldest).
+              // Collapse to the most recent row when Best only or search is active.
+              const insts     = instancesByTicker[latest.tNorm] || [latest]
+              const collapsed = bestOnly || searchQuery.trim() !== ''
+              const rowList   = collapsed ? insts.slice(0, 1) : insts
+              const hasDups   = insts.length > 1
+              return rowList.map((s, idx) => {
+                const isLatest = idx === 0
+                const isOlder  = idx > 0
+                const u = s[hKey]
+                return (
+                  <tr
+                    key={s.instKey || s.t}
+                    id={isLatest ? ('asrow-' + s.tNorm) : ('asrow-' + (s.instKey || (s.tNorm + '-' + idx)))}
+                    className={cn('border-b border-border transition-colors',
+                      isOlder && 'bg-muted/20',
+                      !collapsed && hasDups && 'border-l-2 border-l-primary/40',
+                      highlight === s.tNorm && isLatest
+                        ? 'bg-amber-100 dark:bg-amber-500/20'
+                        : 'hover:bg-muted/30')}
+                  >
                   {/* Ticker — clickable link to Batch Overview Details */}
-                  <td className="px-3 py-2.5">
+                  <td className={cn('px-3 py-2.5', isOlder && 'pl-6')}>
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-[9px] font-black shrink-0">
-                        {s.tDisplay.slice(0, 3)}
-                      </div>
-                      <div>
-                        {/* Click ticker → load batch and navigate to batch-detail */}
-                        <button
-                          className="font-bold text-foreground hover:text-primary hover:underline underline-offset-2 bg-transparent border-none cursor-pointer p-0 text-left text-[11.5px]"
-                          onClick={() => {
-                            if (!onLoadBatch || !onNav) return
-                            const batch = [...(batches ?? [])]
-                              .sort((a, b) => (b.id > a.id ? 1 : -1))
-                              .find(b => b.results?.some(r => r.ticker === s.tNorm || r.ticker === s.t))
-                            if (batch) {
-                              onLoadBatch(batch)
-                              onNav('batch-detail')
-                              onScrollToTicker?.(s.t)
-                            }
-                          }}
-                          title={`Open ${s.tDisplay} in Batch Overview Details`}
-                        >
-                          {s.tDisplay}
-                        </button>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <div className="text-[10px] text-muted-foreground leading-none">{s.co}</div>
+                      {isOlder ? (
+                        <div className="w-7 h-7 flex items-center justify-center text-muted-foreground text-[13px] shrink-0">↳</div>
+                      ) : (
+                        <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-[9px] font-black shrink-0">
+                          {s.tDisplay.slice(0, 3)}
                         </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          {/* Click ticker → load THIS instance's batch and navigate to batch-detail */}
+                          <button
+                            className={cn('hover:text-primary hover:underline underline-offset-2 bg-transparent border-none cursor-pointer p-0 text-left text-[11.5px]',
+                              isOlder ? 'font-semibold text-muted-foreground' : 'font-bold text-foreground')}
+                            onClick={() => {
+                              if (!onLoadBatch || !onNav) return
+                              const batch = (batches ?? []).find(b => b.id === s.batchId)
+                              if (batch) {
+                                onLoadBatch(batch)
+                                onNav('batch-detail')
+                                onScrollToTicker?.(s.t)
+                              }
+                            }}
+                            title={`Open ${s.tDisplay} (${fmtDate(s.batchDate)}) in Batch Overview Details`}
+                          >
+                            {s.tDisplay}
+                          </button>
+                          {isLatest && hasDups && !collapsed && (
+                            <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary">latest</span>
+                          )}
+                        </div>
+                        {!isOlder && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <div className="text-[10px] text-muted-foreground leading-none">{s.co}</div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -1380,9 +1473,6 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   {/* Batch */}
                   <td className="px-3 py-2.5 text-center text-[10px] text-muted-foreground">
                     {fmtDate(s.batchDate)}
-                    {s.batchCount > 1 && (
-                      <span className="text-primary font-bold ml-1">· {s.batchCount}×</span>
-                    )}
                   </td>
 
                   {/* TradingView icon button */}
@@ -1399,7 +1489,8 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                     </button>
                   </td>
                 </tr>
-              )
+                )
+              })
             })}
           </tbody>
         </table>
