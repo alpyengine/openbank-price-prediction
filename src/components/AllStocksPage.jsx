@@ -18,12 +18,13 @@
  * @param {Object} fundamentals — active-batch fundamentals from useFundamentals (merged as override)
  * @param {Object} weeklyPrices — { [ticker_batchId]: [{ week, close_price }] }
  */
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect, Fragment } from 'react'
 import { TrendingUp, TrendingDown, Download, ChevronDown, ChevronUp, Info, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { loadAllWeeklyPrices, loadFundamentalsCache } from '@/services/storage'
 import TradingViewModal from './TradingViewModal.jsx'
+import AllStocksExpandCard from './AllStocksExpandCard.jsx'
 
 // ── Market helpers ────────────────────────────────────────────────────────────
 
@@ -173,6 +174,7 @@ function deduplicateStocks(batches) {
         base:      r0?.base || null,
         batchId:   batch.id,
         batchDate: batch.date,
+        hist:      buildHist(rows),
       })
     }
   }
@@ -224,6 +226,7 @@ function expandStockInstances(batches) {
         co: r0?.company || r0?.co || normTicker, b: base,
         t1, t3, t6, t12, base: r0?.base || null,
         batchId: batch.id, batchDate: batch.date,
+        hist: buildHist(rows),
         u1:  base > 0 && t1  > 0 ? ((t1  - base) / base * 100) : null,
         u3:  base > 0 && t3  > 0 ? ((t3  - base) / base * 100) : null,
         u6:  base > 0 && t6  > 0 ? ((t6  - base) / base * 100) : null,
@@ -240,6 +243,31 @@ function expandStockInstances(batches) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+// v7.13.3 — build a per-horizon settled-price map from a batch's result rows.
+// { "1M": { price: <priceOnDate>, date: <targetDate> }, ... } — only rows that
+// already have a settled close (priceOnDate != null). Awaiting horizons omitted.
+function buildHist(rows) {
+  const out = {}
+  for (const r of rows || []) {
+    const h = (r.horizon || '').toUpperCase()
+    if (h && r.priceOnDate != null) {
+      out[h] = { price: r.priceOnDate, date: r.targetDate ?? null }
+    }
+  }
+  return out
+}
+
+// Convert a stock's `hist` map into the histPrices shape the cards expect:
+// { "TICKER_HORIZON": { price, date, isHistorical } } keyed by getEffectivePrice's histKey.
+function histKeyed(s) {
+  if (!s?.hist) return {}
+  const out = {}
+  for (const [h, v] of Object.entries(s.hist)) {
+    if (v?.price != null) out[`${s.t}_${h}`] = { price: v.price, date: v.date, isHistorical: true }
+  }
+  return out
+}
 
 function fmtDate(ddmmyyyy) {
   if (!ddmmyyyy) return '—'
@@ -568,6 +596,15 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   // #6 ticker/company search (v7.11.1) — filters the table live; respects other filters + sort.
   const [searchQuery, setSearchQuery] = useState('')
   const [highlight,   setHighlight]   = useState(null)  // tNorm to flash after picking a suggestion
+  // v7.13.1 — inline expandable card per row (key = instKey)
+  const [expandedRows, setExpandedRows] = useState(() => new Set())
+  const toggleExpand = useCallback((key) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }, [])
   // weeklyPrices passed from App.jsx (loaded once, shared with WatchlistPage)
   const weeklyPrices = weeklyPricesProps
   // tvTicker — ticker currently open in TradingView modal (null = closed)
@@ -1316,11 +1353,14 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 const isLatest = idx === 0
                 const isOlder  = idx > 0
                 const u = s[hKey]
+                const expandKey  = s.instKey || (s.tNorm + '-' + idx)
+                const isExpanded = expandedRows.has(expandKey)
                 return (
+                  <Fragment key={expandKey}>
                   <tr
-                    key={s.instKey || s.t}
-                    id={isLatest ? ('asrow-' + s.tNorm) : ('asrow-' + (s.instKey || (s.tNorm + '-' + idx)))}
-                    className={cn('border-b border-border transition-colors',
+                    id={isLatest ? ('asrow-' + s.tNorm) : ('asrow-' + expandKey)}
+                    onClick={() => toggleExpand(expandKey)}
+                    className={cn('border-b border-border transition-colors cursor-pointer',
                       isOlder && 'bg-muted/20',
                       !collapsed && hasDups && 'border-l-2 border-l-primary/40',
                       highlight === s.tNorm && isLatest
@@ -1330,6 +1370,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   {/* Ticker — clickable link to Batch Overview Details */}
                   <td className={cn('px-3 py-2.5', isOlder && 'pl-6')}>
                     <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-[10px] w-3 shrink-0 select-none">{isExpanded ? '▾' : '▸'}</span>
                       {isOlder ? (
                         <div className="w-7 h-7 flex items-center justify-center text-muted-foreground text-[13px] shrink-0">↳</div>
                       ) : (
@@ -1343,7 +1384,8 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                           <button
                             className={cn('hover:text-primary hover:underline underline-offset-2 bg-transparent border-none cursor-pointer p-0 text-left text-[11.5px]',
                               isOlder ? 'font-semibold text-muted-foreground' : 'font-bold text-foreground')}
-                            onClick={() => {
+                            onClick={e => {
+                              e.stopPropagation()
                               if (!onLoadBatch || !onNav) return
                               const batch = (batches ?? []).find(b => b.id === s.batchId)
                               if (batch) {
@@ -1478,7 +1520,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   {/* TradingView icon button */}
                   <td className="px-3 py-2.5 text-center">
                     <button
-                      onClick={() => setTvTicker({ t: s.t, co: s.co })}
+                      onClick={e => { e.stopPropagation(); setTvTicker({ t: s.t, co: s.co }) }}
                       className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
                       title={`Open ${s.t} chart in TradingView`}
                       aria-label="Open TradingView chart"
@@ -1489,6 +1531,23 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                     </button>
                   </td>
                 </tr>
+                {isExpanded && (
+                  <tr className="border-b border-border bg-muted/30">
+                    <td colSpan={11} className="p-0">
+                      <div className="px-5 py-4">
+                        <AllStocksExpandCard
+                          stock={s}
+                          autoPrice={autoPrices?.[s.tNorm] ?? autoPrices?.[s.t] ?? getRefPrice(s)}
+                          histPrices={histKeyed(s)}
+                          fundamental={allFundamentals[s.t] || allFundamentals[s.tNorm]}
+                          batchCurrency={s.market === 'US' ? '$' : s.market === 'L' ? '£' : '€'}
+                          batchId={s.batchId}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
                 )
               })
             })}

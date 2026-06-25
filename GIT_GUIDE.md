@@ -4676,70 +4676,6 @@ git push origin feat/allstocks-search-nav
 
 
 # ===========================================================================
-# STEP 181 — v7.11.3  All Stocks → Batch Detail click-to-scroll (Tanda 2 #5)
-# ===========================================================================
-#
-# NO SUPABASE CHANGES. No npm install. Frontend only. Presentational → 170 tests
-# stay green. Completes Tanda 2. Continues on the SAME branch
-# feat/allstocks-search-nav (on top of v7.11.2).
-#
-# FILES (4): src/App.jsx, src/components/AllStocksPage.jsx,
-#            src/components/StockTable.jsx, src/components/StockRow.jsx
-#
-# NOTE: the #5 wiring already existed in App.jsx / StockTable.jsx / StockRow.jsx
-#       in the working tree (from the earlier implementation). The only piece
-#       missing after v7.11.1/v7.11.2 was the trigger in AllStocksPage. The ZIP
-#       ships all 4 files for consistency; when you unzip, git will likely show
-#       ONLY AllStocksPage.jsx as changed if the other 3 already match your repo.
-#       (Run `git status` after unzip to confirm what actually changed.)
-#
-# WHAT'S NEW:
-#   #5 Click a ticker in All Stocks (table row or Top Picks card) → loads its
-#      batch, navigates to Batch Detail, and scrolls to + flashes that ticker's
-#      row. App.jsx: new scrollToTicker state, onScrollToTicker prop to
-#      AllStocksPage, scrollToTicker + onScrollHandled to the batch-detail
-#      StockTable. AllStocksPage: onScrollToTicker?.(s.t) on both click sites.
-#      StockTable: scrolls to bdrow-<ticker>, flashes, then calls onScrollHandled
-#      (~1.6s); passes rowId/highlight to StockRow. StockRow: id={rowId} + amber
-#      flash on its main <tr>. Independent of the Watchlist→BatchSimple
-#      highlightTicker path (different page, different state).
-#
-#   README.md: v7.11.3 changelog row.
-#
-#   Tanda 2 COMPLETE (v7.11.1 search + v7.11.2 Top Picks by sector + v7.11.3
-#   click-to-scroll). Next: merge feat/allstocks-search-nav to main with tags
-#   v7.11.1 / v7.11.2 / v7.11.3, then Tanda 3 (v7.12.x).
-#
-# Apply on the SAME branch (continues v7.11.2):
-git checkout feat/allstocks-search-nav
-unzip -o ~/Downloads/openbank-price-prediction_v7.11.3.zip -d .
-git status        # see which of the 4 files actually changed
-npm run test:run
-git add src/App.jsx src/components/AllStocksPage.jsx src/components/StockTable.jsx src/components/StockRow.jsx README.md GIT_GUIDE.md
-git commit -m "feat: All Stocks -> Batch Detail click-to-scroll (v7.11.3)
-
-#5 Clicking a ticker in All Stocks (table row or Top Picks card) loads its
-batch, navigates to Batch Detail and scrolls to + flashes that ticker's row.
-App.jsx: scrollToTicker state + onScrollToTicker prop to AllStocksPage +
-scrollToTicker/onScrollHandled to the batch-detail StockTable. AllStocksPage:
-onScrollToTicker(s.t) on both click sites. StockTable: scroll to bdrow-<t> +
-flash + onScrollHandled reset; passes rowId/highlight to StockRow. StockRow:
-id + amber flash on its main <tr>. Independent of the Watchlist highlightTicker
-path. Completes Tanda 2.
-
-Presentational, 170 tests stay green. Frontend only, no Supabase changes."
-git push origin feat/allstocks-search-nav
-# -> verify the Vercel preview, then merge Tanda 2 to main:
-#    git checkout main && git pull origin main
-#    git merge --no-ff --no-edit feat/allstocks-search-nav
-#    git tag -a v7.11.1 -m "v7.11.1: All Stocks ticker/company search"
-#    git tag -a v7.11.2 -m "v7.11.2: All Stocks Top Picks by sector"
-#    git tag -a v7.11.3 -m "v7.11.3: All Stocks -> Batch Detail click-to-scroll"
-#    git push origin main && git push origin v7.11.1 v7.11.2 v7.11.3
-#    (do NOT delete the branch — kept as historical reference)
-
-
-# ===========================================================================
 # STEP 182 — v7.12.1  All Stocks: Sparkline → Entry Quality + Entry Momentum
 # ===========================================================================
 #
@@ -4841,3 +4777,80 @@ Presentational; the 21 AllStocksPage tests cover only unchanged pure functions,
 so 170 tests stay green. Frontend only, no Supabase changes."
 git push origin feat/allstocks-dup-rows
 # -> verify the Vercel preview, then merge Tanda 3 to main (tag v7.12.2).
+
+
+# STEP 184 — v7.13.1  All Stocks: inline expandable card (read-only)
+# Branch from main. New component AllStocksExpandCard.jsx (HorizonCards +
+# FundamentalsPanel copied verbatim from StockRow.jsx; Batch Detail untouched) +
+# wiring in AllStocksPage.jsx (Fragment, expandedRows Set + toggleExpand, ▸/▾
+# chevron, row onClick → toggle, stopPropagation on ticker + TradingView buttons,
+# expand <tr> rendering the card with histPrices={}). Read-only: no override,
+# no notes, no MarketComparison. Files: 2 (1 new + 1 changed).
+git checkout main
+git pull origin main
+git checkout -b feat/allstocks-expandable-card
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.13.1.zip -d .
+# NOTE: if README.md / GIT_GUIDE.md differ from your main, keep ONLY the two
+# src files from the zip and paste this STEP block + the README row by hand.
+
+npm run test:run            # 170 tests must stay green (AllStocksPage render not unit-tested)
+
+git add src/components/AllStocksExpandCard.jsx src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat(allstocks): inline read-only expandable card (HorizonCards + Fundamentals + chart) — v7.13.1"
+git push -u origin feat/allstocks-expandable-card
+# → Vercel preview → verify checklist → then:
+git checkout main
+git merge --no-ff --no-edit feat/allstocks-expandable-card
+git tag -a v7.13.1 -m "v7.13.1: All Stocks inline expandable card (read-only)"
+git push origin main
+git push origin v7.13.1
+# keep the branch (historical reference)
+
+
+# STEP 185 — v7.13.2  All Stocks: fix expandable card (HorizonCards missing)
+# Bugfix on top of v7.13.1. The expandable card showed only Fundamentals — the
+# four HorizonCards were missing because the All Stocks row has no stock.base
+# Date (the base date is stock.batchDate, a "DD/MM/YYYY" string), so
+# targetDates(stock.base) was null. Fix: parse batchDate into a Date and feed it
+# as the card base. File: 1 changed (src/components/AllStocksExpandCard.jsx).
+git checkout main
+git pull origin main
+git checkout -b fix/allstocks-card-horizons    # or continue on feat/allstocks-expandable-card
+unzip -o ~/Downloads/openbank-price-prediction_v7.13.2.zip -d .
+# Only src/components/AllStocksExpandCard.jsx changes vs v7.13.1; if README/
+# GIT_GUIDE differ from your main, keep just that src file + paste this block.
+npm run test:run            # 170 tests stay green
+git add src/components/AllStocksExpandCard.jsx README.md GIT_GUIDE.md
+git commit -m "fix(allstocks): render HorizonCards in expandable card (parse batchDate as base) — v7.13.2"
+git push -u origin fix/allstocks-card-horizons
+# → Vercel preview → verify the four boxes render → then:
+git checkout main
+git merge --no-ff --no-edit fix/allstocks-card-horizons
+git tag -a v7.13.2 -m "v7.13.2: All Stocks expandable card — render HorizonCards"
+git push origin main && git push origin v7.13.2
+
+
+# STEP 186 — v7.13.3  All Stocks card phase 2: settled verdicts + unified HOY
+# (1) Expired horizons show the real close + verdict (hit/miss) like Batch Detail,
+#     using results[].priceOnDate / targetDate already saved in each batch:
+#     instances get a per-horizon `hist` map (buildHist); histKeyed() converts it
+#     to the histPrices shape the cards expect and feeds the card (no API calls).
+# (2) HOY price matches Batch Detail: card prefers live autoPrices, falls back to
+#     weekly close only when no live price exists.
+# File: 1 changed (src/components/AllStocksPage.jsx). AllStocksExpandCard.jsx unchanged.
+git checkout main
+git pull origin main
+git checkout -b feat/allstocks-card-settled
+unzip -o ~/Downloads/openbank-price-prediction_v7.13.3.zip -d .
+# Only src/components/AllStocksPage.jsx changes vs v7.13.2; if README/GIT_GUIDE
+# differ from your main, keep just that src file + paste this block + the row.
+npm run test:run            # 170 tests stay green
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat(allstocks): settled verdicts + unified HOY in expandable card — v7.13.3"
+git push -u origin feat/allstocks-card-settled
+# → Vercel preview → verify expired boxes show close+verdict and HOY matches → then:
+git checkout main
+git merge --no-ff --no-edit feat/allstocks-card-settled
+git tag -a v7.13.3 -m "v7.13.3: All Stocks card settled verdicts + unified HOY"
+git push origin main && git push origin v7.13.3
