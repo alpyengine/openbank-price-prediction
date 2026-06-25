@@ -4854,3 +4854,22 @@ git checkout main
 git merge --no-ff --no-edit feat/allstocks-card-settled
 git tag -a v7.13.3 -m "v7.13.3: All Stocks card settled verdicts + unified HOY"
 git push origin main && git push origin v7.13.3
+
+
+# STEP 187 — v7.13.4  Help page text refresh (docs-only)
+# Updates the All Stocks help section to match v7.10–v7.13: fixes the false
+# "most recent batch wins" line (now one row per batch), and documents search,
+# horizon pill + sortable columns, Top picks by sector, Entry Quality / Entry
+# Momentum, and the inline expandable detail card. Text only — no logic changes.
+git checkout main
+git pull origin main
+git checkout -b docs/helppage-allstocks-refresh
+unzip -o ~/Downloads/openbank-price-prediction_v7.13.4.zip -d .
+git add src/components/HelpPage.jsx README.md GIT_GUIDE.md
+git commit -m "docs(help): refresh All Stocks help section (search, sort, entry metrics, detail card) — v7.13.4"
+git push -u origin docs/helppage-allstocks-refresh
+# → Vercel preview → read the Help page → then:
+git checkout main
+git merge --no-ff --no-edit docs/helppage-allstocks-refresh
+git tag -a v7.13.4 -m "v7.13.4: Help page text refresh for All Stocks"
+git push origin main && git push origin v7.13.4

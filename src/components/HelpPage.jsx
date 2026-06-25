@@ -8,7 +8,7 @@
  *   2. How to use — step by step workflow with screenshot
  *   3. Verdict system — explanation of hit/exceeded/close/miss/wrong_way
  *   4. Snapshot thresholds — the fixed params used for Supabase storage
- *   5. All Stocks — Top picks, Best only filter, Investment Score
+ *   5. All Stocks — picks, filters, entry metrics, duplicate rows & detail card
  *   6. Verify your data — SQL queries to check Supabase is storing correctly
  */
 import { SNAPSHOT_PARAMS } from '@/utils/stocks.js'
@@ -288,10 +288,13 @@ export default function HelpPage() {
       </Section>
 
       {/* ── 5. All Stocks — Top picks & filters ───────────────────────── */}
-      <Section title="All Stocks — Top picks &amp; Best only filter">
+      <Section title="All Stocks — picks, filters &amp; detail card">
         <p className="text-sm text-muted-foreground mb-4">
-          The <strong>All Stocks</strong> page consolidates every unique ticker across all your batches into a single ranked view.
-          The most recent batch wins when the same ticker appears in multiple batches.
+          The <strong>All Stocks</strong> page consolidates every ticker across all your batches into a single ranked view.
+          When the same ticker appears in several batches it now shows <strong>one row per batch</strong>, grouped together
+          newest&nbsp;→&nbsp;oldest: the most recent row carries the avatar and a <strong>latest</strong> pill, while older rows are
+          indented with a <strong>↳</strong> marker and muted. Each row links to <em>its own</em> batch. Applying <em>Best only</em>
+          or the search box collapses each ticker back to its most recent row.
         </p>
 
         <div className="text-[13px] font-semibold mb-2">Top 5 picks</div>
@@ -318,6 +321,8 @@ export default function HelpPage() {
         <p className="text-sm text-muted-foreground mb-4">
           Clicking a pick card navigates directly to that ticker's batch in Batch Overview.
           The Investment Score badge is shown on each card when available — even when sorting by upside.
+          A <strong>sector selector</strong> next to the toggle narrows the picks to a single sector (e.g. Technology);
+          the picks header always stays visible and shows an empty state when no ticker matches.
         </p>
 
         <div className="text-[13px] font-semibold mb-2">Investment Score (0–100)</div>
@@ -375,6 +380,62 @@ export default function HelpPage() {
         <p className="text-sm text-muted-foreground">
           Best only can be combined with the market, sector and PEG filters for more targeted views.
           Toggle it off to return to the full list.
+        </p>
+
+        <div className="text-[13px] font-semibold mb-2 mt-5">Find a ticker</div>
+        <p className="text-sm text-muted-foreground mb-4">
+          The search box filters the table live by <strong>ticker or company name</strong> and offers a suggestions dropdown.
+          Picking a suggestion scrolls to that row and briefly highlights it. While a search is active each ticker collapses
+          to its most recent row.
+        </p>
+
+        <div className="text-[13px] font-semibold mb-2">Horizon selector &amp; sortable columns</div>
+        <p className="text-sm text-muted-foreground mb-4">
+          The <strong>1M / 3M / 6M / 12M</strong> pill in the filter bar chooses which horizon the Upside and
+          Left-to-target columns refer to. <strong>Every column is sortable</strong> — click a header to sort ascending,
+          click again to reverse (empty values always sort last). When a ticker has several batch rows, sorting reorders the
+          whole group while keeping its rows together, newest first within the group.
+        </p>
+
+        <div className="text-[13px] font-semibold mb-2">Entry Quality &amp; Entry Momentum</div>
+        <p className="text-sm text-muted-foreground mb-2">
+          Two columns help judge whether a stock is a good entry right now (they replace the old sparkline):
+        </p>
+        <ul className="text-sm text-muted-foreground space-y-1.5 mb-4 list-none pl-0">
+          <li className="flex gap-2">
+            <span className="font-semibold text-foreground min-w-[120px]">Entry Quality</span>
+            <span>
+              A 0–100 badge blending remaining upside, Investment Score and PEG. Colour-coded like Score
+              (<span className="font-bold text-violet-600">80+</span> purple ·
+              <span className="font-bold text-blue-600"> 60+</span> blue ·
+              <span className="font-bold text-amber-600"> 40+</span> amber · below 40 grey). When fundamentals are missing it is
+              computed from upside and PEG only and marked with a <strong>~</strong>.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="font-semibold text-foreground min-w-[120px]">Entry Momentum</span>
+            <span>
+              A pill with a trend arrow — <strong>Strong</strong>, <strong>Building</strong>, <strong>Late</strong> or
+              <strong> Missed</strong> — derived from how much upside remains plus the recent weekly trend, to flag whether the
+              move is still ahead or largely played out.
+            </span>
+          </li>
+        </ul>
+
+        <div className="text-[13px] font-semibold mb-2">Expandable detail card</div>
+        <p className="text-sm text-muted-foreground mb-2">
+          Clicking a row (anywhere except the ticker or the TradingView button) expands a read-only detail card inline,
+          marked by a <strong>▸ / ▾</strong> chevron. It mirrors the Batch Overview card and contains:
+        </p>
+        <ul className="text-sm text-muted-foreground space-y-1 mb-3 pl-4 list-disc">
+          <li>The four <strong>horizon boxes</strong> (1M/3M/6M/12M) with target, date and verdict. Expired horizons show the
+            real close and a hit/miss verdict; horizons still open show the live comparison to today's price.</li>
+          <li>A <strong>Fundamentals</strong> panel (sector, industry, market cap, PEG, margins, …).</li>
+          <li>A <strong>price chart</strong> button.</li>
+        </ul>
+        <p className="text-sm text-muted-foreground">
+          Clicking the <strong>ticker</strong> itself instead navigates to that ticker inside its batch in Batch Overview
+          (with auto-scroll and highlight). The card is read-only — price overrides and notes stay in Batch Overview.
         </p>
       </Section>
 
