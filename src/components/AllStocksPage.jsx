@@ -174,6 +174,7 @@ function deduplicateStocks(batches) {
         base:      r0?.base || null,
         batchId:   batch.id,
         batchDate: batch.date,
+        hist:      buildHist(rows),
       })
     }
   }
@@ -225,6 +226,7 @@ function expandStockInstances(batches) {
         co: r0?.company || r0?.co || normTicker, b: base,
         t1, t3, t6, t12, base: r0?.base || null,
         batchId: batch.id, batchDate: batch.date,
+        hist: buildHist(rows),
         u1:  base > 0 && t1  > 0 ? ((t1  - base) / base * 100) : null,
         u3:  base > 0 && t3  > 0 ? ((t3  - base) / base * 100) : null,
         u6:  base > 0 && t6  > 0 ? ((t6  - base) / base * 100) : null,
@@ -241,6 +243,31 @@ function expandStockInstances(batches) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+// v7.13.3 — build a per-horizon settled-price map from a batch's result rows.
+// { "1M": { price: <priceOnDate>, date: <targetDate> }, ... } — only rows that
+// already have a settled close (priceOnDate != null). Awaiting horizons omitted.
+function buildHist(rows) {
+  const out = {}
+  for (const r of rows || []) {
+    const h = (r.horizon || '').toUpperCase()
+    if (h && r.priceOnDate != null) {
+      out[h] = { price: r.priceOnDate, date: r.targetDate ?? null }
+    }
+  }
+  return out
+}
+
+// Convert a stock's `hist` map into the histPrices shape the cards expect:
+// { "TICKER_HORIZON": { price, date, isHistorical } } keyed by getEffectivePrice's histKey.
+function histKeyed(s) {
+  if (!s?.hist) return {}
+  const out = {}
+  for (const [h, v] of Object.entries(s.hist)) {
+    if (v?.price != null) out[`${s.t}_${h}`] = { price: v.price, date: v.date, isHistorical: true }
+  }
+  return out
+}
 
 function fmtDate(ddmmyyyy) {
   if (!ddmmyyyy) return '—'
@@ -1510,8 +1537,8 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                       <div className="px-5 py-4">
                         <AllStocksExpandCard
                           stock={s}
-                          autoPrice={getRefPrice(s)}
-                          histPrices={{}}
+                          autoPrice={autoPrices?.[s.tNorm] ?? autoPrices?.[s.t] ?? getRefPrice(s)}
+                          histPrices={histKeyed(s)}
                           fundamental={allFundamentals[s.t] || allFundamentals[s.tNorm]}
                           batchCurrency={s.market === 'US' ? '$' : s.market === 'L' ? '£' : '€'}
                           batchId={s.batchId}

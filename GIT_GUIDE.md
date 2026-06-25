@@ -4829,3 +4829,28 @@ git checkout main
 git merge --no-ff --no-edit fix/allstocks-card-horizons
 git tag -a v7.13.2 -m "v7.13.2: All Stocks expandable card — render HorizonCards"
 git push origin main && git push origin v7.13.2
+
+
+# STEP 186 — v7.13.3  All Stocks card phase 2: settled verdicts + unified HOY
+# (1) Expired horizons show the real close + verdict (hit/miss) like Batch Detail,
+#     using results[].priceOnDate / targetDate already saved in each batch:
+#     instances get a per-horizon `hist` map (buildHist); histKeyed() converts it
+#     to the histPrices shape the cards expect and feeds the card (no API calls).
+# (2) HOY price matches Batch Detail: card prefers live autoPrices, falls back to
+#     weekly close only when no live price exists.
+# File: 1 changed (src/components/AllStocksPage.jsx). AllStocksExpandCard.jsx unchanged.
+git checkout main
+git pull origin main
+git checkout -b feat/allstocks-card-settled
+unzip -o ~/Downloads/openbank-price-prediction_v7.13.3.zip -d .
+# Only src/components/AllStocksPage.jsx changes vs v7.13.2; if README/GIT_GUIDE
+# differ from your main, keep just that src file + paste this block + the row.
+npm run test:run            # 170 tests stay green
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat(allstocks): settled verdicts + unified HOY in expandable card — v7.13.3"
+git push -u origin feat/allstocks-card-settled
+# → Vercel preview → verify expired boxes show close+verdict and HOY matches → then:
+git checkout main
+git merge --no-ff --no-edit feat/allstocks-card-settled
+git tag -a v7.13.3 -m "v7.13.3: All Stocks card settled verdicts + unified HOY"
+git push origin main && git push origin v7.13.3
