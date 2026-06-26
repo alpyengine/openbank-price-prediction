@@ -33,6 +33,22 @@ Changes are developed on **feature branches** and validated locally and on a Ver
 
 ---
 
+## Wave Script — Pine Script generator (v7.15.0+)
+
+Admin-only page that compiles every saved batch projection into a single
+downloadable TradingView **Pine Script v6** indicator (`indicador_master_ondas.txt`).
+Each batch is drawn as one independent "wave" (Base → 1M → 3M → 6M → 12M),
+coloured by chronological order; a missing 12M target leaves the final segment
+unpainted (native `na`, not a magic flag).
+
+📄 **[docs/WAVE_SCRIPT.md](./docs/WAVE_SCRIPT.md)** — full reference including:
+- Data model (horizon-per-row `results[]`), props-first / Supabase-fallback read
+- Calendar-month time axis, de-duplication and colour rules
+- Null-handling rationale (`na` vs `-1`) and `max_lines_count`
+- The generated Pine Script v6 with line-by-line notes
+
+---
+
 ## Supabase architecture (v5.0.0+)
 
 All persistence, automation and price fetching runs on Supabase.
@@ -230,6 +246,7 @@ npm run test       # watch mode
 170 tests across 10 files — utils, hooks, services, components.
 
 ---
+| v7.15.0 | **Wave Script** — new admin-only page that compiles every saved batch projection into one downloadable TradingView **Pine Script v6** indicator (`indicador_master_ondas.txt`). New `WaveScriptPage.jsx`: groups each batch's horizon rows (`results[]` is one row per 1M/3M/6M/12M) into a single "wave" (Base → 1M → 3M → 6M → 12M), computes the time axis from `batch.date` with **calendar-month** arithmetic, de-duplicates identical waves (same base date + same prices), sorts chronologically and assigns colour by appearance order (red → blue → green → orange/purple), then auto-downloads the `.txt`. Reads `batches` from props (already in memory via `useHistory`, zero extra calls) with a `@supabase/supabase-js` fallback (`from('batches').select('id,date,results')`) when props are empty. **Null 12M** is handled with native Pine **`na`** + an `if not na(p4)` guard (cleaner than the original `-1` flag) so the 6M → 12M segment is left unpainted; `indicator()` sets `max_lines_count=500`. `Sidebar.jsx`: new **Wave Script** nav entry (`Waves` icon). `App.jsx`: import + admin-gated `wave-script` route (`role === 'admin'`, same pattern as Import CSV / Manage Users). New **`docs/WAVE_SCRIPT.md`** (feature guide + full Pine v6 with line-by-line notes). No Supabase schema changes; 170 tests stay green (page render not unit-tested) |
 | v7.14.1 | **All Stocks** KPI fix — **Total Stocks** box now shows unique tickers as the headline number and `N entries across M batches` as the sub-line, so duplicate-batch rows are counted separately from unique tickers. `totalInstances` memo (sum of all `instancesByTicker` array lengths) added just before the KPI block. `AllStocksPage.jsx` only — no data-model or backend changes, 170 tests stay green |
 | v7.14.0 | **Batch Overview** admin delete stock — new admin-only **Actions** column in `BatchSimple` with a `Trash2` delete icon per row (only visible when `role === 'admin'` and a batch is loaded). Double-click confirmation pattern: first click arms the button red (3 s timeout), second click confirms. `storage.js`: new `deleteStockFromBatch(batchId, ticker)` — GET batch, filter `results[]`, recalculate `stocks`/`hitRate`/`hitRateExt`, PATCH with `authHeaders` (JWT, required by RLS), DELETE orphaned `weekly_prices` rows. `useHistory.js`: new `deleteStock(batchId, ticker)` — calls storage then patches local history state immediately (no reload). `App.jsx`: `handleDeleteStock` removes ticker from local `stocks` state + passes `role`/`loadedBatchId`/`onDeleteStock` to `BatchSimple`. No Supabase schema changes; `weekly_prices` requires a `DELETE` policy for authenticated users (see SUPABASE.md). 170 tests stay green |
 

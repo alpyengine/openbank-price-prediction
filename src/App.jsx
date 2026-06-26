@@ -62,6 +62,7 @@ import { useMarketData } from './hooks/useMarketData.js'
 import { useRole }        from './hooks/useRole.js'
 import ManageUsers       from './components/ManageUsers.jsx'
 import AllStocksPage     from './components/AllStocksPage.jsx'
+import WaveScriptPage    from './components/WaveScriptPage.jsx'
 import SettingsPage      from './components/SettingsPage.jsx'
 import HelpPage          from './components/HelpPage.jsx'
 import WatchlistPage     from './components/WatchlistPage.jsx'
@@ -572,6 +573,13 @@ export default function App() {
               onScrollToTicker={setScrollToTicker}
               watchlist={watchlist}
               onToggleWatchlist={toggleWatchlist}
+            />
+          )}
+
+          {/* ── WAVE SCRIPT ── */}
+          {activePage === 'wave-script' && role === 'admin' && (
+            <WaveScriptPage
+              batches={history?.batches ?? []}
             />
           )}
 

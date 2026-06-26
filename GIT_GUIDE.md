@@ -4957,3 +4957,64 @@ git tag -a v7.14.1 -m "v7.14.1: All Stocks — Total Stocks KPI unique + total e
 git push origin main
 git push origin v7.14.1
 # keep the branch (historical reference)
+
+# ===========================================================================
+# STEP 190 — v7.15.0  Wave Script: Pine Script v6 master-wave generator (admin)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install (no new deps).
+# 4 files: 1 new component, 1 new doc, Sidebar + App wiring.
+# 170 tests stay green (WaveScriptPage render not unit-tested).
+#
+# WHAT'S NEW:
+#   New admin-only page "Wave Script" that compiles every saved batch into a
+#   single downloadable TradingView Pine Script v6 indicator
+#   (indicador_master_ondas.txt). One batch = one wave (Base→1M→3M→6M→12M);
+#   same ticker on different dates = independent historical waves.
+#     - WaveScriptPage.jsx (NEW): group results[] horizon rows per ticker,
+#       calendar-month time axis from batch.date, de-dup identical waves
+#       (same date + same prices), chronological sort, colour by appearance
+#       order (red/blue/green/orange|purple), auto-download .txt. Reads
+#       batches from props (useHistory) with @supabase/supabase-js fallback.
+#     - Null 12M → native Pine `na` + `if not na(p4)` guard (not -1 flag);
+#       indicator() sets max_lines_count=500.
+#     - Sidebar.jsx: new "Wave Script" nav entry (Waves icon).
+#     - App.jsx: import + admin-gated `wave-script` route (role === 'admin').
+#     - docs/WAVE_SCRIPT.md (NEW): feature guide + full Pine v6 + line notes.
+#
+# Branch from main (main has v7.14.1):
+git checkout main && git pull origin main
+git checkout -b feat/wave-script
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.0.zip -d .
+# NOTE: if README.md / GIT_GUIDE.md differ from your main, keep only the
+# 4 changed files from the zip (src/components/WaveScriptPage.jsx,
+# src/components/Sidebar.jsx, src/App.jsx, docs/WAVE_SCRIPT.md) and paste
+# this STEP block + the README row by hand.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx src/components/Sidebar.jsx src/App.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "feat(wave-script): admin Pine Script v6 master-wave generator (v7.15.0)
+
+New admin-only Wave Script page: compiles every saved batch into one
+downloadable TradingView Pine Script v6 indicator (indicador_master_ondas.txt).
+- WaveScriptPage.jsx: group results[] horizon rows per ticker, calendar-month
+  time axis from batch.date, de-dup identical waves, chronological colour order,
+  auto-download. Props-first read with @supabase/supabase-js fallback.
+- Null 12M handled with native Pine na + if not na(p4); max_lines_count=500.
+- Sidebar.jsx: Wave Script nav entry (Waves icon).
+- App.jsx: admin-gated wave-script route.
+- docs/WAVE_SCRIPT.md: feature guide + full Pine v6 reference."
+git push -u origin feat/wave-script
+# → Vercel preview → test as admin: open Wave Script, check the summary
+#   (waves / unique tickers / no-12M), download the .txt, paste into the
+#   TradingView Pine Editor and confirm the waves render at calendar dates
+#   and that no-12M waves stop at the 6M point.
+# → then merge to main:
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.0 -m "v7.15.0: Wave Script — Pine Script v6 master-wave generator (admin)"
+git push origin main
+git push origin v7.15.0
+# keep the branch (historical reference)
