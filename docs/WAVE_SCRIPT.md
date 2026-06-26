@@ -223,7 +223,7 @@ drawWave(array<string> f) =>
         dot(t4, p4, c)
 
     // Wave number (1 = oldest for this ticker), same colour.
-    label.new(tEnd, pEnd, str.tostring(ci + 1), xloc = xloc.bar_time, color = color.new(color.white, 100), textcolor = c, style = label.style_label_left, size = size.normal)
+    label.new(tEnd, pEnd, str.tostring(ci + 1), xloc = xloc.bar_time, color = color.new(color.white, 100), textcolor = c, style = label.style_label_left, size = size.large)
 
 // Render on the last bar: split the data once, draw only rows for this symbol.
 if barstate.islast and str.length(WAVE_DATA) > 0
@@ -264,8 +264,9 @@ if barstate.islast and str.length(WAVE_DATA) > 0
   transparent label background so only the dot shows. Called at base/1M/3M/6M,
   and at 12M when present.
 - **Wave number** — a `label.new` with `str.tostring(ci + 1)` at the wave's end
-  point (12M, or 6M when there is no 12M), in the wave's colour. `ci` is 0-based
-  so the displayed number is 1-based: 1 = the oldest wave for that ticker.
+  point (12M, or 6M when there is no 12M), in the wave's colour, at `size.large`
+  for visibility. `ci` is 0-based so the displayed number is 1-based: 1 = the
+  oldest wave for that ticker.
 
 ---
 

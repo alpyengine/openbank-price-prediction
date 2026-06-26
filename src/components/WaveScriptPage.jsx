@@ -275,7 +275,7 @@ drawWave(array<string> f) =>
         dot(t4, p4, c)
 
     // Wave number (1 = oldest for this ticker), same colour, just past the end.
-    label.new(tEnd, pEnd, str.tostring(ci + 1), xloc = xloc.bar_time, color = color.new(color.white, 100), textcolor = c, style = label.style_label_left, size = size.normal)
+    label.new(tEnd, pEnd, str.tostring(ci + 1), xloc = xloc.bar_time, color = color.new(color.white, 100), textcolor = c, style = label.style_label_left, size = size.large)
 `
 
   const renderer = `

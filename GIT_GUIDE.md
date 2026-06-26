@@ -5163,3 +5163,38 @@ git push origin main
 git push origin v7.15.3
 # (also push v7.15.0/.1/.2 tags if not pushed yet — see STEP 192)
 # keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 194 — v7.15.4  Wave Script: bigger per-wave number (size.large)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 2 files: WaveScriptPage.jsx + WAVE_SCRIPT.md.
+# 170 tests stay green. Trivial one-word Pine change (size.normal → size.large).
+# NEEDS TRADINGVIEW COMPILE CHECK before merging.
+#
+# WHAT'S NEW:
+#   - The per-wave number label now uses size.large (was size.normal) so it's
+#     more visible on the chart. Dots and all other behaviour unchanged.
+#
+# Continue on feat/wave-script (same branch — merge all of v7.15.x together):
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.4.zip -d .
+# Overwrites WaveScriptPage.jsx + docs/WAVE_SCRIPT.md + README.md + GIT_GUIDE.md.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "feat(wave-script): bigger per-wave number (size.large) for visibility (v7.15.4)"
+git push origin feat/wave-script
+# → Vercel preview → download the .txt, paste into the TradingView Pine Editor,
+#   confirm it compiles, add to chart, check the wave numbers are now bigger.
+#   If still too small/big, say so — size options: tiny < small < normal <
+#   large < huge.
+# → then merge all v7.15.x to main and tag:
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.4 -m "v7.15.4: Wave Script — bigger per-wave number (size.large)"
+git push origin main
+git push origin v7.15.4
+# (also push earlier v7.15.x tags if not pushed yet — see STEP 192/193)
+# keep the branch (historical reference)
