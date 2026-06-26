@@ -83,21 +83,53 @@ This read is RLS-guarded by the anon key, same as the rest of the app.
    ticker with a *different* base date is **not** a duplicate — it is a valid
    historical wave and is kept.
 
-2. **Chronological order.** Surviving waves are sorted oldest → newest, so the
-   colour assigned to a wave matches the order it appears on the chart.
+2. **Chronological order.** Surviving waves are sorted oldest → newest.
 
-3. **Colour palette** (by appearance order):
+3. **Colour palette** — assigned by chronological order **within each ticker**,
+   not globally. Every symbol restarts its own colour sequence, so a ticker's
+   oldest wave is always red regardless of how many other tickers exist. The
+   per-ticker colour index is precomputed in JS and pushed into `ci_arr`.
 
-   | Wave index | Colour          |
-   |------------|-----------------|
-   | 1st (oldest) | `color.red`   |
-   | 2nd        | `color.blue`    |
-   | 3rd        | `color.green`   |
-   | 4th onward | `color.orange` / `color.purple` (alternating) |
+   | Wave index (per ticker) | Colour          |
+   |-------------------------|-----------------|
+   | 1st (oldest)            | `color.red`     |
+   | 2nd                     | `color.blue`    |
+   | 3rd                     | `color.green`   |
+   | 4th onward              | `color.orange` / `color.purple` (alternating) |
 
 ---
 
-## 5. Null handling (critical) — `na`, not a magic flag
+## 5. Per-ticker filtering (v7.15.1) — waves only on their own chart
+
+Each wave is drawn **only on the chart of its own ticker**. The waves of AMD
+appear only when AMD is open; a symbol that is in no batch shows nothing.
+
+How it works:
+
+- Each wave carries its **market-stripped** ticker (`stripMarket`: `NEM.DE` →
+  `NEM`, `TER.US` → `TER`, `MU` → `MU`) in a parallel string array `tkr_arr`.
+  The strip is required because TradingView's `syminfo.ticker` reports the bare
+  symbol with no market suffix.
+- The renderer compares `array.get(tkr_arr, i) == syminfo.ticker` and only draws
+  the wave when they match.
+
+```pinescript
+if barstate.islast and array.size(t0_arr) > 0
+    for i = 0 to array.size(t0_arr) - 1
+        // Only draw waves for the open symbol.
+        if array.get(tkr_arr, i) == syminfo.ticker
+            // …read coordinates, pick colour, draw the wave…
+```
+
+> **Note on exotic symbols.** `syminfo.ticker` is the plain symbol as TradingView
+> names it (e.g. `MRNA`, `AMD`, `NEM`). For most US/EU equities the stripped
+> ticker matches directly. If a symbol is listed under a different code on your
+> TradingView exchange, that one wave simply won't render — adjust the stored
+> ticker to match the TradingView symbol if needed.
+
+---
+
+## 6. Null handling (critical) — `na`, not a magic flag
 
 If a ticker has no 12M target, the wave is drawn **Base → 1M → 3M → 6M only**.
 The final 6M → 12M segment is left **unpainted**, so the chart visually shows
@@ -123,7 +155,7 @@ vanish; 500 covers ~125 full waves.
 
 ---
 
-## 6. Generated Pine Script v6 — reference
+## 7. Generated Pine Script v6 — reference
 
 This is the structure the generator produces. Coordinate arrays are loaded once
 on the first bar (`barstate.isfirst`) and every wave is rendered on the last bar
@@ -132,82 +164,99 @@ absolute calendar dates regardless of the chart's bar spacing.
 
 ```pinescript
 //@version=6
-indicator("Sistema Maestro de Ondas Elliott V6", overlay=true, max_lines_count=500)
+indicator("Sistema Maestro de Ondas Elliott V6", overlay = true, max_lines_count = 500)
 
 // Coordinate arrays — index i = wave i (already chronologically ordered).
-var int[]   t0_arr = array.new_int()
-var float[] p0_arr = array.new_float()
-var int[]   t1_arr = array.new_int()
-var float[] p1_arr = array.new_float()
-var int[]   t2_arr = array.new_int()
-var float[] p2_arr = array.new_float()
-var int[]   t3_arr = array.new_int()
-var float[] p3_arr = array.new_float()
-var int[]   t4_arr = array.new_int()
-var float[] p4_arr = array.new_float()   // na when no 12M target exists
+var tkr_arr = array.new<string>()   // market-stripped ticker, matched vs syminfo.ticker
+var ci_arr  = array.new<int>()      // per-ticker colour index (0,1,2,…)
+var t0_arr  = array.new<int>()
+var p0_arr  = array.new<float>()
+var t1_arr  = array.new<int>()
+var p1_arr  = array.new<float>()
+var t2_arr  = array.new<int>()
+var p2_arr  = array.new<float>()
+var t3_arr  = array.new<int>()
+var p3_arr  = array.new<float>()
+var t4_arr  = array.new<int>()
+var p4_arr  = array.new<float>()    // na when no 12M target exists
 
 if barstate.isfirst
-    // [0] STX  (Example Corp)  base 15/05/2026
-    array.push(t0_arr, 1747260000000), array.push(p0_arr, 1066.07)
-    array.push(t1_arr, 1749852000000), array.push(p1_arr, 1120.0)
-    array.push(t2_arr, 1755036000000), array.push(p2_arr, 1185.0)
-    array.push(t3_arr, 1762992000000), array.push(p3_arr, 1240.0)
-    array.push(t4_arr, 1778803200000), array.push(p4_arr, 1310.0)
+    // [0] AMD  (AMD)  base 10/01/2026
+    array.push(tkr_arr, "AMD"), array.push(ci_arr, 0)
+    array.push(t0_arr, 1736464800000), array.push(p0_arr, 100.0)
+    array.push(t1_arr, 1739143200000), array.push(p1_arr, 110.0)
+    array.push(t2_arr, 1744056000000), array.push(p2_arr, 120.0)
+    array.push(t3_arr, 1752012000000), array.push(p3_arr, 130.0)
+    array.push(t4_arr, 1767999600000), array.push(p4_arr, 150.0)
 
-    // [1] ACME  (Acme Inc)  base 20/05/2026  — no 12M target
-    array.push(t0_arr, 1747692000000), array.push(p0_arr, 52.4)
-    array.push(t1_arr, 1750284000000), array.push(p1_arr, 55.0)
-    array.push(t2_arr, 1755468000000), array.push(p2_arr, 58.0)
-    array.push(t3_arr, 1763424000000), array.push(p3_arr, 61.0)
-    array.push(t4_arr, 1779235200000), array.push(p4_arr, na)
+    // [1] AMD  (AMD)  base 10/02/2026  — no 12M target
+    array.push(tkr_arr, "AMD"), array.push(ci_arr, 1)
+    array.push(t0_arr, 1739143200000), array.push(p0_arr, 105.0)
+    array.push(t1_arr, 1741822800000), array.push(p1_arr, 115.0)
+    array.push(t2_arr, 1746478800000), array.push(p2_arr, 125.0)
+    array.push(t3_arr, 1754434800000), array.push(p3_arr, 135.0)
+    array.push(t4_arr, 1770422400000), array.push(p4_arr, na)
 
-// Render every wave on the last available bar.
+    // [2] NEM  (Newmont)  base 10/02/2026  — own colour sequence restarts at 0
+    array.push(tkr_arr, "NEM"), array.push(ci_arr, 0)
+    array.push(t0_arr, 1739143200000), array.push(p0_arr, 50.0)
+    array.push(t1_arr, 1741822800000), array.push(p1_arr, 55.0)
+    array.push(t2_arr, 1746478800000), array.push(p2_arr, 58.0)
+    array.push(t3_arr, 1754434800000), array.push(p3_arr, 60.0)
+    array.push(t4_arr, 1770422400000), array.push(p4_arr, 65.0)
+
+// Render waves on the last bar — but only those whose ticker matches this chart.
 if barstate.islast and array.size(t0_arr) > 0
     for i = 0 to array.size(t0_arr) - 1
-        int   t0 = array.get(t0_arr, i)
-        float p0 = array.get(p0_arr, i)
-        int   t1 = array.get(t1_arr, i)
-        float p1 = array.get(p1_arr, i)
-        int   t2 = array.get(t2_arr, i)
-        float p2 = array.get(p2_arr, i)
-        int   t3 = array.get(t3_arr, i)
-        float p3 = array.get(p3_arr, i)
-        int   t4 = array.get(t4_arr, i)
-        float p4 = array.get(p4_arr, i)
+        // Per-ticker filter: only draw waves for the open symbol.
+        if array.get(tkr_arr, i) == syminfo.ticker
+            int   t0 = array.get(t0_arr, i)
+            float p0 = array.get(p0_arr, i)
+            int   t1 = array.get(t1_arr, i)
+            float p1 = array.get(p1_arr, i)
+            int   t2 = array.get(t2_arr, i)
+            float p2 = array.get(p2_arr, i)
+            int   t3 = array.get(t3_arr, i)
+            float p3 = array.get(p3_arr, i)
+            int   t4 = array.get(t4_arr, i)
+            float p4 = array.get(p4_arr, i)
 
-        // Colour by chronological order of appearance.
-        color c = i == 0 ? color.red :
-                  i == 1 ? color.blue :
-                  i == 2 ? color.green :
-                  i % 2 == 0 ? color.orange : color.purple
+            // Colour by chronological order within this ticker.
+            int   ci = array.get(ci_arr, i)
+            color c = ci == 0 ? color.red : ci == 1 ? color.blue : ci == 2 ? color.green : ci % 2 == 0 ? color.orange : color.purple
 
-        // Mandatory spine: Base → 1M → 3M → 6M.
-        line.new(t0, p0, t1, p1, xloc = xloc.bar_time, color = c, width = 2)
-        line.new(t1, p1, t2, p2, xloc = xloc.bar_time, color = c, width = 2)
-        line.new(t2, p2, t3, p3, xloc = xloc.bar_time, color = c, width = 2)
+            // Mandatory spine: Base → 1M → 3M → 6M.
+            line.new(t0, p0, t1, p1, xloc = xloc.bar_time, color = c, width = 2)
+            line.new(t1, p1, t2, p2, xloc = xloc.bar_time, color = c, width = 2)
+            line.new(t2, p2, t3, p3, xloc = xloc.bar_time, color = c, width = 2)
 
-        // 12M segment only when a target exists. na(p4) → leave unpainted.
-        if not na(p4)
-            line.new(t3, p3, t4, p4, xloc = xloc.bar_time, color = c, width = 2)
+            // 12M segment only when a target exists. na(p4) → leave unpainted.
+            if not na(p4)
+                line.new(t3, p3, t4, p4, xloc = xloc.bar_time, color = c, width = 2)
 ```
 
 ### Line-by-line notes
 
-- `max_lines_count=500` — raises Pine's default 50-line drawing budget.
-- `var int[] / var float[]` — `var` keeps the arrays alive across bars; they are
-  populated once and read once, so they never reset per bar.
+- `max_lines_count = 500` — raises Pine's default 50-line drawing budget.
+- `tkr_arr` / `ci_arr` — parallel arrays holding each wave's market-stripped
+  ticker and its per-ticker colour index, precomputed in JS.
+- `var array.new<…>()` — `var` keeps the arrays alive across bars; they are
+  populated once on the first bar and read once on the last.
 - `barstate.isfirst` — the data block runs on the very first historical bar.
   Times are absolute epoch ms, so where exactly it loads doesn't matter.
+- `array.get(tkr_arr, i) == syminfo.ticker` — the per-ticker filter: a wave is
+  drawn only when its ticker equals the open chart's symbol. This is what keeps
+  AMD's waves on AMD and shows nothing on symbols outside your batches.
 - `xloc.bar_time` — interprets the x coordinate as a UNIX timestamp in ms, not a
   bar index, anchoring each point to its real calendar date.
+- The colour ternary is on **one line** — Pine v6 has no line-continuation
+  operator (a multi-line ternary raises CE10005/CE10156).
 - `na(p4)` — true when the 12M target was missing; the final segment is skipped,
   leaving the wave open-ended at 6M.
-- Colour ternary — index 0/1/2 fixed to red/blue/green, then even/odd indices
-  alternate orange/purple for the 4th wave onward.
 
 ---
 
-## 7. How to use
+## 8. How to use
 
 1. Open the app as an **admin** user.
 2. Click **Wave Script** in the left sidebar.
@@ -219,7 +268,7 @@ if barstate.islast and array.size(t0_arr) > 0
 
 ---
 
-## 8. Files
+## 9. Files
 
 | File | Role |
 |------|------|

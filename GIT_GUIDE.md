@@ -5018,3 +5018,51 @@ git tag -a v7.15.0 -m "v7.15.0: Wave Script — Pine Script v6 master-wave gener
 git push origin main
 git push origin v7.15.0
 # keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 191 — v7.15.1  Wave Script: draw waves only on their own ticker chart
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 2 files: WaveScriptPage.jsx + WAVE_SCRIPT.md.
+# 170 tests stay green (generation logic not yet unit-tested — v7.15.2 will add it).
+#
+# BUG (v7.15.0):
+#   The generated Pine drew EVERY wave on EVERY chart regardless of symbol
+#   (AMD's wave appeared on MRNA, etc.) — it never compared against the open
+#   chart's ticker.
+#
+# FIX:
+#   - WaveScriptPage.jsx: each wave now carries its market-stripped ticker
+#     (stripMarket: NEM.DE→NEM, TER.US→TER) in a parallel Pine string array
+#     `tkr_arr`; renderer draws a wave only when
+#     array.get(tkr_arr, i) == syminfo.ticker. Symbol not in any batch → nothing.
+#   - Colour changed from global order to PER-TICKER chronological order
+#     (new `ci_arr`): each ticker restarts red→blue→green→orange/purple, so a
+#     ticker's N waves are N distinct colours independent of other tickers.
+#   - Pine arrays migrated to typed array.new<…>() form; colour ternary kept on
+#     one line (Pine has no line continuation — CE10005/CE10156).
+#   - docs/WAVE_SCRIPT.md: new "Per-ticker filtering" section + refreshed Pine.
+#
+# Continue on feat/wave-script (same branch as v7.15.0 — merge both together):
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.1.zip -d .
+# The zip is built from your real README.md / GIT_GUIDE.md and overwrites them;
+# it changes WaveScriptPage.jsx + docs/WAVE_SCRIPT.md + README.md + GIT_GUIDE.md.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "fix(wave-script): draw waves only on their own ticker (syminfo.ticker filter) + per-ticker colour (v7.15.1)"
+git push origin feat/wave-script
+# → Vercel preview → test as admin: download the .txt, add to chart in
+#   TradingView. Verify: AMD's waves appear ONLY on AMD (one colour per wave),
+#   a symbol not in any batch shows nothing, and waves with no 12M stop at 6M.
+# → then merge both v7.15.0 + v7.15.1 to main and tag:
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.0 -m "v7.15.0: Wave Script — Pine Script v6 master-wave generator (admin)"
+git tag -a v7.15.1 -m "v7.15.1: Wave Script — per-ticker filter (syminfo.ticker) + per-ticker colour"
+git push origin main
+git push origin v7.15.0
+git push origin v7.15.1
+# keep the branch (historical reference)
