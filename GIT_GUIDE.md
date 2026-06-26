@@ -5120,3 +5120,46 @@ git push origin v7.15.0
 git push origin v7.15.1
 git push origin v7.15.2
 # keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 193 — v7.15.3  Wave Script: dots at each point + per-wave number
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 2 files: WaveScriptPage.jsx + WAVE_SCRIPT.md.
+# 170 tests stay green (generation logic still pending unit tests — v7.15.4).
+# NEEDS TRADINGVIEW COMPILE CHECK: no local Pine compiler — validate in the
+# Pine Editor before merging.
+#
+# WHAT'S NEW (visual):
+#   - A small dot (●) is drawn at each forecast point (base/1M/3M/6M, and 12M
+#     when present), coloured to match the wave.
+#   - Each wave shows its chronological number (1 = oldest for that ticker,
+#     = ci + 1) at its end point (12M, or 6M when no 12M), same colour.
+#   - Implemented via a top-level dot() helper (Pine forbids nested functions)
+#     and label.new with a transparent background (only the glyph/number shows).
+#   - indicator() now also sets max_labels_count = 500.
+#   Per-ticker filter, colour, and WAVE_DATA string model are unchanged.
+#
+# Continue on feat/wave-script (same branch — merge all of v7.15.x together):
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.3.zip -d .
+# Overwrites WaveScriptPage.jsx + docs/WAVE_SCRIPT.md + README.md + GIT_GUIDE.md.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "feat(wave-script): dot at each forecast point + per-wave number in wave colour (v7.15.3)"
+git push origin feat/wave-script
+# → Vercel preview → download the .txt, paste into the TradingView Pine Editor,
+#   confirm it COMPILES, then add to chart and verify: a coloured ● sits on each
+#   forecast point, and each wave shows its number (1,2,3…) at its end in the
+#   wave's colour; no-12M waves show the number at the 6M point.
+# → then merge all v7.15.x to main and tag (see STEP 192 for the full tag list,
+#   adding v7.15.3):
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.3 -m "v7.15.3: Wave Script — dots at each point + per-wave number"
+git push origin main
+git push origin v7.15.3
+# (also push v7.15.0/.1/.2 tags if not pushed yet — see STEP 192)
+# keep the branch (historical reference)

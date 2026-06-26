@@ -175,13 +175,17 @@ The 12M field (`p4`) is **left empty** when no target exists →
 
 ```pinescript
 //@version=6
-indicator("Sistema Maestro de Ondas Elliott V6", overlay = true, max_lines_count = 500)
+indicator("Sistema Maestro de Ondas Elliott V6", overlay = true, max_lines_count = 500, max_labels_count = 500)
 
 // All wave data in one string constant (one wave per line).
 // Row: ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4   (empty p4 → na)
 const string WAVE_DATA = "AMD;0;1736464800000;100;1739143200000;110;1744056000000;120;1752012000000;130;1767999600000;150\nAMD;1;1739143200000;105;1741822800000;115;1746478800000;125;1754434800000;135;1770422400000;\nNEM;0;1739143200000;50;1741822800000;55;1746478800000;58;1754434800000;60;1770422400000;65"
 
-// ─── Helper: draw one parsed wave ────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+//@function Draws a small dot (●) at a forecast point in the given colour.
+dot(int tx, float px, color c) =>
+    label.new(tx, px, "●", xloc = xloc.bar_time, color = color.new(color.white, 100), textcolor = c, style = label.style_label_center, size = size.tiny)
+
 //@function Draws a single wave (Base→1M→3M→6M→12M) from a parsed field array.
 //@param f (array<string>) the 12 fields of one row
 drawWave(array<string> f) =>
@@ -205,9 +209,21 @@ drawWave(array<string> f) =>
     line.new(t1, p1, t2, p2, xloc = xloc.bar_time, color = c, width = 2)
     line.new(t2, p2, t3, p3, xloc = xloc.bar_time, color = c, width = 2)
 
-    // 12M segment only when a target exists. na(p4) → leave unpainted.
+    // Dot (●) at each forecast point.
+    dot(t0, p0, c)
+    dot(t1, p1, c)
+    dot(t2, p2, c)
+    dot(t3, p3, c)
+
+    // End point: 12M if present, else 6M. Dot + wave number there.
+    int   tEnd = na(p4) ? t3 : t4
+    float pEnd = na(p4) ? p3 : p4
     if not na(p4)
         line.new(t3, p3, t4, p4, xloc = xloc.bar_time, color = c, width = 2)
+        dot(t4, p4, c)
+
+    // Wave number (1 = oldest for this ticker), same colour.
+    label.new(tEnd, pEnd, str.tostring(ci + 1), xloc = xloc.bar_time, color = color.new(color.white, 100), textcolor = c, style = label.style_label_left, size = size.normal)
 
 // Render on the last bar: split the data once, draw only rows for this symbol.
 if barstate.islast and str.length(WAVE_DATA) > 0
@@ -221,7 +237,9 @@ if barstate.islast and str.length(WAVE_DATA) > 0
 
 ### Line-by-line notes
 
-- `max_lines_count = 500` — raises Pine's default 50-line drawing budget.
+- `max_lines_count = 500` / `max_labels_count = 500` — raise Pine's default
+  drawing budgets (lines and labels) so many waves render without truncation.
+  Each wave draws up to 4 lines + up to 6 labels (5 dots + 1 number).
 - `const string WAVE_DATA` — every wave in one literal, one row per line,
   fields split by `;`. Fixed local-variable cost regardless of wave count
   (this is the fix for **CE10209**).
@@ -241,6 +259,13 @@ if barstate.islast and str.length(WAVE_DATA) > 0
   operator (a multi-line ternary raises CE10005/CE10156).
 - `na(p4)` — true when the 12M target was missing; the final segment is skipped,
   leaving the wave open-ended at 6M.
+- `dot(tx, px, c)` — a top-level helper (Pine forbids nested functions) that
+  draws a small `●` at a forecast point, coloured to match the wave, with a
+  transparent label background so only the dot shows. Called at base/1M/3M/6M,
+  and at 12M when present.
+- **Wave number** — a `label.new` with `str.tostring(ci + 1)` at the wave's end
+  point (12M, or 6M when there is no 12M), in the wave's colour. `ci` is 0-based
+  so the displayed number is 1-based: 1 = the oldest wave for that ticker.
 
 ---
 
