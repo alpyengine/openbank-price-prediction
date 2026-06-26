@@ -4957,3 +4957,244 @@ git tag -a v7.14.1 -m "v7.14.1: All Stocks — Total Stocks KPI unique + total e
 git push origin main
 git push origin v7.14.1
 # keep the branch (historical reference)
+
+# ===========================================================================
+# STEP 190 — v7.15.0  Wave Script: Pine Script v6 master-wave generator (admin)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install (no new deps).
+# 4 files: 1 new component, 1 new doc, Sidebar + App wiring.
+# 170 tests stay green (WaveScriptPage render not unit-tested).
+#
+# WHAT'S NEW:
+#   New admin-only page "Wave Script" that compiles every saved batch into a
+#   single downloadable TradingView Pine Script v6 indicator
+#   (indicador_master_ondas.txt). One batch = one wave (Base→1M→3M→6M→12M);
+#   same ticker on different dates = independent historical waves.
+#     - WaveScriptPage.jsx (NEW): group results[] horizon rows per ticker,
+#       calendar-month time axis from batch.date, de-dup identical waves
+#       (same date + same prices), chronological sort, colour by appearance
+#       order (red/blue/green/orange|purple), auto-download .txt. Reads
+#       batches from props (useHistory) with @supabase/supabase-js fallback.
+#     - Null 12M → native Pine `na` + `if not na(p4)` guard (not -1 flag);
+#       indicator() sets max_lines_count=500.
+#     - Sidebar.jsx: new "Wave Script" nav entry (Waves icon).
+#     - App.jsx: import + admin-gated `wave-script` route (role === 'admin').
+#     - docs/WAVE_SCRIPT.md (NEW): feature guide + full Pine v6 + line notes.
+#
+# Branch from main (main has v7.14.1):
+git checkout main && git pull origin main
+git checkout -b feat/wave-script
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.0.zip -d .
+# NOTE: if README.md / GIT_GUIDE.md differ from your main, keep only the
+# 4 changed files from the zip (src/components/WaveScriptPage.jsx,
+# src/components/Sidebar.jsx, src/App.jsx, docs/WAVE_SCRIPT.md) and paste
+# this STEP block + the README row by hand.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx src/components/Sidebar.jsx src/App.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "feat(wave-script): admin Pine Script v6 master-wave generator (v7.15.0)
+
+New admin-only Wave Script page: compiles every saved batch into one
+downloadable TradingView Pine Script v6 indicator (indicador_master_ondas.txt).
+- WaveScriptPage.jsx: group results[] horizon rows per ticker, calendar-month
+  time axis from batch.date, de-dup identical waves, chronological colour order,
+  auto-download. Props-first read with @supabase/supabase-js fallback.
+- Null 12M handled with native Pine na + if not na(p4); max_lines_count=500.
+- Sidebar.jsx: Wave Script nav entry (Waves icon).
+- App.jsx: admin-gated wave-script route.
+- docs/WAVE_SCRIPT.md: feature guide + full Pine v6 reference."
+git push -u origin feat/wave-script
+# → Vercel preview → test as admin: open Wave Script, check the summary
+#   (waves / unique tickers / no-12M), download the .txt, paste into the
+#   TradingView Pine Editor and confirm the waves render at calendar dates
+#   and that no-12M waves stop at the 6M point.
+# → then merge to main:
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.0 -m "v7.15.0: Wave Script — Pine Script v6 master-wave generator (admin)"
+git push origin main
+git push origin v7.15.0
+# keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 191 — v7.15.1  Wave Script: draw waves only on their own ticker chart
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 2 files: WaveScriptPage.jsx + WAVE_SCRIPT.md.
+# 170 tests stay green (generation logic not yet unit-tested — v7.15.2 will add it).
+#
+# BUG (v7.15.0):
+#   The generated Pine drew EVERY wave on EVERY chart regardless of symbol
+#   (AMD's wave appeared on MRNA, etc.) — it never compared against the open
+#   chart's ticker.
+#
+# FIX:
+#   - WaveScriptPage.jsx: each wave now carries its market-stripped ticker
+#     (stripMarket: NEM.DE→NEM, TER.US→TER) in a parallel Pine string array
+#     `tkr_arr`; renderer draws a wave only when
+#     array.get(tkr_arr, i) == syminfo.ticker. Symbol not in any batch → nothing.
+#   - Colour changed from global order to PER-TICKER chronological order
+#     (new `ci_arr`): each ticker restarts red→blue→green→orange/purple, so a
+#     ticker's N waves are N distinct colours independent of other tickers.
+#   - Pine arrays migrated to typed array.new<…>() form; colour ternary kept on
+#     one line (Pine has no line continuation — CE10005/CE10156).
+#   - docs/WAVE_SCRIPT.md: new "Per-ticker filtering" section + refreshed Pine.
+#
+# Continue on feat/wave-script (same branch as v7.15.0 — merge both together):
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.1.zip -d .
+# The zip is built from your real README.md / GIT_GUIDE.md and overwrites them;
+# it changes WaveScriptPage.jsx + docs/WAVE_SCRIPT.md + README.md + GIT_GUIDE.md.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "fix(wave-script): draw waves only on their own ticker (syminfo.ticker filter) + per-ticker colour (v7.15.1)"
+git push origin feat/wave-script
+# → Vercel preview → test as admin: download the .txt, add to chart in
+#   TradingView. Verify: AMD's waves appear ONLY on AMD (one colour per wave),
+#   a symbol not in any batch shows nothing, and waves with no 12M stop at 6M.
+# → then merge both v7.15.0 + v7.15.1 to main and tag:
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.0 -m "v7.15.0: Wave Script — Pine Script v6 master-wave generator (admin)"
+git tag -a v7.15.1 -m "v7.15.1: Wave Script — per-ticker filter (syminfo.ticker) + per-ticker colour"
+git push origin main
+git push origin v7.15.0
+git push origin v7.15.1
+# keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 192 — v7.15.2  Wave Script: fix CE10209 (string data model, scalable)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 2 files: WaveScriptPage.jsx + WAVE_SCRIPT.md.
+# 170 tests stay green (generation logic still pending unit tests — v7.15.3).
+# NEEDS TRADINGVIEW COMPILE CHECK: no local Pine compiler — validate in the
+# Pine Editor before merging.
+#
+# BUG (v7.15.1):
+#   Generated Pine raised CE10209 "Script has too many local variables (1200
+#   limit)" once a batch set produced ~100+ waves. The generator emitted one
+#   array.push(...) per coordinate per wave (12 pushes × N waves); each push is
+#   a local in Pine's #main scope, so the count grew linearly with waves.
+#
+# FIX:
+#   - WaveScriptPage.jsx: all wave data now emitted as ONE string constant
+#     WAVE_DATA (one wave per line, fields split by ";",
+#     row = ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4). Pine parses it on the last
+#     bar with str.split + a drawWave() user-function → fixed local-variable
+#     count regardless of wave count. Only ceiling left is the 500-line draw
+#     limit (and the per-ticker filter means you only ever draw one symbol's
+#     waves at a time anyway).
+#   - Missing 12M is now an EMPTY trailing field (str.tonumber("") → na)
+#     instead of a literal `na` push.
+#   - Removed now-unused num() helper.
+#   - docs/WAVE_SCRIPT.md reference rewritten for the string model.
+#
+# Continue on feat/wave-script (same branch as v7.15.0 + v7.15.1 — merge all 3):
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.2.zip -d .
+# Overwrites WaveScriptPage.jsx + docs/WAVE_SCRIPT.md + README.md + GIT_GUIDE.md.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "fix(wave-script): single WAVE_DATA string parsed in loop to avoid CE10209 local-var limit (v7.15.2)"
+git push origin feat/wave-script
+# → Vercel preview → download the .txt, paste into the TradingView Pine Editor,
+#   confirm it COMPILES (no CE10209), then add to chart and re-verify:
+#   AMD's waves only on AMD, one colour per wave, nothing on symbols outside
+#   your batches, no-12M waves stop at 6M.
+# → then merge v7.15.0 + v7.15.1 + v7.15.2 to main and tag:
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.0 -m "v7.15.0: Wave Script — Pine Script v6 master-wave generator (admin)"
+git tag -a v7.15.1 -m "v7.15.1: Wave Script — per-ticker filter (syminfo.ticker) + per-ticker colour"
+git tag -a v7.15.2 -m "v7.15.2: Wave Script — string data model, fixes CE10209 local-var limit"
+git push origin main
+git push origin v7.15.0
+git push origin v7.15.1
+git push origin v7.15.2
+# keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 193 — v7.15.3  Wave Script: dots at each point + per-wave number
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 2 files: WaveScriptPage.jsx + WAVE_SCRIPT.md.
+# 170 tests stay green (generation logic still pending unit tests — v7.15.4).
+# NEEDS TRADINGVIEW COMPILE CHECK: no local Pine compiler — validate in the
+# Pine Editor before merging.
+#
+# WHAT'S NEW (visual):
+#   - A small dot (●) is drawn at each forecast point (base/1M/3M/6M, and 12M
+#     when present), coloured to match the wave.
+#   - Each wave shows its chronological number (1 = oldest for that ticker,
+#     = ci + 1) at its end point (12M, or 6M when no 12M), same colour.
+#   - Implemented via a top-level dot() helper (Pine forbids nested functions)
+#     and label.new with a transparent background (only the glyph/number shows).
+#   - indicator() now also sets max_labels_count = 500.
+#   Per-ticker filter, colour, and WAVE_DATA string model are unchanged.
+#
+# Continue on feat/wave-script (same branch — merge all of v7.15.x together):
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.3.zip -d .
+# Overwrites WaveScriptPage.jsx + docs/WAVE_SCRIPT.md + README.md + GIT_GUIDE.md.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "feat(wave-script): dot at each forecast point + per-wave number in wave colour (v7.15.3)"
+git push origin feat/wave-script
+# → Vercel preview → download the .txt, paste into the TradingView Pine Editor,
+#   confirm it COMPILES, then add to chart and verify: a coloured ● sits on each
+#   forecast point, and each wave shows its number (1,2,3…) at its end in the
+#   wave's colour; no-12M waves show the number at the 6M point.
+# → then merge all v7.15.x to main and tag (see STEP 192 for the full tag list,
+#   adding v7.15.3):
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.3 -m "v7.15.3: Wave Script — dots at each point + per-wave number"
+git push origin main
+git push origin v7.15.3
+# (also push v7.15.0/.1/.2 tags if not pushed yet — see STEP 192)
+# keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 194 — v7.15.4  Wave Script: bigger per-wave number (size.large)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 2 files: WaveScriptPage.jsx + WAVE_SCRIPT.md.
+# 170 tests stay green. Trivial one-word Pine change (size.normal → size.large).
+# NEEDS TRADINGVIEW COMPILE CHECK before merging.
+#
+# WHAT'S NEW:
+#   - The per-wave number label now uses size.large (was size.normal) so it's
+#     more visible on the chart. Dots and all other behaviour unchanged.
+#
+# Continue on feat/wave-script (same branch — merge all of v7.15.x together):
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.4.zip -d .
+# Overwrites WaveScriptPage.jsx + docs/WAVE_SCRIPT.md + README.md + GIT_GUIDE.md.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "feat(wave-script): bigger per-wave number (size.large) for visibility (v7.15.4)"
+git push origin feat/wave-script
+# → Vercel preview → download the .txt, paste into the TradingView Pine Editor,
+#   confirm it compiles, add to chart, check the wave numbers are now bigger.
+#   If still too small/big, say so — size options: tiny < small < normal <
+#   large < huge.
+# → then merge all v7.15.x to main and tag:
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.4 -m "v7.15.4: Wave Script — bigger per-wave number (size.large)"
+git push origin main
+git push origin v7.15.4
+# (also push earlier v7.15.x tags if not pushed yet — see STEP 192/193)
+# keep the branch (historical reference)
