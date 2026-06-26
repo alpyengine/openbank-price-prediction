@@ -157,96 +157,84 @@ vanish; 500 covers ~125 full waves.
 
 ## 7. Generated Pine Script v6 — reference
 
-This is the structure the generator produces. Coordinate arrays are loaded once
-on the first bar (`barstate.isfirst`) and every wave is rendered on the last bar
-(`barstate.islast`). Times use `xloc.bar_time` (epoch ms), so the lines sit at
+All wave data is emitted as a **single string constant** (`WAVE_DATA`), one wave
+per line, fields separated by `;`. Pine splits it once on the last bar and parses
+each row in a loop. Times use `xloc.bar_time` (epoch ms), so the lines sit at
 absolute calendar dates regardless of the chart's bar spacing.
+
+**Why a string instead of `array.push` blocks?** The earlier approach emitted one
+`array.push(...)` per coordinate per wave (12 per wave). Each push declares a
+local variable in Pine's `#main` scope, so ~100 waves exceeded the **1200
+local-variable limit** (compile error **CE10209**). The string model parses every
+wave with a *fixed* handful of locals, independent of wave count — the only
+remaining ceiling is the 500-line draw limit.
+
+Row format: `ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4`
+The 12M field (`p4`) is **left empty** when no target exists →
+`str.tonumber("")` returns `na` → the final segment stays unpainted.
 
 ```pinescript
 //@version=6
 indicator("Sistema Maestro de Ondas Elliott V6", overlay = true, max_lines_count = 500)
 
-// Coordinate arrays — index i = wave i (already chronologically ordered).
-var tkr_arr = array.new<string>()   // market-stripped ticker, matched vs syminfo.ticker
-var ci_arr  = array.new<int>()      // per-ticker colour index (0,1,2,…)
-var t0_arr  = array.new<int>()
-var p0_arr  = array.new<float>()
-var t1_arr  = array.new<int>()
-var p1_arr  = array.new<float>()
-var t2_arr  = array.new<int>()
-var p2_arr  = array.new<float>()
-var t3_arr  = array.new<int>()
-var p3_arr  = array.new<float>()
-var t4_arr  = array.new<int>()
-var p4_arr  = array.new<float>()    // na when no 12M target exists
+// All wave data in one string constant (one wave per line).
+// Row: ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4   (empty p4 → na)
+const string WAVE_DATA = "AMD;0;1736464800000;100;1739143200000;110;1744056000000;120;1752012000000;130;1767999600000;150\nAMD;1;1739143200000;105;1741822800000;115;1746478800000;125;1754434800000;135;1770422400000;\nNEM;0;1739143200000;50;1741822800000;55;1746478800000;58;1754434800000;60;1770422400000;65"
 
-if barstate.isfirst
-    // [0] AMD  (AMD)  base 10/01/2026
-    array.push(tkr_arr, "AMD"), array.push(ci_arr, 0)
-    array.push(t0_arr, 1736464800000), array.push(p0_arr, 100.0)
-    array.push(t1_arr, 1739143200000), array.push(p1_arr, 110.0)
-    array.push(t2_arr, 1744056000000), array.push(p2_arr, 120.0)
-    array.push(t3_arr, 1752012000000), array.push(p3_arr, 130.0)
-    array.push(t4_arr, 1767999600000), array.push(p4_arr, 150.0)
+// ─── Helper: draw one parsed wave ────────────────────────────────────────────
+//@function Draws a single wave (Base→1M→3M→6M→12M) from a parsed field array.
+//@param f (array<string>) the 12 fields of one row
+drawWave(array<string> f) =>
+    int   ci = int(str.tonumber(array.get(f, 1)))
+    int   t0 = int(str.tonumber(array.get(f, 2)))
+    float p0 = str.tonumber(array.get(f, 3))
+    int   t1 = int(str.tonumber(array.get(f, 4)))
+    float p1 = str.tonumber(array.get(f, 5))
+    int   t2 = int(str.tonumber(array.get(f, 6)))
+    float p2 = str.tonumber(array.get(f, 7))
+    int   t3 = int(str.tonumber(array.get(f, 8)))
+    float p3 = str.tonumber(array.get(f, 9))
+    int   t4 = int(str.tonumber(array.get(f, 10)))
+    float p4 = str.tonumber(array.get(f, 11))   // empty field → na
 
-    // [1] AMD  (AMD)  base 10/02/2026  — no 12M target
-    array.push(tkr_arr, "AMD"), array.push(ci_arr, 1)
-    array.push(t0_arr, 1739143200000), array.push(p0_arr, 105.0)
-    array.push(t1_arr, 1741822800000), array.push(p1_arr, 115.0)
-    array.push(t2_arr, 1746478800000), array.push(p2_arr, 125.0)
-    array.push(t3_arr, 1754434800000), array.push(p3_arr, 135.0)
-    array.push(t4_arr, 1770422400000), array.push(p4_arr, na)
+    // Colour by chronological order within this ticker.
+    color c = ci == 0 ? color.red : ci == 1 ? color.blue : ci == 2 ? color.green : ci % 2 == 0 ? color.orange : color.purple
 
-    // [2] NEM  (Newmont)  base 10/02/2026  — own colour sequence restarts at 0
-    array.push(tkr_arr, "NEM"), array.push(ci_arr, 0)
-    array.push(t0_arr, 1739143200000), array.push(p0_arr, 50.0)
-    array.push(t1_arr, 1741822800000), array.push(p1_arr, 55.0)
-    array.push(t2_arr, 1746478800000), array.push(p2_arr, 58.0)
-    array.push(t3_arr, 1754434800000), array.push(p3_arr, 60.0)
-    array.push(t4_arr, 1770422400000), array.push(p4_arr, 65.0)
+    // Mandatory spine: Base → 1M → 3M → 6M.
+    line.new(t0, p0, t1, p1, xloc = xloc.bar_time, color = c, width = 2)
+    line.new(t1, p1, t2, p2, xloc = xloc.bar_time, color = c, width = 2)
+    line.new(t2, p2, t3, p3, xloc = xloc.bar_time, color = c, width = 2)
 
-// Render waves on the last bar — but only those whose ticker matches this chart.
-if barstate.islast and array.size(t0_arr) > 0
-    for i = 0 to array.size(t0_arr) - 1
+    // 12M segment only when a target exists. na(p4) → leave unpainted.
+    if not na(p4)
+        line.new(t3, p3, t4, p4, xloc = xloc.bar_time, color = c, width = 2)
+
+// Render on the last bar: split the data once, draw only rows for this symbol.
+if barstate.islast and str.length(WAVE_DATA) > 0
+    array<string> lines = str.split(WAVE_DATA, "\n")
+    for i = 0 to array.size(lines) - 1
+        array<string> f = str.split(array.get(lines, i), ";")
         // Per-ticker filter: only draw waves for the open symbol.
-        if array.get(tkr_arr, i) == syminfo.ticker
-            int   t0 = array.get(t0_arr, i)
-            float p0 = array.get(p0_arr, i)
-            int   t1 = array.get(t1_arr, i)
-            float p1 = array.get(p1_arr, i)
-            int   t2 = array.get(t2_arr, i)
-            float p2 = array.get(p2_arr, i)
-            int   t3 = array.get(t3_arr, i)
-            float p3 = array.get(p3_arr, i)
-            int   t4 = array.get(t4_arr, i)
-            float p4 = array.get(p4_arr, i)
-
-            // Colour by chronological order within this ticker.
-            int   ci = array.get(ci_arr, i)
-            color c = ci == 0 ? color.red : ci == 1 ? color.blue : ci == 2 ? color.green : ci % 2 == 0 ? color.orange : color.purple
-
-            // Mandatory spine: Base → 1M → 3M → 6M.
-            line.new(t0, p0, t1, p1, xloc = xloc.bar_time, color = c, width = 2)
-            line.new(t1, p1, t2, p2, xloc = xloc.bar_time, color = c, width = 2)
-            line.new(t2, p2, t3, p3, xloc = xloc.bar_time, color = c, width = 2)
-
-            // 12M segment only when a target exists. na(p4) → leave unpainted.
-            if not na(p4)
-                line.new(t3, p3, t4, p4, xloc = xloc.bar_time, color = c, width = 2)
+        if array.get(f, 0) == syminfo.ticker
+            drawWave(f)
 ```
 
 ### Line-by-line notes
 
 - `max_lines_count = 500` — raises Pine's default 50-line drawing budget.
-- `tkr_arr` / `ci_arr` — parallel arrays holding each wave's market-stripped
-  ticker and its per-ticker colour index, precomputed in JS.
-- `var array.new<…>()` — `var` keeps the arrays alive across bars; they are
-  populated once on the first bar and read once on the last.
-- `barstate.isfirst` — the data block runs on the very first historical bar.
-  Times are absolute epoch ms, so where exactly it loads doesn't matter.
-- `array.get(tkr_arr, i) == syminfo.ticker` — the per-ticker filter: a wave is
-  drawn only when its ticker equals the open chart's symbol. This is what keeps
-  AMD's waves on AMD and shows nothing on symbols outside your batches.
+- `const string WAVE_DATA` — every wave in one literal, one row per line,
+  fields split by `;`. Fixed local-variable cost regardless of wave count
+  (this is the fix for **CE10209**).
+- Empty trailing field (`…;135;1770422400000;`) — the missing 12M price;
+  `str.tonumber("")` → `na`, so the 6M→12M segment is skipped.
+- `drawWave(array<string> f) =>` — a user-defined function declared before use;
+  parses the 12 fields and draws the wave. Keeping the per-wave locals inside a
+  function (not in `#main`) is what avoids the variable-limit blow-up.
+- `str.split(WAVE_DATA, "\n")` then `str.split(row, ";")` — two-level parse:
+  rows first, then fields.
+- `array.get(f, 0) == syminfo.ticker` — the per-ticker filter: a wave is drawn
+  only when its ticker equals the open chart's symbol. Keeps AMD's waves on AMD
+  and shows nothing on symbols outside your batches.
 - `xloc.bar_time` — interprets the x coordinate as a UNIX timestamp in ms, not a
   bar index, anchoring each point to its real calendar date.
 - The colour ternary is on **one line** — Pine v6 has no line-continuation

@@ -5066,3 +5066,57 @@ git push origin main
 git push origin v7.15.0
 git push origin v7.15.1
 # keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 192 — v7.15.2  Wave Script: fix CE10209 (string data model, scalable)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 2 files: WaveScriptPage.jsx + WAVE_SCRIPT.md.
+# 170 tests stay green (generation logic still pending unit tests — v7.15.3).
+# NEEDS TRADINGVIEW COMPILE CHECK: no local Pine compiler — validate in the
+# Pine Editor before merging.
+#
+# BUG (v7.15.1):
+#   Generated Pine raised CE10209 "Script has too many local variables (1200
+#   limit)" once a batch set produced ~100+ waves. The generator emitted one
+#   array.push(...) per coordinate per wave (12 pushes × N waves); each push is
+#   a local in Pine's #main scope, so the count grew linearly with waves.
+#
+# FIX:
+#   - WaveScriptPage.jsx: all wave data now emitted as ONE string constant
+#     WAVE_DATA (one wave per line, fields split by ";",
+#     row = ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4). Pine parses it on the last
+#     bar with str.split + a drawWave() user-function → fixed local-variable
+#     count regardless of wave count. Only ceiling left is the 500-line draw
+#     limit (and the per-ticker filter means you only ever draw one symbol's
+#     waves at a time anyway).
+#   - Missing 12M is now an EMPTY trailing field (str.tonumber("") → na)
+#     instead of a literal `na` push.
+#   - Removed now-unused num() helper.
+#   - docs/WAVE_SCRIPT.md reference rewritten for the string model.
+#
+# Continue on feat/wave-script (same branch as v7.15.0 + v7.15.1 — merge all 3):
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.2.zip -d .
+# Overwrites WaveScriptPage.jsx + docs/WAVE_SCRIPT.md + README.md + GIT_GUIDE.md.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/WaveScriptPage.jsx docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "fix(wave-script): single WAVE_DATA string parsed in loop to avoid CE10209 local-var limit (v7.15.2)"
+git push origin feat/wave-script
+# → Vercel preview → download the .txt, paste into the TradingView Pine Editor,
+#   confirm it COMPILES (no CE10209), then add to chart and re-verify:
+#   AMD's waves only on AMD, one colour per wave, nothing on symbols outside
+#   your batches, no-12M waves stop at 6M.
+# → then merge v7.15.0 + v7.15.1 + v7.15.2 to main and tag:
+git checkout main
+git merge --no-ff --no-edit feat/wave-script
+git tag -a v7.15.0 -m "v7.15.0: Wave Script — Pine Script v6 master-wave generator (admin)"
+git tag -a v7.15.1 -m "v7.15.1: Wave Script — per-ticker filter (syminfo.ticker) + per-ticker colour"
+git tag -a v7.15.2 -m "v7.15.2: Wave Script — string data model, fixes CE10209 local-var limit"
+git push origin main
+git push origin v7.15.0
+git push origin v7.15.1
+git push origin v7.15.2
+# keep the branch (historical reference)
