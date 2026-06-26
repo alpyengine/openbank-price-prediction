@@ -122,7 +122,7 @@ export default function App() {
 
   // highlightTicker — ticker to scroll-to and briefly highlight in BatchSimple/StockTable
   const [highlightTicker, setHighlightTicker] = useState(null)
-  const { history, stats, loading: histLoading, saving: histSaving, log: histLog, configured: histConfigured, load: loadHistory, saveBatch, deleteBatch } = useHistory(hitMargin)
+  const { history, stats, loading: histLoading, saving: histSaving, log: histLog, configured: histConfigured, load: loadHistory, saveBatch, deleteBatch, deleteStock } = useHistory(hitMargin)
   const { marketData, loading: marketLoading, log: marketLog, fetchMarketData, reset: resetMarketData, restoreMarketData } = useMarketData()
   const { fundamentals, loading: fundLoading, log: fundLog, fetchFundamentals, reset: resetFundamentals, restoreFundamentals } = useFundamentals()
 
@@ -276,6 +276,23 @@ export default function App() {
     })
   }, [])
 
+  /**
+   * handleDeleteStock — called by BatchSimple when admin clicks the delete icon.
+   * Removes the ticker from Supabase (PATCH batch JSON) and from local stocks state.
+   * No-op if no batch is loaded (loadedBatchId is null).
+   *
+   * @param {string} ticker — ticker to remove e.g. "MU", "TER.US"
+   */
+  const handleDeleteStock = useCallback(async (ticker) => {
+    if (!loadedBatchId) return false
+    const ok = await deleteStock(loadedBatchId, ticker)
+    if (ok) {
+      // Remove from local stocks array so BatchSimple updates immediately
+      setStocks(prev => prev.filter(s => s.t !== ticker))
+    }
+    return ok
+  }, [loadedBatchId, deleteStock])
+
   const firstBase = stocks.find(s => s.base)?.base
   const KEYS = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
   const activeTargetDate = firstBase && horizon !== 'best' && horizon !== 'all' ? targetDates(firstBase)[KEYS[horizon]] : null
@@ -378,6 +395,9 @@ export default function App() {
               closeRatio={closeRatio}
               direction={batchDirection}
               highlightTicker={highlightTicker}
+              role={role}
+              loadedBatchId={loadedBatchId}
+              onDeleteStock={handleDeleteStock}
             />
           )}
 

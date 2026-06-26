@@ -869,6 +869,12 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     : null
   const topScore  = sorted.reduce((best, s) => s.score != null && s.score > (best?.score ?? -1) ? s : best, null)
 
+  // Total table rows = sum of all batch instances across all tickers (v7.14.1)
+  const totalInstances = useMemo(
+    () => Object.values(instancesByTicker).reduce((n, arr) => n + arr.length, 0),
+    [instancesByTicker]
+  )
+
   return (
     <div className="flex flex-col gap-4">
 
@@ -888,7 +894,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       {/* ── KPIs ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: 'Total Stocks',   value: baseStocks.length, sub: `across ${batches?.length ?? 0} batches`, subClass: '' },
+          { label: 'Total Stocks',   value: baseStocks.length, sub: `${totalInstances} entries across ${batches?.length ?? 0} batches`, subClass: '' },
           { label: `Avg Upside ${horizon}`, value: avgUpside != null ? fmtPct(avgUpside) : '—', sub: 'selected horizon', subClass: avgUpside != null ? (avgUpside >= 0 ? 'text-green-600' : 'text-red-500') : '' },
           { label: 'Stocks w/ Score', value: sorted.filter(s => s.score != null).length, sub: 'fundamentals loaded', subClass: '' },
           { label: 'Top Score',      value: topScore?.score ?? '—', sub: topScore?.t ?? '—', subClass: 'text-violet-600' },

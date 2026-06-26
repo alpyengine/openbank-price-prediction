@@ -152,6 +152,93 @@ export async function deleteHistoryBatch(batchId) {
   }
 }
 
+// ── Public: delete a single ticker from a batch (PATCH the JSON doc) ─────────
+
+/**
+ * deleteStockFromBatch(batchId, ticker)
+ *
+ * Removes one ticker from a batch document stored in Supabase.
+ * Because each batch is a single JSON row (not normalised rows), this:
+ *   1. Fetches the current batch row
+ *   2. Filters results[] to remove all entries for the ticker
+ *   3. Recalculates stocks count, hitRate, hitRateExt
+ *   4. PATCHes the updated row back via authHeaders (JWT required by RLS)
+ *   5. Deletes orphaned weekly_prices rows for (ticker, batchId)
+ *
+ * Returns true on success, false on any error.
+ *
+ * @param {string} batchId — YYYY-MM-DD batch id (row PK)
+ * @param {string} ticker  — ticker to remove e.g. "MU", "TER.US"
+ */
+export async function deleteStockFromBatch(batchId, ticker) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false
+  try {
+    // 1. Fetch current batch row
+    const getRes = await fetch(
+      endpoint(`?id=eq.${encodeURIComponent(batchId)}&select=results,hit_rate,hit_rate_ext,stocks,horizon_status,direction,market_data,fundamentals,date,saved_at`),
+      { headers: { ...authHeaders(), 'Prefer': 'return=representation' }, cache: 'no-store' }
+    )
+    if (!getRes.ok) throw new Error('Supabase GET failed: ' + getRes.status)
+    const rows = await getRes.json()
+    if (!rows?.length) throw new Error(`Batch ${batchId} not found`)
+    const batch = rows[0]
+
+    // 2. Filter out the ticker
+    const oldResults = batch.results ?? []
+    const newResults = oldResults.filter(r => r.ticker !== ticker)
+    if (newResults.length === oldResults.length) {
+      // Ticker not found in this batch — nothing to do
+      return true
+    }
+
+    // 3. Recalculate derived fields
+    const uniqueTickers = new Set(newResults.map(r => r.ticker))
+    const newStocks     = uniqueTickers.size
+    const evaluated     = newResults.filter(r => r.verdict !== 'awaiting')
+    const hits          = evaluated.filter(r => r.verdict === 'hit').length
+    const exceeded      = evaluated.filter(r => r.verdict === 'exceeded').length
+    const newHitRate    = evaluated.length ? Math.round(hits / evaluated.length * 100) : null
+    const newHitRateExt = evaluated.length ? Math.round((hits + exceeded) / evaluated.length * 100) : null
+
+    // 4. PATCH the batch row — authHeaders required by RLS
+    const patchRes = await fetch(
+      endpoint(`?id=eq.${encodeURIComponent(batchId)}`),
+      {
+        method:  'PATCH',
+        headers: { ...authHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify({
+          results:      newResults,
+          stocks:       newStocks,
+          hit_rate:     newHitRate,
+          hit_rate_ext: newHitRateExt,
+          updated_at:   new Date().toISOString(),
+        }),
+      }
+    )
+    if (!patchRes.ok) throw new Error('Supabase PATCH failed: ' + patchRes.status)
+
+    // 5. Delete orphaned weekly_prices rows for (ticker, batchId)
+    // Strip exchange suffix for weekly_prices lookup (stored without .US/.DE etc.)
+    const bareTicker = ticker.split('.')[0]
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/weekly_prices?batch_id=eq.${encodeURIComponent(batchId)}&ticker=eq.${encodeURIComponent(bareTicker)}`,
+      { method: 'DELETE', headers: authHeaders() }
+    )
+    // Also try with full ticker in case it was stored with suffix
+    if (bareTicker !== ticker) {
+      await fetch(
+        `${SUPABASE_URL}/rest/v1/weekly_prices?batch_id=eq.${encodeURIComponent(batchId)}&ticker=eq.${encodeURIComponent(ticker)}`,
+        { method: 'DELETE', headers: authHeaders() }
+      )
+    }
+
+    return true
+  } catch (err) {
+    console.error('[storage] deleteStockFromBatch error:', err)
+    return false
+  }
+}
+
 // ── Public: build batch ID from date string ───────────────────────────────────
 
 export function buildBatchId(dateStr) {
