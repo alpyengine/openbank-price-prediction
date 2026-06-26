@@ -230,6 +230,34 @@ npm run test       # watch mode
 170 tests across 10 files — utils, hooks, services, components.
 
 ---
+| v7.14.0 | Batch Overview: admin delete stock from batch |
+
+## Descripción completa
+
+**feat(batch): admin delete stock from batch (v7.14.0)**
+
+New admin-only "Actions" column in Batch Overview table. Admins can remove
+a ticker from the loaded batch directly from the UI.
+
+- `BatchSimple.jsx`: Actions column rendered only when `role === 'admin'`
+  and `loadedBatchId != null`. Double-click confirmation pattern (same as
+  AccuracyChart delete batch): first click arms (red, 3s timeout), second
+  click within 3s performs deletion. Trash2 icon from lucide-react.
+- `App.jsx`: `handleDeleteStock(ticker)` handler — calls `deleteStock` from
+  `useHistory`, then removes ticker from local `stocks` state for immediate UI
+  update. Passes `role`, `loadedBatchId`, `onDeleteStock` to BatchSimple.
+- `useHistory.js`: new `deleteStock(batchId, ticker)` — calls storage, then
+  patches local history state (filters results[], recalculates stocks count +
+  hitRate/hitRateExt) without requiring a full reload. Added to hook return.
+- `storage.js`: new `deleteStockFromBatch(batchId, ticker)` — fetches batch
+  row, filters results[], recalculates stocks/hitRate/hitRateExt, PATCHes
+  back with authHeaders (JWT, required by RLS). Also deletes orphaned
+  weekly_prices rows for (bareTicker, batchId) and (ticker, batchId).
+
+No Supabase schema changes. No npm install. 170 tests stay green (BatchSimple
+not a unit-tested module; pure functions in useHistory/storage unchanged).
+
+
 | v7.13.4 | **Help page** text refresh (`HelpPage.jsx`, docs-only) — brings the All Stocks section up to date with the v7.10–v7.13 work. Fixes the now-false line "the most recent batch wins" (the page shows **one row per batch**, grouped newest→oldest with a *latest* pill and indented *↳* older rows, each linking to its own batch; collapses under search/Best only). Adds documentation for: the **ticker/company search** with scroll+highlight, the **horizon pill + sortable columns**, **Top picks by sector**, the **Entry Quality** and **Entry Momentum** columns (which replaced the sparkline), and the **inline expandable detail card** (four horizon boxes with settled verdicts, Fundamentals panel, price-chart button; ticker click → Batch Overview). Section title and file header comment updated. No code/logic changes |
 | v7.13.3 | **All Stocks** expandable card phase 2 — settled verdicts + unified HOY price (`AllStocksPage.jsx`). (1) Expired horizons now show the **real close and verdict** (hit/miss), matching Batch Detail, instead of "vencido / awaiting". The settled close already lives in each saved batch (`results[].priceOnDate` + `targetDate`), so instances are enriched with a per-horizon `hist` map (`buildHist`) which is converted to the `histPrices` shape the cards expect (`histKeyed`) and passed to the card — no API calls. (2) The **HOY price now matches Batch Detail**: the card prefers live `autoPrices` (as Batch Detail does) and only falls back to the latest weekly close when no live price is available, removing the earlier discrepancy ($519.68 vs $537.37). No data-model or backend changes |
 | v7.13.2 | **All Stocks** fix: expandable card showed only Fundamentals, the four **HorizonCards** were missing (`AllStocksExpandCard.jsx`). Root cause: the card derives the horizon target dates from `stock.base` (a **Date** object in Batch Detail), but the All Stocks row model has no `base` Date — the base date lives in `stock.batchDate` as a **"DD/MM/YYYY"** string — so `targetDates(stock.base)` got `null` and the 1M/3M/6M/12M boxes never rendered (only Fundamentals, which does not depend on the base date, showed). Fix: parse `batchDate` into a Date (`parseDDMMYYYY`) and feed it as the card's base, so the four horizon boxes render with their targets and dates. Live comparison and the "vencido / awaiting" markers behave as before; settled hit/miss verdicts still deferred (no dated history per instance). No data-model or backend changes |

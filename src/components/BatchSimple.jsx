@@ -10,17 +10,22 @@
  *   - ❌ Miss (X%) — price did not reach target
  *   - Expired · no price — horizon expired but no price available
  *
- * @param {Object[]} stocks     — array of stock objects
- * @param {Object}   autoPrices — current prices { [ticker]: price }
- * @param {Object}   histPrices — historical prices { [ticker_horizon]: { price } }
- * @param {Object}   overrides  — manual price overrides
- * @param {number}   hitMargin  — hit tolerance in % (default 5)
+ * @param {Object[]} stocks       — array of stock objects
+ * @param {Object}   autoPrices   — current prices { [ticker]: price }
+ * @param {Object}   histPrices   — historical prices { [ticker_horizon]: { price } }
+ * @param {Object}   overrides    — manual price overrides
+ * @param {number}   hitMargin    — hit tolerance in % (default 5)
+ * @param {string}   role         — 'admin' | 'readonly' — controls delete column visibility
+ * @param {string}   loadedBatchId — YYYY-MM-DD batch id, null if no batch loaded
+ * @param {Function} onDeleteStock — (ticker) => Promise<boolean> — admin-only delete callback
  */
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { targetDates, daysLeft, dateStatus, formatDate } from '@/utils/dates.js'
 import { getEffectivePrice, evaluatePrediction } from '@/utils/stocks.js'
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
@@ -123,7 +128,33 @@ function HorizonCell({ stock, horizonKey, tKey, dKey, autoPrices, histPrices, ov
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function BatchSimple({ stocks, autoPrices, histPrices, overrides, hitMargin = 5, closeRatio = 2.4, direction = 'bullish', highlightTicker = null }) {
+export default function BatchSimple({ stocks, autoPrices, histPrices, overrides, hitMargin = 5, closeRatio = 2.4, direction = 'bullish', highlightTicker = null, role = null, loadedBatchId = null, onDeleteStock }) {
+  // ── Delete state (admin only) ───────────────────────────────────────────────
+  // confirmDelete: ticker string on first click (arms the button), null otherwise
+  // deletingStock: ticker being deleted (shows spinner), null otherwise
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [deletingStock, setDeletingStock] = useState(null)
+
+  // isAdmin — delete column is only shown when role is admin AND a batch is loaded
+  const isAdmin = role === 'admin' && !!loadedBatchId
+
+  /**
+   * handleDeleteStock — double-click confirmation pattern (same as AccuracyChart).
+   * First click: arms the button (red state) with 3s auto-reset.
+   * Second click within 3s: performs the deletion.
+   */
+  const handleDeleteStock = async (ticker) => {
+    if (confirmDelete !== ticker) {
+      setConfirmDelete(ticker)
+      setTimeout(() => setConfirmDelete(c => c === ticker ? null : c), 3000)
+      return
+    }
+    setConfirmDelete(null)
+    setDeletingStock(ticker)
+    await onDeleteStock?.(ticker)
+    setDeletingStock(null)
+  }
+
   if (!stocks.length) {
     return (
       <Card className="flex items-center justify-center p-12 text-muted-foreground text-sm">
@@ -173,6 +204,10 @@ export default function BatchSimple({ stocks, autoPrices, histPrices, overrides,
               {HORIZONS.map(h => (
                 <TableHead key={h.key} className="text-xs py-2.5 px-4">{h.label}</TableHead>
               ))}
+              {/* Actions column — admin only, only when a batch is loaded */}
+              {isAdmin && (
+                <TableHead className="w-[60px] text-xs py-2.5 px-4 text-right">Actions</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -213,6 +248,30 @@ export default function BatchSimple({ stocks, autoPrices, histPrices, overrides,
                     closeRatio={closeRatio}
                   />
                 ))}
+
+                {/* Delete cell — admin only, only when a batch is loaded */}
+                {isAdmin && (
+                  <TableCell className="py-3 px-4 text-right">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      title={confirmDelete === stock.t ? 'Click again to confirm delete' : 'Delete ticker from batch'}
+                      className={cn(
+                        'px-2 h-7',
+                        confirmDelete === stock.t
+                          ? 'border-destructive bg-red-50 text-destructive hover:bg-red-100'
+                          : 'text-muted-foreground hover:text-destructive hover:border-destructive'
+                      )}
+                      onClick={() => handleDeleteStock(stock.t)}
+                      disabled={deletingStock === stock.t}
+                    >
+                      {deletingStock === stock.t
+                        ? <span className="text-[10px] font-mono">…</span>
+                        : <Trash2 size={12} />
+                      }
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

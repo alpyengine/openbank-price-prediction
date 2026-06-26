@@ -52,7 +52,7 @@
  *   deleteBatch(id)   — delete a batch from Supabase
  */
 import { useState, useCallback, useEffect } from 'react'
-import { loadHistory, saveHistory, buildBatchId, isStorageConfigured, deleteHistoryBatch, saveFundamentalsCache } from '../services/storage.js'
+import { loadHistory, saveHistory, buildBatchId, isStorageConfigured, deleteHistoryBatch, deleteStockFromBatch as deleteStockFromBatchStorage, saveFundamentalsCache } from '../services/storage.js'
 import { formatDate, today as getToday, targetDates, dateStatus } from '../utils/dates.js'
 import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction, SNAPSHOT_PARAMS } from '../utils/stocks.js'
 
@@ -324,9 +324,63 @@ export function useHistory(margin = 5) {
       setSaving(false)
     }
   }, [configured])
+  // ── Delete a single ticker from a batch ────────────────────────────────────
+  /**
+   * deleteStock(batchId, ticker)
+   *
+   * Removes one ticker from a batch in Supabase (PATCH, not DELETE row).
+   * Also updates local history state so the UI reflects the change immediately
+   * without requiring a full reload.
+   *
+   * @param {string} batchId — YYYY-MM-DD batch id
+   * @param {string} ticker  — ticker string e.g. "MU", "TER.US"
+   * @returns {Promise<boolean>} true on success
+   */
+  const deleteStock = useCallback(async (batchId, ticker) => {
+    if (!configured) { setLog('Storage not configured'); return false }
+    setSaving(true)
+    setLog(`Removing ${ticker} from batch ${batchId}…`)
+    try {
+      const ok = await deleteStockFromBatchStorage(batchId, ticker)
+      if (ok) {
+        // Update local history immediately — remove ticker rows + recalculate stocks count
+        setHistory(prev => {
+          if (!prev) return prev
+          return {
+            batches: prev.batches.map(b => {
+              if (b.id !== batchId) return b
+              const newResults    = b.results.filter(r => r.ticker !== ticker)
+              const uniqueTickers = new Set(newResults.map(r => r.ticker))
+              const evaluated     = newResults.filter(r => r.verdict !== 'awaiting')
+              const hits          = evaluated.filter(r => r.verdict === 'hit').length
+              const exceeded      = evaluated.filter(r => r.verdict === 'exceeded').length
+              return {
+                ...b,
+                results:     newResults,
+                stocks:      uniqueTickers.size,
+                hitRate:     evaluated.length ? Math.round(hits / evaluated.length * 100) : null,
+                hitRateExt:  evaluated.length ? Math.round((hits + exceeded) / evaluated.length * 100) : null,
+                updatedAt:   new Date().toISOString(),
+              }
+            }),
+          }
+        })
+        setLog(`${ticker} removed from batch ${batchId}`)
+      } else {
+        setLog(`Failed to remove ${ticker} from batch ${batchId}`)
+      }
+      return ok
+    } catch (err) {
+      setLog('Delete stock error: ' + err.message)
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }, [configured])
+
   const stats = computed(history)
 
-  return { history, stats, loading, saving, log, configured, load, saveBatch, deleteBatch }
+  return { history, stats, loading, saving, log, configured, load, saveBatch, deleteBatch, deleteStock }
 }
 
 // ── Compute accuracy stats from history ───────────────────────────────────────

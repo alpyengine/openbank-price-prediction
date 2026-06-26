@@ -4873,3 +4873,52 @@ git checkout main
 git merge --no-ff --no-edit docs/helppage-allstocks-refresh
 git tag -a v7.13.4 -m "v7.13.4: Help page text refresh for All Stocks"
 git push origin main && git push origin v7.13.4
+
+# ===========================================================================
+# STEP 188 — v7.14.0  Batch Overview: admin delete stock from batch
+# ===========================================================================
+#
+# NO SUPABASE SCHEMA CHANGES. No npm install. 4 files changed.
+# 170 tests stay green (BatchSimple not unit-tested; pure functions unchanged).
+#
+# WHAT'S NEW:
+#   Admin-only "Actions" column in Batch Overview (BatchSimple).
+#   Delete icon (Trash2) per row — double-click pattern (first click arms
+#   red state with 3s timeout, second click confirms).
+#   Only visible when role === 'admin' AND a batch is loaded (loadedBatchId).
+#
+#   storage.js:    new deleteStockFromBatch(batchId, ticker)
+#                  → GET batch, filter results[], recalculate stats,
+#                    PATCH with authHeaders, DELETE weekly_prices orphans.
+#   useHistory.js: new deleteStock(batchId, ticker) — calls storage,
+#                  patches local history state immediately (no reload).
+#                  Added to hook return.
+#   App.jsx:       handleDeleteStock(ticker) — calls deleteStock, then
+#                  removes ticker from local stocks state.
+#                  Passes role + loadedBatchId + onDeleteStock to BatchSimple.
+#   BatchSimple.jsx: Actions column (admin+loadedBatch only), double-click
+#                  confirmation, Trash2 + Button imports, useState for
+#                  confirmDelete/deletingStock states.
+#
+# Branch from main (main has v7.13.4):
+git checkout main && git pull origin main
+git checkout -b feat/batch-delete-stock
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.14.0.zip -d .
+# NOTE: if README.md / GIT_GUIDE.md differ from your main, keep only the
+# 4 src files from the zip and paste this STEP block + the README row by hand.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/services/storage.js src/hooks/useHistory.js src/App.jsx src/components/BatchSimple.jsx README.md GIT_GUIDE.md
+git commit -m "feat(batch): admin delete stock from batch — double-click confirm, PATCH Supabase, clean weekly_prices (v7.14.0)"
+git push -u origin feat/batch-delete-stock
+# → Vercel preview → test: load a batch as admin, delete a ticker,
+#   verify row disappears + Supabase batch updated + weekly_prices cleaned.
+# → then merge to main:
+git checkout main
+git merge --no-ff --no-edit feat/batch-delete-stock
+git tag -a v7.14.0 -m "v7.14.0: Batch Overview — admin delete stock from batch"
+git push origin main
+git push origin v7.14.0
+# keep the branch (historical reference)
