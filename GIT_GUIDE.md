@@ -5285,3 +5285,51 @@ git tag -a v7.15.6 -m "v7.15.6: Top Picks — help tooltip on Upside/Score butto
 git push origin main
 git push origin v7.15.5 v7.15.6
 # keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 197 — v7.15.7  Wave Script: extract pure logic + 25 unit tests
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install (no new deps). 4 files:
+#   NEW  src/utils/waveScript.js        (extracted pure logic)
+#   NEW  src/utils/waveScript.test.js   (25 tests)
+#        src/components/WaveScriptPage.jsx  (now imports from the module)
+#        README.md + GIT_GUIDE.md
+# Test suite: 170 → 195 tests across 11 files, all green.
+# NEW BRANCH from main (v7.15.6 already merged at 274e28c).
+#
+# WHAT'S NEW:
+#   - extractWaves / buildPineScript (+ parseDDMMYYYY, addMonths, epochMs,
+#     stripMarket) moved out of WaveScriptPage.jsx into src/utils/waveScript.js,
+#     following the utils+test convention (dates.js, stocks.js). Behaviour is
+#     byte-for-byte identical; the component just imports them now.
+#   - src/utils/waveScript.test.js: 25 tests across stripMarket, addMonths,
+#     parseDDMMYYYY, extractWaves (dedup, chronological sort, null 12M, EU
+#     ticker norm, calendar-month axis, incomplete-spine skip) and
+#     buildPineScript (v6 header + limits, per-ticker syminfo filter, per-ticker
+#     colour restart, empty 12M field, drawWave, wave count, empty-list safety).
+#
+# Branch from main:
+git checkout main && git pull origin main
+git checkout -b feat/wavescript-tests
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.7.zip -d .
+# Adds src/utils/waveScript.js + src/utils/waveScript.test.js, updates
+# WaveScriptPage.jsx + README.md + GIT_GUIDE.md.
+
+npm run test:run   # expect 195 tests across 11 files, all green
+
+git add src/utils/waveScript.js src/utils/waveScript.test.js src/components/WaveScriptPage.jsx README.md GIT_GUIDE.md
+git commit -m "test(wave-script): extract pure logic to utils/waveScript.js + 25 unit tests (v7.15.7)"
+git push -u origin feat/wavescript-tests
+# → Vercel preview (the Wave Script page must still download an identical .txt —
+#   the refactor is behaviour-preserving). No Pine change, so no TradingView
+#   re-validation strictly needed, but a quick download check is reassuring.
+# → then merge to main and tag:
+git checkout main
+git merge --no-ff --no-edit feat/wavescript-tests
+git tag -a v7.15.7 -m "v7.15.7: Wave Script — extract pure logic + 25 unit tests"
+git push origin main
+git push origin v7.15.7
+# keep the branch (historical reference)
