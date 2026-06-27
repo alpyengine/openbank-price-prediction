@@ -5198,3 +5198,50 @@ git push origin main
 git push origin v7.15.4
 # (also push earlier v7.15.x tags if not pushed yet — see STEP 192/193)
 # keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 195 — v7.15.5  All Stocks: label the two sector filters (UX)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install (no new deps). 1 code file + 2 docs:
+# AllStocksPage.jsx + README.md + GIT_GUIDE.md.
+# 170 tests stay green (21 AllStocksPage tests included).
+# NEW BRANCH from main (Wave Script v7.15.0–.4 already merged at 9ec215e).
+#
+# PROBLEM:
+#   Two sector filters on the All Stocks page looked identical — one for Top
+#   Picks (topPicksSec, top-right) and one for the table (filterSec, in the
+#   dense filter row). Easy to use the wrong one and think Top Picks "didn't
+#   reorder". Not a bug — a UX/labelling problem.
+#
+# FIX (presentation only, both states kept independent):
+#   - Top Picks header reframed as a card: "Top picks · mostrando mejores de:
+#     [sector] · ordenados por [Upside/Score] · [horizon]". The picks sector
+#     <select> now lives inside that sentence so it's obvious what it controls.
+#   - The table's sector <select> gets a "Tabla:" label in front of it.
+#   No logic / data-model / backend changes; topPicksSec & filterSec untouched.
+#
+# Branch from main:
+git checkout main && git pull origin main
+git checkout -b feat/toppicks-sector-ux
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.5.zip -d .
+# Overwrites AllStocksPage.jsx + README.md + GIT_GUIDE.md.
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat(allstocks): label the two sector filters to remove UX confusion (v7.15.5)"
+git push -u origin feat/toppicks-sector-ux
+# → Vercel preview → on All Stocks, confirm: the Top Picks card reads
+#   "mostrando mejores de: [sector]" and reorders its boxes from its own
+#   selector; the table row shows "Tabla:" before its sector selector; the two
+#   filters work independently (different sectors at once still possible).
+# → then merge to main and tag:
+git checkout main
+git merge --no-ff --no-edit feat/toppicks-sector-ux
+git tag -a v7.15.5 -m "v7.15.5: All Stocks — label the two sector filters (UX)"
+git push origin main
+git push origin v7.15.5
+# keep the branch (historical reference)
