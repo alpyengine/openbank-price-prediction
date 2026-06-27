@@ -910,28 +910,27 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       {/* ── Top 5 picks ────────────────────────────────────────────────────── */}
       {baseStocks.length > 0 && (
         <div>
-          {/* Header row: label + sector filter + criteria toggle */}
-          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                Top picks
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                · {horizon} horizon · {topPicksSec || 'all sectors'} · sorted by {topPicksCriteria === 'upside' ? 'upside' : 'score'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* #7 sector filter for Top Picks */}
-              <select
-                value={topPicksSec}
-                onChange={e => setTopPicksSec(e.target.value)}
-                className="px-2 py-1 rounded-md border border-border bg-card text-[11px] text-foreground"
-              >
-                <option value="">All sectors</option>
-                {sectors.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              {/* Criteria toggle — upside (default) vs score */}
-              <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+          {/* Header row: framed phrase integrating the picks sector filter +
+              criteria toggle, so it reads as one statement and is clearly
+              distinct from the table's sector filter below. (v7.15.5 UX) */}
+          <div className="flex items-center gap-x-2 gap-y-1.5 mb-2 flex-wrap rounded-xl border border-border bg-card px-3 py-2">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+              Top picks
+            </span>
+            <span className="text-[11px] text-muted-foreground">· mostrando mejores de:</span>
+            {/* #7 sector filter for Top Picks */}
+            <select
+              value={topPicksSec}
+              onChange={e => setTopPicksSec(e.target.value)}
+              className="px-2 py-1 rounded-md border border-border bg-card text-[11px] text-foreground"
+            >
+              <option value="">todos los sectores</option>
+              {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <span className="text-[11px] text-muted-foreground">· ordenados por</span>
+            {/* Criteria toggle — upside (default) vs score, each with its own help tooltip */}
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+              <div className="flex items-center">
                 <button
                   onClick={() => setTopPicksCriteria('upside')}
                   className={cn(
@@ -943,6 +942,9 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 >
                   Upside
                 </button>
+                <ColTooltip text="Ordena por el recorrido que aún le queda al precio de hoy hasta el objetivo de Openbank (mayor % primero). Fórmula: (objetivo − precio hoy) / precio hoy. No necesita fundamentales, así que ordena todos los valores." />
+              </div>
+              <div className="flex items-center">
                 <button
                   onClick={() => setTopPicksCriteria('score')}
                   className={cn(
@@ -954,8 +956,10 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 >
                   Score
                 </button>
+                <ColTooltip text="Ordena por la puntuación de inversión 0–100 (combina Upside 40%, PEG 45% y Margen Neto 15%; −20 si el BPA es negativo). Solo ordena valores que tengan Score, es decir, con fundamentales cargados." />
               </div>
             </div>
+            <span className="text-[10px] text-muted-foreground ml-auto">· {horizon} horizon</span>
           </div>
           {/* Pick cards grid (or empty state when a sector has no positive-upside picks) */}
           {topPicks.length > 0 ? (
@@ -1068,14 +1072,19 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           </div>
         )}
 
-        <select
-          value={filterSec}
-          onChange={e => setFilterSec(e.target.value)}
-          className="px-2 py-1 rounded-md border border-border bg-card text-[11px] text-foreground"
-        >
-          <option value="">All Sectors</option>
-          {sectors.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        {/* Table sector filter — labelled "Tabla:" to distinguish it from the
+            Top Picks sector filter (topPicksSec) above. (v7.15.5 UX) */}
+        <div className="inline-flex items-center gap-1.5">
+          <span className="text-[10px] text-muted-foreground font-medium">Tabla:</span>
+          <select
+            value={filterSec}
+            onChange={e => setFilterSec(e.target.value)}
+            className="px-2 py-1 rounded-md border border-border bg-card text-[11px] text-foreground"
+          >
+            <option value="">All Sectors</option>
+            {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
 
         <select
           value={filterPeg}
