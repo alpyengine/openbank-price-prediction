@@ -928,30 +928,36 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               {sectors.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <span className="text-[11px] text-muted-foreground">· ordenados por</span>
-            {/* Criteria toggle — upside (default) vs score */}
+            {/* Criteria toggle — upside (default) vs score, each with its own help tooltip */}
             <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-              <button
-                onClick={() => setTopPicksCriteria('upside')}
-                className={cn(
-                  'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
-                  topPicksCriteria === 'upside'
-                    ? 'bg-card text-foreground shadow-sm border border-border'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                Upside
-              </button>
-              <button
-                onClick={() => setTopPicksCriteria('score')}
-                className={cn(
-                  'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
-                  topPicksCriteria === 'score'
-                    ? 'bg-card text-foreground shadow-sm border border-border'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                Score
-              </button>
+              <div className="flex items-center">
+                <button
+                  onClick={() => setTopPicksCriteria('upside')}
+                  className={cn(
+                    'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
+                    topPicksCriteria === 'upside'
+                      ? 'bg-card text-foreground shadow-sm border border-border'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Upside
+                </button>
+                <ColTooltip text="Ordena por el recorrido que aún le queda al precio de hoy hasta el objetivo de Openbank (mayor % primero). Fórmula: (objetivo − precio hoy) / precio hoy. No necesita fundamentales, así que ordena todos los valores." />
+              </div>
+              <div className="flex items-center">
+                <button
+                  onClick={() => setTopPicksCriteria('score')}
+                  className={cn(
+                    'text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors',
+                    topPicksCriteria === 'score'
+                      ? 'bg-card text-foreground shadow-sm border border-border'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Score
+                </button>
+                <ColTooltip text="Ordena por la puntuación de inversión 0–100 (combina Upside 40%, PEG 45% y Margen Neto 15%; −20 si el BPA es negativo). Solo ordena valores que tengan Score, es decir, con fundamentales cargados." />
+              </div>
             </div>
             <span className="text-[10px] text-muted-foreground ml-auto">· {horizon} horizon</span>
           </div>

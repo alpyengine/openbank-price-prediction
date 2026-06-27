@@ -5245,3 +5245,43 @@ git tag -a v7.15.5 -m "v7.15.5: All Stocks — label the two sector filters (UX)
 git push origin main
 git push origin v7.15.5
 # keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 196 — v7.15.6  Top Picks: help ⓘ tooltip on Upside / Score buttons
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 code file + 2 docs:
+# AllStocksPage.jsx + README.md + GIT_GUIDE.md.
+# 170 tests stay green. CONTINUES on feat/toppicks-sector-ux (same branch as
+# v7.15.5 — the two merge together).
+#
+# WHAT'S NEW:
+#   - Each ranking-criteria button (Upside / Score) gets its own help ⓘ tooltip,
+#     reusing the existing ColTooltip component (same pattern as the table
+#     column headers). Upside → ranks by remaining upside from today's price to
+#     the Openbank target (no fundamentals needed). Score → ranks by the 0–100
+#     investment score (Upside 40% + PEG 45% + Net Margin 15%, −20 if EPS < 0;
+#     only ranks stocks that have a Score).
+#   Presentation-only; no logic/data/backend changes.
+#
+# Continue on feat/toppicks-sector-ux (already has v7.15.5):
+unzip -o ~/Downloads/openbank-price-prediction_v7.15.6.zip -d .
+# Overwrites AllStocksPage.jsx + README.md + GIT_GUIDE.md (these already include
+# the v7.15.5 changes, since v7.15.6 builds on the same branch).
+
+npm run test:run   # 170 tests must stay green
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat(allstocks): help tooltip on Upside/Score ranking buttons (v7.15.6)"
+git push origin feat/toppicks-sector-ux
+# → Vercel preview → on All Stocks, hover the ⓘ next to Upside and next to Score;
+#   confirm each shows its explanation and is readable (not clipped/mispositioned).
+# → then merge v7.15.5 + v7.15.6 together to main and tag both:
+git checkout main
+git merge --no-ff --no-edit feat/toppicks-sector-ux
+git tag -a v7.15.5 -m "v7.15.5: All Stocks — label the two sector filters (UX)"
+git tag -a v7.15.6 -m "v7.15.6: Top Picks — help tooltip on Upside/Score buttons"
+git push origin main
+git push origin v7.15.5 v7.15.6
+# keep the branch (historical reference)
