@@ -1201,7 +1201,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       <Legend />
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
-      <div className="bg-card border border-border rounded-xl overflow-visible">
+      <div className="bg-card border border-border rounded-xl overflow-x-auto">
         <table className="w-full border-collapse text-[11.5px]">
           <thead>
             <tr className="bg-muted/50 border-b border-border">

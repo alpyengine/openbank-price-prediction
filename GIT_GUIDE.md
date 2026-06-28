@@ -5562,3 +5562,65 @@ git push origin v7.16.0 v7.16.1 v7.16.2 v7.16.3
 # Branch is kept as historical reference — do NOT delete.
 # If Vercel doesn't redeploy after the merge:
 #   git commit --allow-empty -m "chore: trigger vercel deploy" && git push
+
+
+# ===========================================================================
+# STEP 202 — v7.16.4  Fix: gray band on the right of the All Stocks table
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. NEW standalone branch off main
+# (the v7.16.x line is already merged). 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx   (1-line: table wrapper overflow)
+#        README.md + GIT_GUIDE.md
+#
+# BUG:
+#   A vertical gray band appeared on the right of the All Stocks table, with a
+#   hard vertical edge mid-table that didn't line up with any column.
+#
+# CAUSE (not a drawn element):
+#   The table wrapper used `overflow-visible`. The raw <table> is w-full but its
+#   columns have content-based min widths; with many columns (and the sidebar
+#   expanded → narrower content area) the table is wider than its card. With
+#   overflow-visible the right columns spill OUTSIDE the white card box and sit
+#   on the page background (--background #f9f9fb, light gray). The "band" is that
+#   page background showing through; the sharp edge is the card's right border.
+#   (global.css confirms --card #fff vs --background #f9f9fb; the project's own
+#    shadcn Table wraps in `relative w-full overflow-auto` — the correct pattern.)
+#
+# FIX (1 line, AllStocksPage.jsx ~1204):
+#   - <div className="bg-card border border-border rounded-xl overflow-visible">
+#   + <div className="bg-card border border-border rounded-xl overflow-x-auto">
+#   Now the table scrolls horizontally inside the white card instead of spilling.
+#   When the table fits (wide screen) it looks identical to before.
+#
+# Caveat to check in preview: overflow-x-auto also clips vertical overflow inside
+# the card. Header info tooltips (ⓘ) that open UPWARD could be clipped. They
+# normally open downward over the rows, so likely fine — verify. If any tooltip
+# clips, the fallback is to wrap only the <table> in the scroller and keep the
+# header tooltips outside the scroll box (separate small change).
+#
+# Branch off main:
+git checkout main && git pull origin main
+git checkout -b fix/allstocks-gray-band
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.16.4.zip -d .
+git status
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: All Stocks table scrolls in-card instead of spilling onto page bg (gray band) (v7.16.4)"
+git tag -a v7.16.4 -m "v7.16.4: fix gray band on the right of the All Stocks table (overflow-x-auto)"
+git push -u origin fix/allstocks-gray-band
+git push origin v7.16.4
+# → Vercel preview: All Stocks with the sidebar EXPANDED (and/or a narrow window)
+#   — the right columns stay inside the white card; no gray spill. If it doesn't
+#   fit, a horizontal scrollbar appears inside the card. Check header ⓘ tooltips.
+
+# Merge to main (this fix is standalone — merge after the preview validates):
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/allstocks-gray-band
+git push origin main
+git push origin v7.16.4
+# Branch kept as historical reference — do NOT delete.
