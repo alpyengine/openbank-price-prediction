@@ -481,6 +481,7 @@ function computed(history) {
       hit, exceeded, close, miss, wrongWay, awaiting,
       hitRate, hitRateExt,
       direction: b.direction ?? 'bullish',
+      market: marketOf(b.results?.[0]?.ticker),
     }
   })
 

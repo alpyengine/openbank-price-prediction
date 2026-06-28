@@ -649,7 +649,7 @@ export default function AccuracyChart({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted">
-                    {['Date', 'Stocks', 'Hit Rate', 'Ext Rate', 'Hit', 'Exc', 'Miss', 'Await', 'Actions'].map(h => (
+                    {['Date', 'Market', 'Trend', 'Stocks', 'Hit Rate', 'Ext Rate', 'Hit', 'Exc', 'Miss', 'Await', 'Actions'].map(h => (
                       <TableHead key={h} className="text-xs py-2.5 px-3.5 whitespace-nowrap">{h}</TableHead>
                     ))}
                   </TableRow>
@@ -658,7 +658,7 @@ export default function AccuracyChart({
                   {/* Empty state row */}
                   {(!batches || batches.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-6 text-sm text-muted-foreground">
+                      <TableCell colSpan={11} className="text-center py-6 text-sm text-muted-foreground">
                         No batches saved yet
                       </TableCell>
                     </TableRow>
@@ -675,19 +675,29 @@ export default function AccuracyChart({
 
                     return (
                       <TableRow key={batch.id}>
-                        <TableCell className="py-3 px-3.5 font-medium">
-                          <div className="flex items-center gap-1.5">
-                            {batch.date}
-                            <span className={cn(
-                              'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
-                              batch.direction === 'bearish'
-                                ? 'bg-red-50 text-red-700'
-                                : 'bg-green-50 text-green-700'
-                            )}>
-                              {batch.direction === 'bearish' ? '📉' : '📈'}
-                            </span>
-                          </div>
+                        <TableCell className="py-3 px-3.5 font-medium whitespace-nowrap">
+                          {batch.date}
                         </TableCell>
+
+                        {/* Market — neutral pill (raw exchange code: US, MC, DE…) */}
+                        <TableCell className="py-3 px-3.5">
+                          <span className="inline-flex items-center text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded border border-border bg-muted text-muted-foreground">
+                            {batch.market ?? 'US'}
+                          </span>
+                        </TableCell>
+
+                        {/* Trend — green (bullish) / red (bearish) pill */}
+                        <TableCell className="py-3 px-3.5">
+                          <span className={cn(
+                            'inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full border whitespace-nowrap',
+                            batch.direction === 'bearish'
+                              ? 'bg-red-50 text-red-700 border-red-200'
+                              : 'bg-green-50 text-green-700 border-green-200'
+                          )}>
+                            {batch.direction === 'bearish' ? '↘ Bear' : '↗ Bull'}
+                          </span>
+                        </TableCell>
+
                         <TableCell className="py-3 px-3.5 text-muted-foreground">{batch.stocks}</TableCell>
 
                         {/* Hit rate pure */}

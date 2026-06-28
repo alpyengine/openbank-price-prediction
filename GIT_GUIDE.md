@@ -5402,3 +5402,55 @@ git push origin v7.16.0
 #   pill, and only the loaded one is checked.
 # DO NOT merge yet — v7.16.1 (Accuracy columns) and v7.16.2 (All Stocks trend
 # filter) land on this SAME branch first, then we merge --no-ff and tag all three.
+
+
+# ===========================================================================
+# STEP 199 — v7.16.1  Accuracy: Market + Trend columns (Historical batches)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. SAME branch as v7.16.0
+# (feat/batch-trend-market) — do NOT merge yet. 2 src files + 2 docs:
+#        src/hooks/useHistory.js           (computed() adds `market` to batchSummary)
+#        src/components/AccuracyChart.jsx   (Market + Trend columns)
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   After v7.16.0 separated same-day batches, the Accuracy "Historical batches"
+#   table still distinguished them only by a tiny 📈/📉 badge glued to the date,
+#   which is ambiguous (no market, easy to misread). Approved design = Option 2:
+#   two dedicated, scannable columns.
+#
+# WHAT'S NEW:
+#   - useHistory.computed(): each batchSummary row now carries `market`, derived
+#     via marketOf(b.results[0].ticker) — works for old batches too (derived from
+#     their tickers, no migration). `direction` was already present.
+#   - AccuracyChart Historical batches table:
+#       * header is now Date · Market · Trend · Stocks · Hit Rate · Ext Rate ·
+#         Hit · Exc · Miss · Await · Actions (empty-state colSpan 9 -> 11).
+#       * Date cell is clean (no inline emoji badge).
+#       * Market = neutral pill with the raw exchange code (US, MC, DE, AS, PA, L)
+#         — same code language as the load selector and All Stocks.
+#       * Trend = green "↗ Bull" / red "↘ Bear" pill (same colour language as the
+#         import selector and the v7.16.0 selector chips).
+#
+# Commit on the SHARED branch (already created in STEP 198):
+git checkout feat/batch-trend-market
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.16.1.zip -d .
+# Overlays src/hooks/useHistory.js + src/components/AccuracyChart.jsx +
+# README.md + GIT_GUIDE.md straight into the repo. Confirm the docs diff is only
+# the v7.16.1 row + this STEP 199 block:
+git status
+git diff --stat
+
+npm run test:run   # existing suite should stay green.
+
+git add src/hooks/useHistory.js src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Accuracy Market + Trend columns for same-day batches (v7.16.1)"
+git tag -a v7.16.1 -m "v7.16.1: Accuracy Historical batches — separate Market and Trend columns (Option 2)"
+git push origin feat/batch-trend-market
+git push origin v7.16.1
+# → Vercel preview: Accuracy Stats → Historical batches — confirm the three
+#   same-day rows now show distinct Market + Trend columns and the date is clean.
+# STILL DO NOT MERGE — v7.16.2 (All Stocks trend filter) lands next, then we
+# merge --no-ff all three together.
