@@ -7,7 +7,8 @@
  * Public API (unchanged between versions):
  *   loadHistory()           → { batches: [...] } | null
  *   saveHistory(history, batchMeta) → true | false
- *   buildBatchId(dateStr)   → string "YYYY-MM-DD"
+ *   buildBatchId(date, market, direction) → "YYYY-MM-DD[_MKT_dir]"
+ *   marketOf(ticker)        → market code e.g. "US", "MC"
  *   isStorageConfigured()   → boolean
  */
 
@@ -239,12 +240,52 @@ export async function deleteStockFromBatch(batchId, ticker) {
   }
 }
 
-// ── Public: build batch ID from date string ───────────────────────────────────
+// ── Public: derive market code from a ticker ──────────────────────────────────
 
-export function buildBatchId(dateStr) {
-  if (!dateStr) return new Date().toISOString().split('T')[0]
-  const [d, m, y] = dateStr.split('/')
-  return `${y}-${m}-${d}`
+/**
+ * marketOf — derive the market code from a ticker's exchange suffix.
+ * US tickers have no suffix (e.g. "AAPL") → 'US'.
+ * EU tickers carry a suffix (e.g. "SAN.MC", "BMW.DE") → 'MC', 'DE', …
+ * Single source of truth for batch-level market, used by buildBatchId,
+ * the batch selector and Accuracy.
+ *
+ * @param {string} ticker — e.g. "AAPL", "SLB.US", "SAN.MC"
+ * @returns {string} market code, uppercased (default 'US')
+ */
+export function marketOf(ticker) {
+  if (!ticker || !ticker.includes('.')) return 'US'
+  return ticker.split('.').pop().toUpperCase()
+}
+
+// ── Public: build batch ID from date + market + direction ─────────────────────
+
+/**
+ * buildBatchId — composite batch identity.
+ *
+ * Historically the id was just the date ("YYYY-MM-DD"), which meant two
+ * imports on the same day (e.g. a bullish and a bearish list, or a US and an
+ * EU list) collided on the same primary key and got merged into one batch.
+ *
+ * The id now combines date + market + direction → "YYYY-MM-DD_US_bullish",
+ * so same-day batches with a different market or direction stay separate.
+ *
+ * Backwards-compatible: called with only a date (market & direction omitted)
+ * it returns the legacy date-only id, so existing batches keep their key.
+ *
+ * @param {string} dateStr   — "DD/MM/YYYY"
+ * @param {string} [market]  — market code e.g. 'US', 'MC' (from marketOf)
+ * @param {string} [direction] — 'bullish' | 'bearish'
+ * @returns {string} batch id
+ */
+export function buildBatchId(dateStr, market, direction) {
+  const base = dateStr
+    ? (() => { const [d, m, y] = dateStr.split('/'); return `${y}-${m}-${d}` })()
+    : new Date().toISOString().split('T')[0]
+  // No market/direction → legacy date-only id (old batches stay unchanged)
+  if (!market && !direction) return base
+  const mk  = (market || 'US').toUpperCase()
+  const dir = (direction || 'bullish').toLowerCase()
+  return `${base}_${mk}_${dir}`
 }
 
 // ── Public: check if configured ───────────────────────────────────────────────

@@ -174,6 +174,7 @@ function deduplicateStocks(batches) {
         base:      r0?.base || null,
         batchId:   batch.id,
         batchDate: batch.date,
+        direction: batch.direction ?? 'bullish',  // batch trend for the Trend filter
         hist:      buildHist(rows),
       })
     }
@@ -226,6 +227,7 @@ function expandStockInstances(batches) {
         co: r0?.company || r0?.co || normTicker, b: base,
         t1, t3, t6, t12, base: r0?.base || null,
         batchId: batch.id, batchDate: batch.date,
+        direction: batch.direction ?? 'bullish',  // batch trend for the Trend filter
         hist: buildHist(rows),
         u1:  base > 0 && t1  > 0 ? ((t1  - base) / base * 100) : null,
         u3:  base > 0 && t3  > 0 ? ((t3  - base) / base * 100) : null,
@@ -583,6 +585,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   const [filterSec,    setFilterSec]    = useState('')
   const [filterPeg,    setFilterPeg]    = useState('')
   const [filterMkt,    setFilterMkt]    = useState('')  // '' | 'US' | 'DE' | 'AS' | 'PA' | 'L' | 'MC'
+  const [filterTrend,  setFilterTrend]  = useState('')  // '' | 'bullish' | 'bearish'
   const [minScore,     setMinScore]     = useState(0)
   const [legendOpen,   setLegendOpen]   = useState(false)
   // topPicksCriteria — 'upside' (default) | 'score'
@@ -700,6 +703,13 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     return Object.entries(counts).sort((a, b) => b[1] - a[1])
   }, [stocks])
 
+  // Trend counts (bullish / bearish) for the Trend filter badges
+  const trendCounts = useMemo(() => {
+    const counts = { bullish: 0, bearish: 0 }
+    stocks.forEach(s => { counts[(s.direction === 'bearish') ? 'bearish' : 'bullish']++ })
+    return counts
+  }, [stocks])
+
   // Map horizon label to stock field: '1M'→'u1', '3M'→'u3', '6M'→'u6', '12M'→'u12'
   const hKey = { '1M': 'u1', '3M': 'u3', '6M': 'u6', '12M': 'u12' }[horizon] ?? 'u12'
 
@@ -707,6 +717,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   const filtered = useMemo(() => stocks.filter(s => {
     if (filterSec && s.sector !== filterSec) return false
     if (filterMkt && s.market !== filterMkt) return false
+    if (filterTrend && (s.direction ?? 'bullish') !== filterTrend) return false
     if (filterPeg === 'low'  && !(s.peg != null && s.peg > 0 && s.peg < 1))  return false
     if (filterPeg === 'mid'  && !(s.peg != null && s.peg >= 1 && s.peg <= 2)) return false
     if (filterPeg === 'high' && !(s.peg != null && s.peg > 2))                return false
@@ -718,7 +729,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           !(s.co || '').toLowerCase().includes(q)) return false
     }
     return true
-  }), [stocks, filterSec, filterMkt, filterPeg, minScore, searchQuery])
+  }), [stocks, filterSec, filterMkt, filterTrend, filterPeg, minScore, searchQuery])
 
   // #6 — scroll to + flash the row when a suggestion is picked, then clear the flash.
   useEffect(() => {
@@ -1068,6 +1079,50 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 </button>
               )
             })}
+            <div className="w-px h-3.5 bg-border mx-1" />
+          </div>
+        )}
+
+        {/* Trend filter — shown only when both bullish and bearish are present */}
+        {trendCounts.bullish > 0 && trendCounts.bearish > 0 && (
+          <div className="flex items-center gap-1.5 mr-1">
+            <span className="text-[10px] text-muted-foreground font-medium">Trend:</span>
+            <button
+              onClick={() => setFilterTrend('')}
+              className={cn(
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors',
+                filterTrend === ''
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+              )}
+            >
+              All
+              <span className="opacity-60 text-[10px]">({stocks.length})</span>
+            </button>
+            <button
+              onClick={() => setFilterTrend(f => f === 'bullish' ? '' : 'bullish')}
+              className={cn(
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors',
+                filterTrend === 'bullish'
+                  ? 'bg-green-600 text-white border-green-600'
+                  : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+              )}
+            >
+              ↗ Bull
+              <span className="opacity-60 text-[10px]">({trendCounts.bullish})</span>
+            </button>
+            <button
+              onClick={() => setFilterTrend(f => f === 'bearish' ? '' : 'bearish')}
+              className={cn(
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors',
+                filterTrend === 'bearish'
+                  ? 'bg-red-600 text-white border-red-600'
+                  : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+              )}
+            >
+              ↘ Bear
+              <span className="opacity-60 text-[10px]">({trendCounts.bearish})</span>
+            </button>
             <div className="w-px h-3.5 bg-border mx-1" />
           </div>
         )}

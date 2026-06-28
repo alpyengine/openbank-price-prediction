@@ -5333,3 +5333,232 @@ git tag -a v7.15.7 -m "v7.15.7: Wave Script — extract pure logic + 25 unit tes
 git push origin main
 git push origin v7.15.7
 # keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 198 — v7.16.0  Composite batch id (date + market + direction)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install (no new deps). 4 src files + 2 docs:
+#        src/services/storage.js      (buildBatchId composite + marketOf helper)
+#        src/hooks/useHistory.js      (saveBatch derives market + builds composite id)
+#        src/App.jsx                  (handleImport composite provisional id; passes loadedBatchId)
+#        src/components/FetchBar.jsx  (selector shows market+direction pills, active by id)
+#        README.md + GIT_GUIDE.md
+# NEW BRANCH from main (v7.15.7 already merged). This branch is SHARED by the
+# whole v7.16.x line — v7.16.1 and v7.16.2 land on it too; merge at the end.
+#
+# WHY:
+#   Same-day imports with a different market or direction were merging into one
+#   batch, because the batch id (the Supabase primary key) was the DATE ONLY.
+#   A bullish US list, a bearish US list and a bearish ES list saved on the same
+#   day all collapsed into a single batch, and the last import overwrote the
+#   batch `direction` (so the whole thing "became bearish").
+#
+# WHAT'S NEW:
+#   - storage.js: buildBatchId(date, market, direction) now returns a COMPOSITE
+#     id "YYYY-MM-DD_MKT_dir" (e.g. 2026-06-28_US_bullish). Called with date only
+#     (market & direction omitted) it still returns the legacy "YYYY-MM-DD" id,
+#     so existing batches keep their key and never collide with new ones.
+#     New marketOf(ticker) — single source of truth for batch market, derived
+#     from the ticker's exchange suffix ('AAPL'/'SLB.US' -> 'US', 'SAN.MC' -> 'MC').
+#   - useHistory.saveBatch: derives market from the first ticker and builds the
+#     composite id. The existing date-keyed merge now only merges a RE-IMPORT of
+#     the SAME date+market+direction (adding/refreshing tickers) — never a
+#     different list on the same day.
+#   - App.handleImport: computes the same composite provisional id so
+#     weekly_prices for a previously-saved same-day batch still resolve, and
+#     passes loadedBatchId down to FetchBar.
+#   - FetchBar batch selector: each entry shows a neutral MARKET pill + a
+#     green/red DIRECTION pill, and the active batch is matched by id (not date),
+#     so same-day batches are distinguishable and only the loaded one is checked.
+#
+# Back-compatible: no migration, no schema change. Old date-only ids are left
+# untouched; only NEW saves get composite ids.
+#
+# Branch from main:
+git checkout main && git pull origin main
+git checkout -b feat/batch-trend-market
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.16.0.zip -d .
+# Overlays the 4 src files + README.md + GIT_GUIDE.md straight into the repo
+# (no wrapping folder, same as every previous version). Then confirm the docs
+# diff is only the v7.16.0 changelog row + this STEP 198 block:
+git status
+git diff --stat
+
+npm run test:run   # existing suite should stay green (buildBatchId is back-compatible).
+                   # If a buildBatchId/merge test asserts the old date-only id,
+                   # update it for the composite id and tell me.
+
+git add src/services/storage.js src/hooks/useHistory.js src/App.jsx src/components/FetchBar.jsx README.md GIT_GUIDE.md
+git commit -m "feat: composite batch id (date+market+direction) + load selector chips (v7.16.0)"
+git tag -a v7.16.0 -m "v7.16.0: batch identity by date+market+direction; differentiate same-day batches in the load selector"
+git push -u origin feat/batch-trend-market
+git push origin v7.16.0
+# → Vercel preview: import two same-day lists with a different direction/market
+#   (e.g. US bullish + US bearish + ES bearish on the same date); confirm they
+#   appear as SEPARATE batches in the selector, each with its market + direction
+#   pill, and only the loaded one is checked.
+# DO NOT merge yet — v7.16.1 (Accuracy columns) and v7.16.2 (All Stocks trend
+# filter) land on this SAME branch first, then we merge --no-ff and tag all three.
+
+
+# ===========================================================================
+# STEP 199 — v7.16.1  Accuracy: Market + Trend columns (Historical batches)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. SAME branch as v7.16.0
+# (feat/batch-trend-market) — do NOT merge yet. 2 src files + 2 docs:
+#        src/hooks/useHistory.js           (computed() adds `market` to batchSummary)
+#        src/components/AccuracyChart.jsx   (Market + Trend columns)
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   After v7.16.0 separated same-day batches, the Accuracy "Historical batches"
+#   table still distinguished them only by a tiny 📈/📉 badge glued to the date,
+#   which is ambiguous (no market, easy to misread). Approved design = Option 2:
+#   two dedicated, scannable columns.
+#
+# WHAT'S NEW:
+#   - useHistory.computed(): each batchSummary row now carries `market`, derived
+#     via marketOf(b.results[0].ticker) — works for old batches too (derived from
+#     their tickers, no migration). `direction` was already present.
+#   - AccuracyChart Historical batches table:
+#       * header is now Date · Market · Trend · Stocks · Hit Rate · Ext Rate ·
+#         Hit · Exc · Miss · Await · Actions (empty-state colSpan 9 -> 11).
+#       * Date cell is clean (no inline emoji badge).
+#       * Market = neutral pill with the raw exchange code (US, MC, DE, AS, PA, L)
+#         — same code language as the load selector and All Stocks.
+#       * Trend = green "↗ Bull" / red "↘ Bear" pill (same colour language as the
+#         import selector and the v7.16.0 selector chips).
+#
+# Commit on the SHARED branch (already created in STEP 198):
+git checkout feat/batch-trend-market
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.16.1.zip -d .
+# Overlays src/hooks/useHistory.js + src/components/AccuracyChart.jsx +
+# README.md + GIT_GUIDE.md straight into the repo. Confirm the docs diff is only
+# the v7.16.1 row + this STEP 199 block:
+git status
+git diff --stat
+
+npm run test:run   # existing suite should stay green.
+
+git add src/hooks/useHistory.js src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Accuracy Market + Trend columns for same-day batches (v7.16.1)"
+git tag -a v7.16.1 -m "v7.16.1: Accuracy Historical batches — separate Market and Trend columns (Option 2)"
+git push origin feat/batch-trend-market
+git push origin v7.16.1
+# → Vercel preview: Accuracy Stats → Historical batches — confirm the three
+#   same-day rows now show distinct Market + Trend columns and the date is clean.
+# STILL DO NOT MERGE — v7.16.2 (All Stocks trend filter) lands next, then we
+# merge --no-ff all three together.
+
+
+# ===========================================================================
+# STEP 200 — v7.16.2  Fix: same-day re-import overwrote instead of merging
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. SAME branch (feat/batch-trend-market) —
+# do NOT merge yet. 1 src file + 2 docs:
+#        src/hooks/useHistory.js
+#        README.md + GIT_GUIDE.md
+#
+# BUG (found in v7.16.0/v7.16.1 testing):
+#   Re-importing a ticker into an existing batch of the SAME date+market+
+#   direction REPLACED the whole batch with just the re-imported ticker(s),
+#   instead of MERGING. Reproduces reliably after a page reload.
+#
+# CAUSE:
+#   saveBatch found the existing batch via current.batches.find(b => b.id===id),
+#   where `current = history` (in-memory). After a reload — or any time the
+#   in-memory history lags Supabase — that list can miss the existing same-day
+#   batch. existingBatch is then undefined, so mergedResults = just the new
+#   tickers, and saveHistory's merge-duplicates upsert (keyed by id) overwrites
+#   the existing DB row with the smaller batch. loadHistory() DOES return full
+#   results (storage.js:76), so the data was always there — the lookup just used
+#   a stale source.
+#
+# FIX:
+#   saveBatch now reloads the freshest history from the DB (loadHistory()) right
+#   before the merge lookup, falling back to in-memory history only if that read
+#   fails. So a re-import of the same date+market+direction always finds the
+#   existing batch and MERGES. The merge also guards against a missing results
+#   array ((existingBatch.results ?? [])). otherBatches is derived from the same
+#   fresh list, which also prevents stale in-memory state from dropping batches.
+#
+# Commit on the SHARED branch:
+git checkout feat/batch-trend-market
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.16.2.zip -d .
+git status
+git diff --stat   # expect: src/hooks/useHistory.js + README.md + GIT_GUIDE.md
+
+npm run test:run
+
+git add src/hooks/useHistory.js README.md GIT_GUIDE.md
+git commit -m "fix: same-day re-import merges instead of overwriting (fresh history lookup) (v7.16.2)"
+git tag -a v7.16.2 -m "v7.16.2: fix same-day re-import overwriting an existing batch — merge lookup reads fresh history"
+git push origin feat/batch-trend-market
+git push origin v7.16.2
+# → Vercel preview re-test (the case that failed):
+#   1) Load exists: a saved batch of N tickers (same date+market+direction).
+#   2) RELOAD the page.
+#   3) Import 1 ticker of that same date/market/direction → Save.
+#   4) Expect the batch to become N (or N+1) tickers — MERGED, not replaced.
+# STILL DO NOT MERGE — v7.16.3 (All Stocks trend filter) lands next.
+
+
+# ===========================================================================
+# STEP 201 — v7.16.3  All Stocks: Trend (bullish/bearish) filter
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. LAST version of the v7.16.x line on the
+# shared branch (feat/batch-trend-market). 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHAT'S NEW:
+#   - deduplicateStocks() and expandStockInstances() now attach `direction`
+#     (batch.direction ?? 'bullish') to every row, so each stock knows the trend
+#     of its batch. Spreads through to `stocks` via ...s — no other plumbing.
+#   - trendCounts memo counts bullish vs bearish across the visible stocks.
+#   - New Trend filter row beside the Market filter: All / ↗ Bull (green) /
+#     ↘ Bear (red), neutral when inactive, shown ONLY when both trends exist.
+#   - filtered memo applies filterTrend ('' | 'bullish' | 'bearish').
+#
+# Note: the de-duplicated table shows newest-batch-wins per ticker, so a ticker
+# present in both a bullish and a bearish batch reflects its newest batch's
+# trend — consistent with how the Market filter already behaves.
+#
+# Commit on the SHARED branch:
+git checkout feat/batch-trend-market
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.16.3.zip -d .
+git status
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks bullish/bearish Trend filter (v7.16.3)"
+git tag -a v7.16.3 -m "v7.16.3: All Stocks Trend filter (bullish/bearish) beside the Market filter"
+git push origin feat/batch-trend-market
+git push origin v7.16.3
+# → Vercel preview: All Stocks — with same-day bullish + bearish batches loaded,
+#   the Trend filter appears; All / ↗ Bull / ↘ Bear filter the table correctly.
+
+# ===========================================================================
+# FINAL MERGE — the whole v7.16.x line (v7.16.0 → v7.16.3) into main
+# ===========================================================================
+# Only after ALL four previews validated. The four annotated tags already point
+# at their commits on the branch and stay valid after the merge.
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/batch-trend-market
+git push origin main
+# Push tags (if not already pushed):
+git push origin v7.16.0 v7.16.1 v7.16.2 v7.16.3
+# Branch is kept as historical reference — do NOT delete.
+# If Vercel doesn't redeploy after the merge:
+#   git commit --allow-empty -m "chore: trigger vercel deploy" && git push

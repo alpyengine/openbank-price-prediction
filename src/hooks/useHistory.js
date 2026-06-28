@@ -52,7 +52,7 @@
  *   deleteBatch(id)   — delete a batch from Supabase
  */
 import { useState, useCallback, useEffect } from 'react'
-import { loadHistory, saveHistory, buildBatchId, isStorageConfigured, deleteHistoryBatch, deleteStockFromBatch as deleteStockFromBatchStorage, saveFundamentalsCache } from '../services/storage.js'
+import { loadHistory, saveHistory, buildBatchId, marketOf, isStorageConfigured, deleteHistoryBatch, deleteStockFromBatch as deleteStockFromBatchStorage, saveFundamentalsCache } from '../services/storage.js'
 import { formatDate, today as getToday, targetDates, dateStatus } from '../utils/dates.js'
 import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction, SNAPSHOT_PARAMS } from '../utils/stocks.js'
 
@@ -208,11 +208,26 @@ export function useHistory(margin = 5) {
     const batchDateStr = firstBase
       ? `${String(firstBase.getDate()).padStart(2,'0')}/${String(firstBase.getMonth()+1).padStart(2,'0')}/${firstBase.getFullYear()}`
       : null
-    const batchId = buildBatchId(batchDateStr)
+    // Composite id: date + market + direction.
+    // Market is derived from the first ticker's suffix (one market per import).
+    // This keeps same-day batches with a different market/direction separate
+    // instead of merging them on a date-only key.
+    const market  = marketOf(stocks[0]?.t)
+    const batchId = buildBatchId(batchDateStr, market, direction)
 
     // Merge into existing history — if same batch ID exists, MERGE tickers
     // (don't overwrite — user may be adding more tickers to same date batch)
-    const current     = history ?? { batches: [] }
+    // Look up the existing same-id batch from the freshest source (the DB),
+    // not only from in-memory state. After a page reload — or any time the
+    // in-memory history lags behind Supabase — the in-memory list can miss an
+    // existing same-day batch, so the save would OVERWRITE it with just the
+    // re-imported tickers instead of MERGING. Reloading here guarantees that a
+    // re-import of the same date+market+direction always merges.
+    let current = history ?? { batches: [] }
+    try {
+      const fresh = await loadHistory()
+      if (fresh?.batches) current = fresh
+    } catch { /* fall back to in-memory history */ }
     const existingBatch = current.batches.find(b => b.id === batchId)
 
     let mergedResults = results
@@ -222,7 +237,7 @@ export function useHistory(margin = 5) {
       // Keep existing results for tickers NOT in current batch
       // Replace results for tickers that ARE in current batch (updated prices)
       const currentTickers = new Set(stocks.map(s => s.t))
-      const keptResults    = existingBatch.results.filter(r => !currentTickers.has(r.ticker))
+      const keptResults    = (existingBatch.results ?? []).filter(r => !currentTickers.has(r.ticker))
       mergedResults        = [...keptResults, ...results]
       // Count unique tickers
       const uniqueTickers  = new Set(mergedResults.map(r => r.ticker))
@@ -476,6 +491,7 @@ function computed(history) {
       hit, exceeded, close, miss, wrongWay, awaiting,
       hitRate, hitRateExt,
       direction: b.direction ?? 'bullish',
+      market: marketOf(b.results?.[0]?.ticker),
     }
   })
 
