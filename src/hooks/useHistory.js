@@ -217,7 +217,17 @@ export function useHistory(margin = 5) {
 
     // Merge into existing history — if same batch ID exists, MERGE tickers
     // (don't overwrite — user may be adding more tickers to same date batch)
-    const current     = history ?? { batches: [] }
+    // Look up the existing same-id batch from the freshest source (the DB),
+    // not only from in-memory state. After a page reload — or any time the
+    // in-memory history lags behind Supabase — the in-memory list can miss an
+    // existing same-day batch, so the save would OVERWRITE it with just the
+    // re-imported tickers instead of MERGING. Reloading here guarantees that a
+    // re-import of the same date+market+direction always merges.
+    let current = history ?? { batches: [] }
+    try {
+      const fresh = await loadHistory()
+      if (fresh?.batches) current = fresh
+    } catch { /* fall back to in-memory history */ }
     const existingBatch = current.batches.find(b => b.id === batchId)
 
     let mergedResults = results
@@ -227,7 +237,7 @@ export function useHistory(margin = 5) {
       // Keep existing results for tickers NOT in current batch
       // Replace results for tickers that ARE in current batch (updated prices)
       const currentTickers = new Set(stocks.map(s => s.t))
-      const keptResults    = existingBatch.results.filter(r => !currentTickers.has(r.ticker))
+      const keptResults    = (existingBatch.results ?? []).filter(r => !currentTickers.has(r.ticker))
       mergedResults        = [...keptResults, ...results]
       // Count unique tickers
       const uniqueTickers  = new Set(mergedResults.map(r => r.ticker))

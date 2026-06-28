@@ -5454,3 +5454,57 @@ git push origin v7.16.1
 #   same-day rows now show distinct Market + Trend columns and the date is clean.
 # STILL DO NOT MERGE — v7.16.2 (All Stocks trend filter) lands next, then we
 # merge --no-ff all three together.
+
+
+# ===========================================================================
+# STEP 200 — v7.16.2  Fix: same-day re-import overwrote instead of merging
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. SAME branch (feat/batch-trend-market) —
+# do NOT merge yet. 1 src file + 2 docs:
+#        src/hooks/useHistory.js
+#        README.md + GIT_GUIDE.md
+#
+# BUG (found in v7.16.0/v7.16.1 testing):
+#   Re-importing a ticker into an existing batch of the SAME date+market+
+#   direction REPLACED the whole batch with just the re-imported ticker(s),
+#   instead of MERGING. Reproduces reliably after a page reload.
+#
+# CAUSE:
+#   saveBatch found the existing batch via current.batches.find(b => b.id===id),
+#   where `current = history` (in-memory). After a reload — or any time the
+#   in-memory history lags Supabase — that list can miss the existing same-day
+#   batch. existingBatch is then undefined, so mergedResults = just the new
+#   tickers, and saveHistory's merge-duplicates upsert (keyed by id) overwrites
+#   the existing DB row with the smaller batch. loadHistory() DOES return full
+#   results (storage.js:76), so the data was always there — the lookup just used
+#   a stale source.
+#
+# FIX:
+#   saveBatch now reloads the freshest history from the DB (loadHistory()) right
+#   before the merge lookup, falling back to in-memory history only if that read
+#   fails. So a re-import of the same date+market+direction always finds the
+#   existing batch and MERGES. The merge also guards against a missing results
+#   array ((existingBatch.results ?? [])). otherBatches is derived from the same
+#   fresh list, which also prevents stale in-memory state from dropping batches.
+#
+# Commit on the SHARED branch:
+git checkout feat/batch-trend-market
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.16.2.zip -d .
+git status
+git diff --stat   # expect: src/hooks/useHistory.js + README.md + GIT_GUIDE.md
+
+npm run test:run
+
+git add src/hooks/useHistory.js README.md GIT_GUIDE.md
+git commit -m "fix: same-day re-import merges instead of overwriting (fresh history lookup) (v7.16.2)"
+git tag -a v7.16.2 -m "v7.16.2: fix same-day re-import overwriting an existing batch — merge lookup reads fresh history"
+git push origin feat/batch-trend-market
+git push origin v7.16.2
+# → Vercel preview re-test (the case that failed):
+#   1) Load exists: a saved batch of N tickers (same date+market+direction).
+#   2) RELOAD the page.
+#   3) Import 1 ticker of that same date/market/direction → Save.
+#   4) Expect the batch to become N (or N+1) tickers — MERGED, not replaced.
+# STILL DO NOT MERGE — v7.16.3 (All Stocks trend filter) lands next.
