@@ -5508,3 +5508,57 @@ git push origin v7.16.2
 #   3) Import 1 ticker of that same date/market/direction → Save.
 #   4) Expect the batch to become N (or N+1) tickers — MERGED, not replaced.
 # STILL DO NOT MERGE — v7.16.3 (All Stocks trend filter) lands next.
+
+
+# ===========================================================================
+# STEP 201 — v7.16.3  All Stocks: Trend (bullish/bearish) filter
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. LAST version of the v7.16.x line on the
+# shared branch (feat/batch-trend-market). 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHAT'S NEW:
+#   - deduplicateStocks() and expandStockInstances() now attach `direction`
+#     (batch.direction ?? 'bullish') to every row, so each stock knows the trend
+#     of its batch. Spreads through to `stocks` via ...s — no other plumbing.
+#   - trendCounts memo counts bullish vs bearish across the visible stocks.
+#   - New Trend filter row beside the Market filter: All / ↗ Bull (green) /
+#     ↘ Bear (red), neutral when inactive, shown ONLY when both trends exist.
+#   - filtered memo applies filterTrend ('' | 'bullish' | 'bearish').
+#
+# Note: the de-duplicated table shows newest-batch-wins per ticker, so a ticker
+# present in both a bullish and a bearish batch reflects its newest batch's
+# trend — consistent with how the Market filter already behaves.
+#
+# Commit on the SHARED branch:
+git checkout feat/batch-trend-market
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.16.3.zip -d .
+git status
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks bullish/bearish Trend filter (v7.16.3)"
+git tag -a v7.16.3 -m "v7.16.3: All Stocks Trend filter (bullish/bearish) beside the Market filter"
+git push origin feat/batch-trend-market
+git push origin v7.16.3
+# → Vercel preview: All Stocks — with same-day bullish + bearish batches loaded,
+#   the Trend filter appears; All / ↗ Bull / ↘ Bear filter the table correctly.
+
+# ===========================================================================
+# FINAL MERGE — the whole v7.16.x line (v7.16.0 → v7.16.3) into main
+# ===========================================================================
+# Only after ALL four previews validated. The four annotated tags already point
+# at their commits on the branch and stay valid after the merge.
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/batch-trend-market
+git push origin main
+# Push tags (if not already pushed):
+git push origin v7.16.0 v7.16.1 v7.16.2 v7.16.3
+# Branch is kept as historical reference — do NOT delete.
+# If Vercel doesn't redeploy after the merge:
+#   git commit --allow-empty -m "chore: trigger vercel deploy" && git push
