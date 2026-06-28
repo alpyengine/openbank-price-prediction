@@ -43,7 +43,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { usePriceFetch }     from './hooks/usePriceFetch.js'
 import { useFundamentals }   from './hooks/useFundamentals.js'
 import { useHistory }        from './hooks/useHistory.js'
-import { loadAllWeeklyPrices } from './services/storage.js'
+import { loadAllWeeklyPrices, buildBatchId, marketOf } from './services/storage.js'
 import { DEFAULT_STOCKS }    from './utils/stocks.js'
 import { targetDates, dateStatus } from './utils/dates.js'
 import Sidebar          from './components/Sidebar.jsx'
@@ -193,13 +193,16 @@ export default function App() {
     setBatchDirection(direction)
     setLoadedBatchDate(null)
     // Compute batchId from base date of first stock — enables PriceChart
-    // when batch was previously saved and data exists in weekly_prices
+    // when batch was previously saved and data exists in weekly_prices.
+    // Must match the composite id used at save time (date + market + direction)
+    // so weekly_prices for a previously-saved same-day batch still resolve.
     const firstBase = newStocks[0]?.base
     if (firstBase) {
       const d  = String(firstBase.getDate()).padStart(2, '0')
       const m  = String(firstBase.getMonth() + 1).padStart(2, '0')
       const y  = firstBase.getFullYear()
-      setLoadedBatchId(`${y}-${m}-${d}`)
+      const market = marketOf(newStocks[0]?.t)
+      setLoadedBatchId(buildBatchId(`${d}/${m}/${y}`, market, direction))
     } else {
       setLoadedBatchId(null)
     }
@@ -375,6 +378,7 @@ export default function App() {
               }}
               batches={history?.batches ?? []}
               loadedBatchDate={loadedBatchDate}
+              loadedBatchId={loadedBatchId}
               onLoadBatch={handleLoadBatch}
               saving={histSaving}
               onSave={async () => {

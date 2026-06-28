@@ -5333,3 +5333,72 @@ git tag -a v7.15.7 -m "v7.15.7: Wave Script — extract pure logic + 25 unit tes
 git push origin main
 git push origin v7.15.7
 # keep the branch (historical reference)
+
+
+# ===========================================================================
+# STEP 198 — v7.16.0  Composite batch id (date + market + direction)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install (no new deps). 4 src files + 2 docs:
+#        src/services/storage.js      (buildBatchId composite + marketOf helper)
+#        src/hooks/useHistory.js      (saveBatch derives market + builds composite id)
+#        src/App.jsx                  (handleImport composite provisional id; passes loadedBatchId)
+#        src/components/FetchBar.jsx  (selector shows market+direction pills, active by id)
+#        README.md + GIT_GUIDE.md
+# NEW BRANCH from main (v7.15.7 already merged). This branch is SHARED by the
+# whole v7.16.x line — v7.16.1 and v7.16.2 land on it too; merge at the end.
+#
+# WHY:
+#   Same-day imports with a different market or direction were merging into one
+#   batch, because the batch id (the Supabase primary key) was the DATE ONLY.
+#   A bullish US list, a bearish US list and a bearish ES list saved on the same
+#   day all collapsed into a single batch, and the last import overwrote the
+#   batch `direction` (so the whole thing "became bearish").
+#
+# WHAT'S NEW:
+#   - storage.js: buildBatchId(date, market, direction) now returns a COMPOSITE
+#     id "YYYY-MM-DD_MKT_dir" (e.g. 2026-06-28_US_bullish). Called with date only
+#     (market & direction omitted) it still returns the legacy "YYYY-MM-DD" id,
+#     so existing batches keep their key and never collide with new ones.
+#     New marketOf(ticker) — single source of truth for batch market, derived
+#     from the ticker's exchange suffix ('AAPL'/'SLB.US' -> 'US', 'SAN.MC' -> 'MC').
+#   - useHistory.saveBatch: derives market from the first ticker and builds the
+#     composite id. The existing date-keyed merge now only merges a RE-IMPORT of
+#     the SAME date+market+direction (adding/refreshing tickers) — never a
+#     different list on the same day.
+#   - App.handleImport: computes the same composite provisional id so
+#     weekly_prices for a previously-saved same-day batch still resolve, and
+#     passes loadedBatchId down to FetchBar.
+#   - FetchBar batch selector: each entry shows a neutral MARKET pill + a
+#     green/red DIRECTION pill, and the active batch is matched by id (not date),
+#     so same-day batches are distinguishable and only the loaded one is checked.
+#
+# Back-compatible: no migration, no schema change. Old date-only ids are left
+# untouched; only NEW saves get composite ids.
+#
+# Branch from main:
+git checkout main && git pull origin main
+git checkout -b feat/batch-trend-market
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.16.0.zip -d .
+# Overlays the 4 src files + README.md + GIT_GUIDE.md straight into the repo
+# (no wrapping folder, same as every previous version). Then confirm the docs
+# diff is only the v7.16.0 changelog row + this STEP 198 block:
+git status
+git diff --stat
+
+npm run test:run   # existing suite should stay green (buildBatchId is back-compatible).
+                   # If a buildBatchId/merge test asserts the old date-only id,
+                   # update it for the composite id and tell me.
+
+git add src/services/storage.js src/hooks/useHistory.js src/App.jsx src/components/FetchBar.jsx README.md GIT_GUIDE.md
+git commit -m "feat: composite batch id (date+market+direction) + load selector chips (v7.16.0)"
+git tag -a v7.16.0 -m "v7.16.0: batch identity by date+market+direction; differentiate same-day batches in the load selector"
+git push -u origin feat/batch-trend-market
+git push origin v7.16.0
+# → Vercel preview: import two same-day lists with a different direction/market
+#   (e.g. US bullish + US bearish + ES bearish on the same date); confirm they
+#   appear as SEPARATE batches in the selector, each with its market + direction
+#   pill, and only the loaded one is checked.
+# DO NOT merge yet — v7.16.1 (Accuracy columns) and v7.16.2 (All Stocks trend
+# filter) land on this SAME branch first, then we merge --no-ff and tag all three.

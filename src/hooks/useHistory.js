@@ -52,7 +52,7 @@
  *   deleteBatch(id)   — delete a batch from Supabase
  */
 import { useState, useCallback, useEffect } from 'react'
-import { loadHistory, saveHistory, buildBatchId, isStorageConfigured, deleteHistoryBatch, deleteStockFromBatch as deleteStockFromBatchStorage, saveFundamentalsCache } from '../services/storage.js'
+import { loadHistory, saveHistory, buildBatchId, marketOf, isStorageConfigured, deleteHistoryBatch, deleteStockFromBatch as deleteStockFromBatchStorage, saveFundamentalsCache } from '../services/storage.js'
 import { formatDate, today as getToday, targetDates, dateStatus } from '../utils/dates.js'
 import { getTarget, getTargetDate, getEffectivePrice, evaluatePrediction, SNAPSHOT_PARAMS } from '../utils/stocks.js'
 
@@ -208,7 +208,12 @@ export function useHistory(margin = 5) {
     const batchDateStr = firstBase
       ? `${String(firstBase.getDate()).padStart(2,'0')}/${String(firstBase.getMonth()+1).padStart(2,'0')}/${firstBase.getFullYear()}`
       : null
-    const batchId = buildBatchId(batchDateStr)
+    // Composite id: date + market + direction.
+    // Market is derived from the first ticker's suffix (one market per import).
+    // This keeps same-day batches with a different market/direction separate
+    // instead of merging them on a date-only key.
+    const market  = marketOf(stocks[0]?.t)
+    const batchId = buildBatchId(batchDateStr, market, direction)
 
     // Merge into existing history — if same batch ID exists, MERGE tickers
     // (don't overwrite — user may be adding more tickers to same date batch)

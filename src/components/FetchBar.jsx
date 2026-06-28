@@ -73,19 +73,53 @@ function parseBatchDate(str) {
   return isNaN(d) ? new Date(0) : d
 }
 
+/**
+ * batchMarket — derive a batch's market code from its first result ticker.
+ * One market per batch (one market per import), so the first ticker is enough.
+ */
+function batchMarket(batch) {
+  const t = batch?.results?.[0]?.ticker || batch?.stocks?.[0]?.t || ''
+  return t.includes('.') ? t.split('.').pop().toUpperCase() : 'US'
+}
+
+/**
+ * BatchChips — small market + direction pills shown next to a batch date.
+ * Market is a neutral pill; direction is green (bullish) / red (bearish),
+ * matching the import selector's colour language.
+ */
+function BatchChips({ batch }) {
+  const mkt = batchMarket(batch)
+  const dir = batch?.direction ?? 'bullish'
+  const bear = dir === 'bearish'
+  return (
+    <span className="flex items-center gap-1.5 shrink-0">
+      <span className="inline-flex items-center text-[10px] font-bold tracking-wide px-1.5 py-0.5 rounded border border-border bg-muted text-muted-foreground">
+        {mkt}
+      </span>
+      <span className={cn(
+        'inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full border',
+        bear
+          ? 'bg-red-50 text-red-700 border-red-200'
+          : 'bg-green-50 text-green-700 border-green-200'
+      )}>
+        {bear ? '↘' : '↗'} {bear ? 'Bear' : 'Bull'}
+      </span>
+    </span>
+  )
+}
+
 // ── BatchSelector ─────────────────────────────────────────────────────────────
 
 /**
  * BatchSelector
  *
  * Dropdown showing all saved batches sorted newest-first.
- * The currently loaded batch is marked with a checkmark.
- * Clicking a batch calls onLoadBatch and closes the dropdown.
- *
- * Uses a custom dropdown instead of shadcn Select because we need
- * the trigger to display the currently loaded date (not the select value).
+ * Each entry shows date + market + direction so same-day batches
+ * (e.g. US bullish vs US bearish vs ES bearish) are distinguishable.
+ * The currently loaded batch is matched by id (not date) and marked
+ * with a checkmark. Clicking a batch calls onLoadBatch and closes the menu.
  */
-function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
+function BatchSelector({ batches, loadedBatchDate, loadedBatchId, onLoadBatch }) {
   const [open, setOpen] = useState(false)
   const ref  = useRef(null)
 
@@ -101,7 +135,11 @@ function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
   // Sort batches newest first
   const sorted     = batches ? [...batches].sort((a, b) => parseBatchDate(b.date) - parseBatchDate(a.date)) : []
   const hasBatches = sorted.length > 0
-  const label      = loadedBatchDate || (hasBatches ? sorted[0].date : null) || 'No batches'
+  // The active batch is matched by id (falls back to date for old single-date ids)
+  const activeBatch = sorted.find(b => b.id === loadedBatchId)
+    || sorted.find(b => b.date === loadedBatchDate)
+    || (hasBatches ? sorted[0] : null)
+  const label = activeBatch?.date || loadedBatchDate || 'No batches'
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -112,11 +150,12 @@ function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
         disabled={!hasBatches}
         onClick={() => setOpen(v => !v)}
         className={cn(
-          'gap-1.5 font-medium whitespace-nowrap',
+          'gap-2 font-medium whitespace-nowrap',
           !hasBatches && 'opacity-60'
         )}
       >
         {label}
+        {activeBatch && <BatchChips batch={activeBatch} />}
         <ChevronDown size={12} className="text-muted-foreground shrink-0" />
       </Button>
 
@@ -125,23 +164,25 @@ function BatchSelector({ batches, loadedBatchDate, onLoadBatch }) {
         <div className={cn(
           'absolute top-[calc(100%+6px)] right-0 z-50',
           'bg-card border border-border rounded-lg shadow-lg',
-          'min-w-[180px] overflow-hidden'
+          'min-w-[240px] overflow-hidden'
         )}>
           {sorted.map(batch => {
-            const isActive = batch.date === loadedBatchDate
+            const isActive = batch.id === loadedBatchId
             return (
               <button
                 key={batch.id}
                 onClick={() => { onLoadBatch(batch); setOpen(false) }}
                 className={cn(
-                  'w-full flex items-center justify-between px-3.5 py-2.5',
+                  'w-full flex items-center gap-2.5 px-3.5 py-2.5',
                   'border-b border-border last:border-0',
                   'text-sm text-left cursor-pointer font-inherit',
                   'transition-colors hover:bg-muted',
                   isActive ? 'bg-muted font-semibold' : 'bg-card font-normal'
                 )}
               >
-                {batch.date}
+                <span className="min-w-[84px]">{batch.date}</span>
+                <BatchChips batch={batch} />
+                <span className="flex-1" />
                 {isActive && <Check size={13} className="text-success shrink-0" />}
               </button>
             )
@@ -158,7 +199,7 @@ export default function FetchBar({
   log, fetching, onFetch,
   fundLog, fundLoading, onFetchFundamentals, onRefreshFundamentals,
   marketLog, marketLoading, stocks, onFetchMarket, onRefreshMarket,
-  batches, loadedBatchDate, onLoadBatch,
+  batches, loadedBatchDate, loadedBatchId, onLoadBatch,
   onSave, saving,
 }) {
   const role        = useRole()
@@ -251,6 +292,7 @@ export default function FetchBar({
         <BatchSelector
           batches={batches}
           loadedBatchDate={loadedBatchDate}
+          loadedBatchId={loadedBatchId}
           onLoadBatch={onLoadBatch}
         />
       )}
