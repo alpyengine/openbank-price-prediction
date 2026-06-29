@@ -34,6 +34,34 @@ const FMP_URL     = 'https://financialmodelingprep.com/stable'
 const FINNHUB_URL = 'https://finnhub.io/api/v1'
 const TIMEOUT     = 15000
 
+// Supabase — get-eu-fundamentals Edge Function (Yahoo quoteSummary proxy for EU)
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const EU_FUND_FN_URL    = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/get-eu-fundamentals` : null
+
+/**
+ * fetchEUFundamentals — fetches one EU ticker's fundamentals through the
+ * get-eu-fundamentals Edge Function (Yahoo quoteSummary, server-side).
+ * The function already normalizes fields/units to this app's schema, so the
+ * returned object is used as-is. Returns the fundamentals object or null.
+ */
+async function fetchEUFundamentals(ticker) {
+  if (!EU_FUND_FN_URL) throw new Error('EU fundamentals proxy not configured — VITE_SUPABASE_URL missing')
+  const res = await fetch(EU_FUND_FN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(SUPABASE_ANON_KEY
+        ? { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+        : {}),
+    },
+    body: JSON.stringify({ tickers: [ticker] }),
+  })
+  if (!res.ok) throw new Error('EU fundamentals HTTP ' + res.status)
+  const data = await res.json()
+  return data?.fundamentals?.[ticker] ?? null
+}
+
 /**
  * fmtMarketCap — formats a raw market cap number into a human-readable string.
  * @param {number|null} val — market cap in USD (millions from Finnhub)
@@ -156,7 +184,9 @@ export function useFundamentals() {
 
   const fetchFundamentals = useCallback(async (stocks, forceRefresh = false) => {
     if (!stocks?.length) return
-    if (!FINNHUB_KEY) {
+    // Finnhub is only needed for US tickers; EU goes through the Yahoo proxy.
+    const hasUS = stocks.some(s => !isEuropeanTicker(s.t))
+    if (hasUS && !FINNHUB_KEY) {
       setLog('⚠ VITE_FINNHUB_KEY not set in .env — add your Finnhub API key')
       return
     }
@@ -175,6 +205,23 @@ export function useFundamentals() {
 
       try {
         setLog(`Fetching ${s.t}...`)
+
+        // EU tickers → Yahoo proxy (Finnhub/FMP free tiers are US-only).
+        // The function returns fields already normalized to this schema.
+        if (isEuropeanTicker(s.t)) {
+          const eu = await fetchEUFundamentals(s.t)
+          if (!eu) throw new Error('Yahoo: no fundamentals')
+          newData[s.t] = {
+            ...eu,
+            partialData: true,                  // EU lacks a few extras (forwardPEG, pfcf, 3Y/5Y EPS)
+            fetchedAt:   new Date().toISOString(),
+          }
+          ok++
+          setLog(`✓ ${s.t}: ${newData[s.t].sector}`)
+          setFundamentals({ ...newData })
+          await new Promise(r => setTimeout(r, 250))
+          continue
+        }
 
         // Finnhub — primary source for all metrics
         const fh = await fetchFinnhubMetrics(s.t).catch(() => ({}))
