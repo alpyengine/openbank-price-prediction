@@ -5624,3 +5624,68 @@ git merge --no-ff --no-edit fix/allstocks-gray-band
 git push origin main
 git push origin v7.16.4
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 203 — v7.17.0  EU current prices via Yahoo proxy (Edge Function)
+# ===========================================================================
+#
+# Opens the "EU data via Yahoo" line (Phase 1 = prices only). NEW branch off main.
+# Touches Supabase (1 new Edge Function) + 1 src file + 2 docs:
+#        supabase/functions/get-eu-prices/index.ts   (NEW — deploy via dashboard)
+#        src/hooks/usePriceFetch.js                   (route EU → Edge Function)
+#        README.md + GIT_GUIDE.md
+# NO new env vars (reuses VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). No API keys.
+#
+# WHY:
+#   The in-app "Fetch prices" button sent EU tickers (.DE/.AS/.PA/.L/.MC) to
+#   Alpha Vantage — 25 req/day and poor EU coverage, so EU prices failed. The
+#   cron Edge Functions already fetch EU fine via Yahoo (server-side, no CORS).
+#   This makes that same Yahoo path callable from the browser, on demand.
+#
+# WHAT'S NEW:
+#   - get-eu-prices Edge Function: POST { tickers:[...] } → { prices:{t:close}, failed:[] }.
+#     Proxies Yahoo chart (meta.regularMarketPrice, fallback last close). CORS
+#     enabled; only EU suffixes are fetched (US ignored).
+#   - usePriceFetch: detectProvider now returns 'eu' | 'twelvedata'. Current EU
+#     prices go through fetchCurrentPrices_EU (the Edge Function) instead of
+#     Alpha Vantage. US current prices unchanged (Twelve Data). Historical EU is
+#     unchanged (cron cache, with AV as last-resort fallback).
+#
+# ── STEP 1 — Deploy the Edge Function FIRST (before testing the app) ──────────
+#   Supabase Dashboard → Edge Functions → "Deploy a new function"
+#     • Name: get-eu-prices   (EXACT — the app builds /functions/v1/get-eu-prices)
+#     • Paste supabase/functions/get-eu-prices/index.ts
+#     • IMPORTANT: turn "Verify JWT" OFF (public price proxy; also lets the CORS
+#       preflight through). No secrets to set.
+#   Quick smoke test (replace <PROJECT> with your project ref):
+#     curl -s -X POST 'https://<PROJECT>.functions.supabase.co/get-eu-prices' \
+#       -H 'Content-Type: application/json' \
+#       -d '{"tickers":["SAN.MC","BMW.DE"]}'
+#   → expect {"prices":{"SAN.MC":<num>,"BMW.DE":<num>},"failed":[]}
+#
+# ── STEP 2 — Ship the app change ─────────────────────────────────────────────
+git checkout main && git pull origin main
+git checkout -b feat/eu-prices-yahoo
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.17.0.zip -d .
+git status
+git diff --stat   # expect: supabase/functions/get-eu-prices/index.ts (new),
+                  #         src/hooks/usePriceFetch.js, README.md, GIT_GUIDE.md
+
+npm run test:run
+
+git add supabase/functions/get-eu-prices/index.ts src/hooks/usePriceFetch.js README.md GIT_GUIDE.md
+git commit -m "feat: EU current prices via get-eu-prices Yahoo proxy (v7.17.0)"
+git tag -a v7.17.0 -m "v7.17.0: EU current prices via Yahoo Edge Function proxy (replaces Alpha Vantage for EU)"
+git push -u origin feat/eu-prices-yahoo
+git push origin v7.17.0
+# → Vercel preview: load an EU batch (e.g. .MC/.DE) → Fetch prices. Expect prices
+#   loaded "via Yahoo", no Alpha Vantage 25/day message. US batches unchanged.
+
+# Merge to main (after the function is deployed AND the preview validates):
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/eu-prices-yahoo
+git push origin main
+git push origin v7.17.0
+# Branch kept as historical reference — do NOT delete.
