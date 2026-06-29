@@ -5689,3 +5689,77 @@ git merge --no-ff --no-edit feat/eu-prices-yahoo
 git push origin main
 git push origin v7.17.0
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 204 — v7.17.1  EU fundamentals via Yahoo proxy (Edge Function)
+# ===========================================================================
+#
+# Phase 2 of "EU data via Yahoo". NEW branch off main. Supabase (1 new Edge
+# Function) + 1 src file + 2 docs:
+#        supabase/functions/get-eu-fundamentals/index.ts   (NEW — deploy via dashboard)
+#        src/hooks/useFundamentals.js                       (route EU → Edge Function)
+#        README.md + GIT_GUIDE.md
+# NO new env vars (reuses VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). No API keys.
+#
+# WHY:
+#   Finnhub /stock/metric and FMP /profile free tiers are US-only, so EU tickers
+#   (.DE/.AS/.PA/.L/.MC) had empty sector/PE/margins/etc. The "Fetch fundamentals"
+#   button returned partial/empty data for EU.
+#
+# WHAT'S NEW:
+#   - get-eu-fundamentals Edge Function: POST { tickers:[...] } →
+#     { fundamentals:{ t:{...} }, failed:[] }. Proxies Yahoo quoteSummary
+#     (modules summaryProfile, summaryDetail, defaultKeyStatistics, financialData,
+#     price), with best-effort cookie+crumb (+1 retry). Returns fields ALREADY
+#     normalized to the app schema/units:
+#       * percent-style ×100: netMarginTTM, roeTTM, roaTTM, epsGrowthTTM,
+#         revGrowthTTM, divYield   (Yahoo gives decimals)
+#       * debtEquity ÷100 (Yahoo debtToEquity is percent-style → ratio, like Finnhub)
+#       * peTTM, forwardPE, pegTTM, beta, marketCap (absolute USD): as-is
+#       * null (accepted): forwardPEG, pfcfTTM, epsGrowth3Y, epsGrowth5Y
+#   - useFundamentals: EU tickers go to fetchEUFundamentals (the Edge Function) and
+#     skip Finnhub/FMP; US path unchanged. Finnhub key now only required when the
+#     batch contains US tickers (EU-only batches no longer blocked).
+#
+# ── STEP 1 — Deploy the Edge Function FIRST, then smoke-test ──────────────────
+#   Dashboard → Edge Functions → Deploy a new function
+#     • Name (EXACT): get-eu-fundamentals
+#     • Paste supabase/functions/get-eu-fundamentals/index.ts
+#     • Verify JWT OFF (browser-called; lets the CORS preflight through). No secrets.
+#   Smoke test (no auth header needed once JWT is off):
+#     curl -s -X POST 'https://yyenwzljojxbqtzcbchk.functions.supabase.co/get-eu-fundamentals' \
+#       -H 'Content-Type: application/json' \
+#       -d '{"tickers":["SAN.MC","BMW.DE"]}'
+#   → expect {"fundamentals":{"SAN.MC":{"sector":"Financial Services","peTTM":...,
+#     "netMarginTTM":<~20-ish, a PERCENT>,"divYield":<percent>,...}, ...},"failed":[]}
+#   Sanity-check the SCALES against a US stock you know: margin/ROE should read as
+#   percents (e.g. 19.5 not 0.195); debtEquity as a ratio (e.g. 0.85). If any field
+#   looks 100× off, tell me which and I'll flip its scale.
+#
+# ── STEP 2 — Ship the app change ─────────────────────────────────────────────
+git checkout main && git pull origin main
+git checkout -b feat/eu-fundamentals-yahoo
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.17.1.zip -d .
+git status
+git diff --stat   # expect: supabase/functions/get-eu-fundamentals/index.ts (new),
+                  #         src/hooks/useFundamentals.js, README.md, GIT_GUIDE.md
+
+npm run test:run
+
+git add supabase/functions/get-eu-fundamentals/index.ts src/hooks/useFundamentals.js README.md GIT_GUIDE.md
+git commit -m "feat: EU fundamentals via get-eu-fundamentals Yahoo proxy (v7.17.1)"
+git tag -a v7.17.1 -m "v7.17.1: EU fundamentals via Yahoo quoteSummary Edge Function proxy"
+git push -u origin feat/eu-fundamentals-yahoo
+git push origin v7.17.1
+# → Vercel preview: load an EU batch → Fetch fundamentals (or Refresh). EU rows
+#   should now show sector/PE/PEG/Margin etc. Compare a couple of values against
+#   Yahoo Finance to confirm scales. US batches unchanged.
+
+# Merge to main (after the function is deployed AND the preview validates):
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/eu-fundamentals-yahoo
+git push origin main
+git push origin v7.17.1
+# Branch kept as historical reference — do NOT delete.
