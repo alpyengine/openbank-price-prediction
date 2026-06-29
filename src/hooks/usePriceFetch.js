@@ -41,9 +41,14 @@ const AV_URL   = 'https://www.alphavantage.co/query'
 const TIMEOUT  = 20000
 const CHUNK_SIZE = 8  // Twelve Data free tier: 8 req/min
 
+// Supabase — used to call the get-eu-prices Edge Function (Yahoo proxy for EU)
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const EU_PRICES_FN_URL  = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/get-eu-prices` : null
+
 // ── Market suffix detection ───────────────────────────────────────────────────
 // .US → Twelve Data (NYSE/NASDAQ)
-// .DE .AS .PA .L → Alpha Vantage (European markets)
+// .DE .AS .PA .L .MC → Yahoo via the get-eu-prices Edge Function (current prices)
 
 const EU_SUFFIXES = ['DE', 'AS', 'PA', 'L', 'MC']
 
@@ -53,14 +58,14 @@ function getSuffix(ticker) {
 }
 
 /**
- * detectProvider — determines which API to use based on ticker suffixes.
- * Returns 'alphavantage' if any ticker has an EU suffix (.DE, .AS, .PA, .L, .MC).
+ * detectProvider — determines which source to use based on ticker suffixes.
+ * Returns 'eu' if any ticker has an EU suffix (.DE, .AS, .PA, .L, .MC).
  * Returns 'twelvedata' otherwise (US market).
  */
 function detectProvider(tickers) {
-  // If ANY ticker has a EU suffix → use Alpha Vantage for the whole batch
+  // If ANY ticker has a EU suffix → use the EU (Yahoo proxy) path for the batch
   const hasEU = tickers.some(t => EU_SUFFIXES.includes(getSuffix(t)))
-  return hasEU ? 'alphavantage' : 'twelvedata'
+  return hasEU ? 'eu' : 'twelvedata'
 }
 
 // Strip .US suffix for Twelve Data (it doesn't use suffixes)
@@ -224,6 +229,44 @@ async function fetchCurrentPrices_AV(tickers, onProgress) {
   return result
 }
 
+// ── EU (Yahoo proxy): current prices via get-eu-prices Edge Function ──────────
+
+/**
+ * fetchCurrentPrices_EU — fetches current prices for EU tickers through the
+ * get-eu-prices Supabase Edge Function (Yahoo Finance proxy, server-side).
+ * Replaces Alpha Vantage for EU: no 25/day cap, far better EU coverage, one
+ * round-trip for the whole batch. US tickers are never sent here.
+ */
+async function fetchCurrentPrices_EU(tickers, onProgress) {
+  const result = {}
+  for (const t of tickers) result[t] = null
+
+  if (!EU_PRICES_FN_URL) {
+    throw new Error('EU price proxy not configured — VITE_SUPABASE_URL is missing')
+  }
+
+  const res = await fetch(EU_PRICES_FN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(SUPABASE_ANON_KEY
+        ? { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+        : {}),
+    },
+    body: JSON.stringify({ tickers }),
+  })
+  if (!res.ok) throw new Error('EU proxy HTTP ' + res.status)
+
+  const data   = await res.json()
+  const prices = data?.prices || {}
+  for (const t of tickers) {
+    const p = prices[t]
+    result[t] = (p != null && !isNaN(p)) ? Number(p) : null
+  }
+  if (onProgress) onProgress({ total: tickers.length, done: tickers.length, waiting: false, waitSecs: 0, waitTotal: 0 })
+  return result
+}
+
 // ── Twelve Data: historical price ─────────────────────────────────────────────
 
 /**
@@ -315,12 +358,12 @@ export function usePriceFetch() {
 
     const tickers  = stocks.map(s => s.t)
     const provider = detectProvider(tickers)
-    const isAV     = provider === 'alphavantage'
-    const nChunks  = isAV ? tickers.length : Math.ceil(tickers.length / CHUNK_SIZE)
-    const multiChunk = !isAV && nChunks > 1
+    const isEU     = provider === 'eu'
+    const nChunks  = isEU ? 1 : Math.ceil(tickers.length / CHUNK_SIZE)
+    const multiChunk = !isEU && nChunks > 1
 
-    if (isAV) {
-      setLog(`Fetching ${tickers.length} ticker${tickers.length>1?'s':''} via Alpha Vantage (EU markets · 25 req/day limit)…`)
+    if (isEU) {
+      setLog(`Fetching ${tickers.length} ticker${tickers.length>1?'s':''} via Yahoo (EU markets)…`)
       setChunkProgress({ total: tickers.length, done: 0, waiting: false, waitSecs: 0, waitTotal: 0 })
     } else {
       setLog(multiChunk
@@ -331,8 +374,8 @@ export function usePriceFetch() {
     }
 
     try {
-      const prices = isAV
-        ? await fetchCurrentPrices_AV(tickers, p => setChunkProgress(p))
+      const prices = isEU
+        ? await fetchCurrentPrices_EU(tickers, p => setChunkProgress(p))
         : await fetchCurrentPrices_TD(tickers, multiChunk ? p => setChunkProgress(p) : null)
 
       const newPrices = {}
@@ -344,7 +387,7 @@ export function usePriceFetch() {
       }
       setAutoPrices(newPrices)
       const ok  = stocks.length - failed.length
-      const src = isAV ? 'Alpha Vantage' : 'Twelve Data'
+      const src = isEU ? 'Yahoo' : 'Twelve Data'
       setLog(`${ok}/${stocks.length} prices loaded via ${src}${failed.length ? ' | Failed: ' + failed.join(', ') : ''}`)
       setChunkProgress(null)
 
@@ -384,9 +427,11 @@ export function usePriceFetch() {
         }
 
         // 2. Fallback: fetch from API
+        // (Phase 1 reroutes only CURRENT EU prices to Yahoo; historical EU still
+        //  comes from the cron-populated cache, with AV as a last-resort fallback.)
         const provider = detectProvider([ticker])
-        const isAV     = provider === 'alphavantage'
-        const result = isAV
+        const isEU     = provider === 'eu'
+        const result = isEU
           ? await fetchHistoricalPrice_AV(ticker, targetDate)
           : await fetchHistoricalPrice_TD(ticker, targetDate)
 
