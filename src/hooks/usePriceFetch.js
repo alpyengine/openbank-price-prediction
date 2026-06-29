@@ -5,7 +5,8 @@
  *
  * 1. Current prices (autoPrices)
  *    - Twelve Data API: US stocks, chunks of 8, rate limit 8 req/min
- *    - Alpha Vantage: European stocks (.DE, .AS, .PA, .L, .MC), 1 req/s
+ *    - Yahoo Finance proxy (get-eu-prices Edge Function): EU stocks (.DE/.AS/.PA/.L/.MC)
+ *      No 25/day cap — replaces the former Alpha Vantage EU path (removed v7.17.2).
  *    - Provider is auto-detected from ticker suffixes
  *
  * 2. Historical prices (histPrices)
@@ -149,82 +150,6 @@ async function fetchCurrentPrices_TD(tickers, onProgress) {
         await sleep(1000)
       }
     }
-  }
-  return result
-}
-
-// ── Alpha Vantage: current prices (1 req/s, 25/day) ──────────────────────────
-
-/**
- * AV price cache — persists EU ticker prices to localStorage for 24 hours.
- * Prevents burning the 25 req/day free-tier quota on repeated fetches.
- * Cache key: 'av_price_cache' → { [ticker]: { price, ts } }
- */
-const AV_CACHE_KEY = 'av_price_cache'
-const AV_CACHE_TTL = 24 * 60 * 60 * 1000  // 24 hours in ms
-
-function avCacheGet(ticker) {
-  try {
-    const raw = localStorage.getItem(AV_CACHE_KEY)
-    if (!raw) return null
-    const cache = JSON.parse(raw)
-    const entry = cache[ticker]
-    if (!entry) return null
-    if (Date.now() - entry.ts > AV_CACHE_TTL) return null  // expired
-    return entry.price
-  } catch { return null }
-}
-
-function avCacheSet(ticker, price) {
-  try {
-    const raw   = localStorage.getItem(AV_CACHE_KEY)
-    const cache = raw ? JSON.parse(raw) : {}
-    cache[ticker] = { price, ts: Date.now() }
-    localStorage.setItem(AV_CACHE_KEY, JSON.stringify(cache))
-  } catch { /* ignore storage errors */ }
-}
-
-/**
- * fetchCurrentPrices_AV — fetches current prices for EU tickers via Alpha Vantage.
- * Checks 24h localStorage cache first — skips API call if price is fresh.
- * Processes one ticker at a time with 1.2s pause (1 req/s limit, 25 req/day).
- */
-async function fetchCurrentPrices_AV(tickers, onProgress) {
-  const result = {}
-  for (let i = 0; i < tickers.length; i++) {
-    const ticker = tickers[i]
-
-    // Check 24h cache first — avoids burning the 25 req/day AV quota
-    const cached = avCacheGet(ticker)
-    if (cached != null) {
-      result[ticker] = cached
-      if (onProgress) onProgress({ total: tickers.length, done: i + 1, waiting: false, waitSecs: 0, waitTotal: 0 })
-      continue  // skip API call — use cached price
-    }
-
-    const url = `${AV_URL}?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(ticker)}&apikey=${AV_KEY}`
-    try {
-      const data  = await fetchJSON(url)
-
-      // Detect rate limit exceeded — AV returns { Information: "..." } or { Note: "..." }
-      if (data['Information'] || data['Note']) {
-        const msg = data['Information'] || data['Note']
-        // Mark all remaining tickers as null and throw so caller can surface the error
-        for (let j = i; j < tickers.length; j++) result[tickers[j]] = null
-        throw new Error('AV_RATE_LIMIT: ' + msg)
-      }
-
-      const quote = data['Global Quote']
-      const price = (quote && quote['05. price']) ? parseFloat(quote['05. price']) : null
-      result[ticker] = price
-      if (price != null) avCacheSet(ticker, price)  // persist to 24h cache
-    } catch (err) {
-      result[ticker] = null
-      // Re-throw rate limit errors so fetchCurrentBatch can surface them
-      if (err.message?.startsWith('AV_RATE_LIMIT')) throw err
-    }
-    if (onProgress) onProgress({ total: tickers.length, done: i + 1, waiting: false, waitSecs: 0, waitTotal: 0 })
-    if (i < tickers.length - 1) await sleep(1200)
   }
   return result
 }
@@ -393,11 +318,7 @@ export function usePriceFetch() {
 
     } catch (err) {
       setChunkProgress(null)
-      if (err.message?.startsWith('AV_RATE_LIMIT')) {
-        setLog('⚠️ Alpha Vantage daily limit reached (25 req/day). Try again tomorrow.')
-      } else {
-        setLog('Fetch error: ' + classifyError(err))
-      }
+      setLog('Fetch error: ' + classifyError(err))
     } finally {
       setFetching(false)
     }

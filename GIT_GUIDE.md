@@ -5763,3 +5763,46 @@ git merge --no-ff --no-edit feat/eu-fundamentals-yahoo
 git push origin main
 git push origin v7.17.1
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 205 — v7.17.2  Cleanup: remove dead Alpha Vantage current-price code
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. NEW standalone branch off main.
+# 1 src file + 2 docs. No behavior change.
+#        src/hooks/usePriceFetch.js
+#        README.md + GIT_GUIDE.md
+#
+# WHAT WAS REMOVED (dead after v7.17.0):
+#   - fetchCurrentPrices_AV (EU current prices via Alpha Vantage)
+#   - avCacheGet / avCacheSet / AV_CACHE_KEY / AV_CACHE_TTL (24h localStorage cache)
+#   - AV_RATE_LIMIT catch branch in fetchCurrentBatch (unreachable)
+#
+# WHAT WAS KEPT (still active):
+#   - AV_KEY / AV_URL / fetchHistoricalPrice_AV — last-resort fallback for
+#     historical EU prices when the cron cache is empty. Not EU current prices.
+#
+# OTHER:
+#   - Module header updated to reflect the Yahoo-proxy EU path.
+#
+git checkout main && git pull origin main
+git checkout -b chore/cleanup-av-current-prices
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.17.2.zip -d .
+git status
+git diff --stat   # expect: src/hooks/usePriceFetch.js + README.md + GIT_GUIDE.md
+
+npm run test:run
+
+git add src/hooks/usePriceFetch.js README.md GIT_GUIDE.md
+git commit -m "chore: remove dead Alpha Vantage current-price code (v7.17.2)"
+git tag -a v7.17.2 -m "v7.17.2: cleanup — remove fetchCurrentPrices_AV and its localStorage cache"
+git push -u origin chore/cleanup-av-current-prices
+git push origin v7.17.2
+# → No preview validation needed (no behavior change). Merge immediately:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit chore/cleanup-av-current-prices
+git push origin main
+git push origin v7.17.2
+# Branch kept as historical reference — do NOT delete.
