@@ -197,13 +197,16 @@ async function fetchCurrentPrices_EU(tickers, onProgress) {
 /**
  * fetchHistoricalPrice_TD — fetches historical closing price from Twelve Data.
  * Searches the 7-day window ending on targetDate for the nearest trading day.
+ * outputsize=5 → only 5 data points requested (7-day window has at most 5 trading
+ * days) — costs 5 credits instead of the 30-point default. Prevents accidental
+ * quota burn when auto-fetch triggers for all tickers on batch load.
  * Returns { price, date, isHistorical: true }.
  */
 async function fetchHistoricalPrice_TD(ticker, targetDate) {
   const start = toYMD(addDays(targetDate, -7))
   const end   = toYMD(targetDate)
   const sym   = tdSymbol(ticker)
-  const url   = `${TD_URL}/time_series?symbol=${encodeURIComponent(sym)}&interval=1day&start_date=${start}&end_date=${end}&apikey=${TD_KEY}`
+  const url   = `${TD_URL}/time_series?symbol=${encodeURIComponent(sym)}&interval=1day&start_date=${start}&end_date=${end}&outputsize=5&apikey=${TD_KEY}`
   const data  = await fetchJSON(url)
   if (data.status === 'error' || data.code) throw new Error(data.message || 'Historical data unavailable')
   const values = data.values
