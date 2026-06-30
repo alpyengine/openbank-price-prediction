@@ -5926,3 +5926,75 @@ git merge --no-ff --no-edit fix/td-credit-burn
 git push origin main
 git push origin v7.17.4
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 208 — v7.18.0  All Stocks: "Mejores trades" trading panel
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. NEW standalone branch off main.
+# 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHAT'S NEW — new collapsible panel below Top Picks, with its own help text:
+#
+# A standalone trading-focused ranking, separate from Top Picks (which keeps
+# its existing Upside/Score toggle untouched). New panel "Mejores trades":
+#
+# - Own horizon pill (1M/3M/6M/12M, default 1M) and count pill (3/5/10,
+#   default 5) — independent of the table's horizon and of Top Picks.
+# - Sorted by Entry Quality (not Upside or Score) — the single number that
+#   already combines remaining upside (50%), Score (35%) and PEG (15%).
+# - Missed excluded automatically (upside <= 0 — no trade left there).
+# - Late kept but visually dimmed (opacity-60 + dashed border) — still
+#   visible so the user can judge it, not hidden by the data.
+# - Collapsible: whole panel toggles via the header (chevron); starts
+#   EXPANDED by default.
+# - Help button (ⓘ) toggles an inline explanation panel — closed by default
+#   — covering (1) how the selection works in plain language (today's price,
+#   Missed dropped, sorted by Entry Quality, Late dimmed) and (2) what each
+#   card field means (EQ, Recorrido, Score, PEG, Momentum, trend arrow), so
+#   anyone opening the app understands the logic without asking.
+#
+# Card shows: rank, momentum pill (Strong/Building/Late — reuses MOM_META),
+# ticker + company, EQ badge (reuses eqClasses), Recorrido/Score/PEG, and the
+# trend arrow (reuses TREND_ARROW). Click → loads that ticker's most recent
+# batch + navigates to Batch Detail + scroll/flash (same pattern as Top
+# Picks cards).
+#
+# New state: tradingOpen (bool, default true), tradingHelpOpen (bool,
+# default false), tradingHorizon (default '1M'), tradingN (default 5).
+# New memo: tradingPicks — reuses entryQuality(), entryMomentum(),
+# weeklyTrend() and getUpsideHoy() VERBATIM (zero new calculation logic).
+#
+# Mockup confirmed before implementation: mockup_mejores_trades_v2.html
+# (panel position below Top Picks, collapse behavior, help panel content).
+#
+git checkout main && git pull origin main
+git checkout -b feat/allstocks-trading-panel
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.18.0.zip -d .
+git status
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks Mejores trades trading panel (v7.18.0)"
+git tag -a v7.18.0 -m "v7.18.0: All Stocks — Mejores trades collapsible panel, sorted by Entry Quality, own horizon/count selectors, inline help"
+git push -u origin feat/allstocks-trading-panel
+git push origin v7.18.0
+# → Vercel preview: All Stocks page → scroll below Top Picks → new "Mejores
+#   trades" card. Toggle horizon (1M/3M/6M/12M) and count (3/5/10) — cards
+#   re-sort by Entry Quality. Click ⓘ → help text opens/closes. Click the
+#   chevron/header → whole panel collapses/expands. A ticker close to its
+#   target (<8% left) should render dimmed with a "Late" pill. Click a card
+#   → navigates to that ticker's Batch Detail with scroll+flash.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/allstocks-trading-panel
+git push origin main
+git push origin v7.18.0
+# Branch kept as historical reference — do NOT delete.
