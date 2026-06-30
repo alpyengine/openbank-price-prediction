@@ -5806,3 +5806,61 @@ git merge --no-ff --no-edit chore/cleanup-av-current-prices
 git push origin main
 git push origin v7.17.2
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 206 — v7.17.3  All Stocks: sticky header + Trend filter Option B
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. NEW standalone branch off main.
+# 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHAT'S NEW — two changes in the same file:
+#
+# 1. STICKY HEADER (table headers stay visible while scrolling down)
+#    Root cause: `sticky top-0` on <th> requires the scrolling ancestor to be
+#    on the SAME axis. With a single `overflow-x-auto` wrapper, the vertical
+#    scroll is on the page/viewport (a different ancestor), so sticky doesn't
+#    anchor. Fix: double-scroll pattern:
+#      outer div: overflow-x-auto (horizontal — keeps table in white card)
+#      inner div: overflow-y-auto max-h-[calc(100vh-280px)] (vertical — sticky
+#                 anchors here, headers freeze while list scrolls down)
+#    Tooltips (ⓘ) open downward over the rows — not clipped by the scroll box.
+#
+# 2. TREND FILTER OPTION B (all matching instances, not just newest)
+#    Before: filterTrend was in the `filtered` memo which works on the newest
+#    instance per ticker — so filtering Bear hid a ticker even if it had older
+#    bearish instances.
+#    After: filterTrend removed from `filtered` memo; applied per-instance in
+#    the row renderer (visibleRows). Only instances matching the active trend
+#    are rendered; tickers with zero matching instances are skipped entirely.
+#    Collapsed/search mode still shows at most 1 row, filtered by trend.
+#
+git checkout main && git pull origin main
+git checkout -b feat/allstocks-sticky-trend-b
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.17.3.zip -d .
+git status
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: All Stocks sticky header + Trend filter Option B (v7.17.3)"
+git tag -a v7.17.3 -m "v7.17.3: All Stocks sticky header (double-scroll) + Trend filter per-instance (Option B)"
+git push -u origin feat/allstocks-sticky-trend-b
+git push origin v7.17.3
+# → Vercel preview:
+#   Sticky: scroll down a long list — headers and ⓘ stay visible.
+#   Trend B: with bull+bear batches loaded, filter Bear → older bear instances
+#            of a ticker appear even if its newest batch is bull.
+#   Horizontal scroll still works (no gray spill on the right).
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/allstocks-sticky-trend-b
+git push origin main
+git push origin v7.17.3
+# Branch kept as historical reference — do NOT delete.
