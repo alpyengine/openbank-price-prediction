@@ -142,23 +142,30 @@ export default function App() {
     if (smallest) handleLoadBatch(smallest)
   }, [history])
 
-  // Auto-fetch historical prices for expired horizons
+  // Auto-fetch historical prices for expired horizons.
+  // Delayed 600ms so restoreHistPrices (called in handleLoadBatch) has time to
+  // populate histPrices in state before we check what's missing — without the
+  // delay both run in the same render cycle and the effect sees histPrices as
+  // empty, triggering unnecessary API calls (and burning Twelve Data credits).
   useEffect(() => {
     if (horizon === 'best' || horizon === 'all' || !stocks.length) return
-    const firstBase = stocks.find(s => s.base)?.base
-    if (!firstBase) return
-    const KEYS = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
-    const tg   = targetDates(firstBase)
-    const date = tg[KEYS[horizon]]
-    if (!date || dateStatus(date) !== 'past') return
-    const needFetch = stocks.filter(s => !histPrices[`${s.t}_${horizon}`])
-    if (!needFetch.length) return
-    const targetDateMap = {}
-    for (const s of stocks) {
-      if (!s.base) continue
-      targetDateMap[s.t] = targetDates(s.base)[KEYS[horizon]]
-    }
-    fetchHistoricalForHorizon(needFetch, horizon, targetDateMap)
+    const tid = setTimeout(() => {
+      const firstBase = stocks.find(s => s.base)?.base
+      if (!firstBase) return
+      const KEYS = { '1M':'d1', '3M':'d3', '6M':'d6', '12M':'d12' }
+      const tg   = targetDates(firstBase)
+      const date = tg[KEYS[horizon]]
+      if (!date || dateStatus(date) !== 'past') return
+      const needFetch = stocks.filter(s => !histPrices[`${s.t}_${horizon}`])
+      if (!needFetch.length) return
+      const targetDateMap = {}
+      for (const s of stocks) {
+        if (!s.base) continue
+        targetDateMap[s.t] = targetDates(s.base)[KEYS[horizon]]
+      }
+      fetchHistoricalForHorizon(needFetch, horizon, targetDateMap)
+    }, 600)
+    return () => clearTimeout(tid)
   }, [horizon, stocks])
 
   const sectors = useMemo(() => {

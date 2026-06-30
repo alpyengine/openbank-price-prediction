@@ -5864,3 +5864,65 @@ git merge --no-ff --no-edit feat/allstocks-sticky-trend-b
 git push origin main
 git push origin v7.17.3
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 207 — v7.17.4  Fix: Twelve Data credit burn on batch load
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. NEW standalone branch off main.
+# 2 src files + 2 docs:
+#        src/hooks/usePriceFetch.js   (outputsize=5 in fetchHistoricalPrice_TD)
+#        src/App.jsx                   (600ms debounce on auto-fetch useEffect)
+#        README.md + GIT_GUIDE.md
+#
+# ROOT CAUSE (two compounding issues):
+#
+# 1. OUTPUTSIZE DEFAULT (usePriceFetch.js)
+#    fetchHistoricalPrice_TD called Twelve Data /time_series with no outputsize
+#    parameter → TD defaulted to 30 data points → 30 credits per ticker.
+#    A 20-ticker batch with expired horizons = 600 credits consumed silently on
+#    load, easily hitting the 800/day free-tier limit.
+#    Fix: outputsize=5 (the 7-day search window has at most 5 trading days).
+#    Cost per ticker: 5 credits instead of 30.
+#
+# 2. RACE CONDITION ON BATCH LOAD (App.jsx)
+#    handleLoadBatch calls restoreHistPrices(results) to populate histPrices
+#    from the saved batch (avoiding API calls for already-known prices).
+#    But the auto-fetch useEffect also fires in the same render cycle, before
+#    the restoreHistPrices state update is visible — it sees histPrices as
+#    empty and schedules fetches for ALL tickers, even those already restored.
+#    Fix: 600ms setTimeout in the useEffect, with cleanup on unmount/re-render.
+#    restoreHistPrices settles first; only genuinely missing prices are fetched.
+#
+# COMBINED EFFECT:
+#    20-ticker batch, 1 expired horizon, prices already in the saved batch:
+#    Before: 20 × 30 = 600 credits. After: 0 credits (all restored, none fetched).
+#    20-ticker batch, 1 expired horizon, prices NOT in the saved batch:
+#    Before: 600 credits. After: 20 × 5 = 100 credits.
+#
+git checkout main && git pull origin main
+git checkout -b fix/td-credit-burn
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.17.4.zip -d .
+git status
+git diff --stat   # expect: src/hooks/usePriceFetch.js + src/App.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+
+git add src/hooks/usePriceFetch.js src/App.jsx README.md GIT_GUIDE.md
+git commit -m "fix: Twelve Data credit burn on batch load (outputsize=5 + debounce auto-fetch) (v7.17.4)"
+git tag -a v7.17.4 -m "v7.17.4: fix Twelve Data credit burn — outputsize=5 + 600ms debounce on auto-fetch"
+git push -u origin fix/td-credit-burn
+git push origin v7.17.4
+# → Vercel preview: load a batch with an expired horizon — prices should restore
+#   from the saved batch without any API call (check FetchBar log: no "Fetching…").
+#   If the batch has genuinely missing historical prices, only those are fetched.
+#   Monitor Twelve Data dashboard for credit usage.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/td-credit-burn
+git push origin main
+git push origin v7.17.4
+# Branch kept as historical reference — do NOT delete.
