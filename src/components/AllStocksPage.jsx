@@ -713,11 +713,13 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   // Map horizon label to stock field: '1M'→'u1', '3M'→'u3', '6M'→'u6', '12M'→'u12'
   const hKey = { '1M': 'u1', '3M': 'u3', '6M': 'u6', '12M': 'u12' }[horizon] ?? 'u12'
 
-  // Apply all filters: sector, PEG, market, score
+  // Apply all filters: sector, PEG, market, score, search.
+  // filterTrend (Trend B) is NOT applied here — it's applied per-instance in
+  // the row renderer so all matching instances of a ticker are shown, not just
+  // the most recent one (Option B behaviour approved in mockup).
   const filtered = useMemo(() => stocks.filter(s => {
     if (filterSec && s.sector !== filterSec) return false
     if (filterMkt && s.market !== filterMkt) return false
-    if (filterTrend && (s.direction ?? 'bullish') !== filterTrend) return false
     if (filterPeg === 'low'  && !(s.peg != null && s.peg > 0 && s.peg < 1))  return false
     if (filterPeg === 'mid'  && !(s.peg != null && s.peg >= 1 && s.peg <= 2)) return false
     if (filterPeg === 'high' && !(s.peg != null && s.peg > 2))                return false
@@ -729,7 +731,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
           !(s.co || '').toLowerCase().includes(q)) return false
     }
     return true
-  }), [stocks, filterSec, filterMkt, filterTrend, filterPeg, minScore, searchQuery])
+  }), [stocks, filterSec, filterMkt, filterPeg, minScore, searchQuery])
 
   // #6 — scroll to + flash the row when a suggestion is picked, then clear the flash.
   useEffect(() => {
@@ -1201,7 +1203,11 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       <Legend />
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
+      {/* overflow-x-auto on the card keeps the table inside the white box (no gray spill).
+          The inner div handles vertical scroll so sticky top-0 on <th> works correctly —
+          sticky needs a scrolling ancestor on the same axis (vertical here). */}
       <div className="bg-card border border-border rounded-xl overflow-x-auto">
+        <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
         <table className="w-full border-collapse text-[11.5px]">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
@@ -1418,10 +1424,21 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
               const insts     = instancesByTicker[latest.tNorm] || [latest]
               const collapsed = bestOnly || searchQuery.trim() !== ''
               const rowList   = collapsed ? insts.slice(0, 1) : insts
+
+              // Trend B: when filterTrend is active, include only instances whose
+              // direction matches — across ALL instances, not just the newest one.
+              // A ticker with both a bull and a bear instance shows both when
+              // filterTrend is '' (All), and only the matching ones otherwise.
+              const visibleRows = filterTrend
+                ? rowList.filter(s => (s.direction ?? 'bullish') === filterTrend)
+                : rowList
+              // Skip this ticker entirely if no instances pass the trend filter
+              if (visibleRows.length === 0) return []
+
               const hasDups   = insts.length > 1
-              return rowList.map((s, idx) => {
-                const isLatest = idx === 0
-                const isOlder  = idx > 0
+              return visibleRows.map((s, idx) => {
+                const isLatest = insts[0] === s   // latest = the newest overall instance
+                const isOlder  = !isLatest
                 const u = s[hKey]
                 const expandKey  = s.instKey || (s.tNorm + '-' + idx)
                 const isExpanded = expandedRows.has(expandKey)
@@ -1623,6 +1640,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
             })}
           </tbody>
         </table>
+        </div>{/* end overflow-y-auto */}
       </div>
 
       <div className="text-[10px] text-muted-foreground text-right">
