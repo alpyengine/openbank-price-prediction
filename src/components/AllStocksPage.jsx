@@ -596,6 +596,12 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   const [topPicksSec, setTopPicksSec] = useState('')
   // bestOnly — when true, filters table to upside > 0 (+ score >= 60 if available)
   const [bestOnly, setBestOnly] = useState(false)
+  // Mejores trades panel (v7.18.0) — standalone trading-focused ranking, separate
+  // from Top picks. Own horizon/count selectors; collapsible; help panel toggle.
+  const [tradingOpen,     setTradingOpen]     = useState(true)   // expanded by default
+  const [tradingHelpOpen, setTradingHelpOpen] = useState(false)  // help closed by default
+  const [tradingHorizon,  setTradingHorizon]  = useState('1M')
+  const [tradingN,        setTradingN]        = useState(5)
   // #6 ticker/company search (v7.11.1) — filters the table live; respects other filters + sort.
   const [searchQuery, setSearchQuery] = useState('')
   const [highlight,   setHighlight]   = useState(null)  // tNorm to flash after picking a suggestion
@@ -809,6 +815,27 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       .map(({ s, uHoy }) => ({ ...s, uHoy }))
   }, [stocks, horizon, topPicksCriteria, topPicksSec, getUpsideHoy])
 
+  // ── Mejores trades (v7.18.0) ──────────────────────────────────────────────
+  // Standalone trading-focused ranking: sorted by Entry Quality (not Upside/Score
+  // like Top picks). Missed excluded (no upside left — no trade). Late kept but
+  // flagged (rendered dimmed) so the user decides instead of the data hiding it.
+  // Own horizon/count — independent of the table's horizon and of Top picks.
+  const tradingPicks = useMemo(() => {
+    const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[tradingHorizon] ?? 't1'
+    return stocks
+      .map(s => {
+        const rem = getUpsideHoy(s, tKey)
+        const eq  = entryQuality(rem, s.score, s.peg)
+        if (!eq) return null
+        const trend = weeklyTrend(weeklyPrices[s.tNorm]?.[s.batchId])
+        const mom   = entryMomentum(rem, trend)
+        return { ...s, rem, eq, mom, trend }
+      })
+      .filter(s => s && s.mom !== 'missed')
+      .sort((a, b) => b.eq.v - a.eq.v)
+      .slice(0, tradingN)
+  }, [stocks, tradingHorizon, tradingN, getUpsideHoy, weeklyPrices])
+
   // getRefPrice — reference price for a stock, using the best available source.
   // Cascade: latest weekly close (Supabase, updated Saturdays)
   //          → autoPrices (live fetch from Twelve Data / AV)
@@ -1019,6 +1046,164 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
             <div className="text-[11px] text-muted-foreground bg-card border border-border rounded-xl px-3 py-4 text-center">
               No top picks with positive upside{topPicksSec ? ` in ${topPicksSec}` : ''} at {horizon}.
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Mejores trades (v7.18.0) — standalone trading panel, separate from Top picks ── */}
+      {baseStocks.length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div
+            className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none"
+            onClick={() => setTradingOpen(o => !o)}
+          >
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[15px]">🎯</span>
+                <h2 className="text-sm font-bold text-foreground">Mejores trades</h2>
+                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">Nuevo</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Ordenado por Entry Quality · Missed excluidos · Late atenuado en gris
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={e => { e.stopPropagation(); setTradingHelpOpen(o => !o) }}
+                className="w-7 h-7 rounded-md border border-border bg-muted hover:bg-muted/70 flex items-center justify-center text-muted-foreground transition-colors"
+                title="Cómo funciona esta selección"
+                aria-label="Cómo funciona esta selección"
+              >
+                <Info size={13} />
+              </button>
+              {tradingOpen ? <ChevronUp size={15} className="text-muted-foreground" /> : <ChevronDown size={15} className="text-muted-foreground" />}
+            </div>
+          </div>
+
+          {tradingOpen && (
+            <>
+              {tradingHelpOpen && (
+                <div className="px-4 py-3.5 border-t border-border bg-muted/30 text-[11px] text-muted-foreground leading-relaxed">
+                  <p className="font-semibold text-foreground mb-1.5">Cómo se eligen estos valores</p>
+                  <p className="mb-2.5">
+                    Responde a una pregunta concreta: de todo lo que tienes cargado, ¿cuáles son los mejores candidatos para entrar hoy,
+                    en el plazo que elijas? No mira la previsión original de Openbank tal cual se hizo en su día — mira la situación de hoy:
+                    cuánto recorrido le queda al precio actual hasta el objetivo, si la previsión sigue siendo de calidad, y si el momentum
+                    reciente acompaña.
+                  </p>
+                  <ol className="space-y-1 mb-3 list-decimal list-inside">
+                    <li>Se calcula el recorrido restante de cada valor hasta su objetivo, con el precio de hoy (no el precio del día de la previsión).</li>
+                    <li>Los valores que ya superaron su objetivo (sin recorrido, Missed) se descartan automáticamente — ya no hay trade que hacer ahí.</li>
+                    <li>El resto se ordena por Entry Quality, una puntuación 0–100 que combina recorrido restante, calidad de la previsión (Score) y valoración (PEG).</li>
+                    <li>Si queda muy poco recorrido (&lt;8%) se marca como Late y se atenúa en gris — sigue visible, pero se distingue de las mejores oportunidades.</li>
+                  </ol>
+                  <p className="font-semibold text-foreground mb-1.5">Qué significa cada dato de la tarjeta</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+                    <div><b className="text-foreground">EQ (Entry Quality):</b> 0–100, qué tan buena es la entrada hoy. Más alto = mejor combinación de recorrido + calidad + precio justo.</div>
+                    <div><b className="text-foreground">Recorrido:</b> % que falta hasta el objetivo del horizonte elegido. Verde = aún hay margen. Rojo = ya lo superó.</div>
+                    <div><b className="text-foreground">Score:</b> calidad de la previsión original (0–100). No cambia con el precio de hoy.</div>
+                    <div><b className="text-foreground">PEG:</b> precio/beneficio ajustado por crecimiento. Por debajo de 1 = barata; por encima de 2 = cara.</div>
+                    <div><b className="text-foreground">Momentum:</b> Strong = buen recorrido y tendencia al alza · Building = buen recorrido, tendencia plana · Late = poco recorrido, vigilar de cerca.</div>
+                    <div><b className="text-foreground">Flecha de tendencia:</b> cómo se ha movido el precio en las últimas semanas (↗ subiendo · → estable · ↘ bajando).</div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-4 flex-wrap px-4 py-3 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">Horizonte:</span>
+                  <div className="flex items-center gap-0.5 bg-muted rounded-full p-0.5 border border-border">
+                    {['1M', '3M', '6M', '12M'].map(h => (
+                      <button
+                        key={h}
+                        onClick={() => setTradingHorizon(h)}
+                        className={cn(
+                          'text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors cursor-pointer bg-transparent',
+                          tradingHorizon === h
+                            ? 'bg-card text-foreground shadow-sm border border-border'
+                            : 'text-muted-foreground hover:text-foreground border border-transparent'
+                        )}
+                      >{h}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">Mostrar:</span>
+                  <div className="flex items-center gap-0.5 bg-muted rounded-full p-0.5 border border-border">
+                    {[3, 5, 10].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setTradingN(n)}
+                        className={cn(
+                          'text-[11px] font-medium px-2.5 py-1 rounded-full transition-colors cursor-pointer bg-transparent',
+                          tradingN === n
+                            ? 'bg-card text-foreground shadow-sm border border-border'
+                            : 'text-muted-foreground hover:text-foreground border border-transparent'
+                        )}
+                      >{n}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {tradingPicks.length > 0 ? (
+                <div className="grid gap-2.5 px-4 pb-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
+                  {tradingPicks.map((s, i) => {
+                    const m    = MOM_META[s.mom]
+                    const late = s.mom === 'late'
+                    return (
+                      <div
+                        key={s.t}
+                        className={cn(
+                          'bg-card border rounded-xl p-3 flex flex-col gap-1.5 cursor-pointer hover:bg-muted/30 transition-colors',
+                          i === 0 ? 'border-violet-400 dark:border-violet-600' : 'border-border',
+                          late && 'opacity-60 border-dashed'
+                        )}
+                        onClick={() => {
+                          if (!onLoadBatch || !onNav) return
+                          const batch = [...(batches ?? [])]
+                            .sort((a, b) => new Date(b.id) - new Date(a.id))
+                            .find(b => b.results?.some(r => r.ticker === s.tNorm || r.ticker === s.t))
+                          if (batch) { onLoadBatch(batch); onNav('batch-detail'); onScrollToTicker?.(s.t) }
+                        }}
+                      >
+                        <div className="flex items-center justify-between gap-1.5">
+                          <span className="text-[10px] text-muted-foreground font-medium">#{i + 1}</span>
+                          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold', m.cls)}>
+                            <span className={cn('w-1.5 h-1.5 rounded-full', m.dot)} />
+                            {m.label}
+                          </span>
+                        </div>
+                        <div className="text-[14px] font-bold leading-none">{s.tDisplay ?? s.t}</div>
+                        <div className="text-[10px] text-muted-foreground truncate leading-tight">{s.co}</div>
+                        <span className={cn('inline-flex items-baseline gap-1 self-start text-[10px] font-bold px-1.5 py-0.5 rounded-md', eqClasses(s.eq.v))}>
+                          EQ <span className="text-[13px]">{s.eq.v}</span>{s.eq.noScore && <span className="text-[8px] opacity-70">~</span>}
+                        </span>
+                        <div className="flex items-center gap-2.5 mt-1 pt-1.5 border-t border-border">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[8.5px] font-bold text-muted-foreground uppercase tracking-wide">Recorrido</span>
+                            <span className={cn('text-[11px] font-bold', s.rem >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>{fmtPct(s.rem)}</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[8.5px] font-bold text-muted-foreground uppercase tracking-wide">Score</span>
+                            <span className="text-[11px] font-bold">{s.score ?? '—'}</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[8.5px] font-bold text-muted-foreground uppercase tracking-wide">PEG</span>
+                            <span className="text-[11px] font-bold">{s.peg != null ? s.peg.toFixed(2) : '—'}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground ml-auto self-end">{TREND_ARROW[s.trend]}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground px-4 pb-4 text-center">
+                  Ningún valor con recorrido a {tradingHorizon}.
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
