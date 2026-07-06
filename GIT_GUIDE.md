@@ -6066,12 +6066,12 @@ unzip -o ~/Downloads/openbank-price-prediction_v7.19.0.zip -d .
 git status
 git diff --stat
 
-npm run test:run
-# existing suite + 7 new tests should all be green.
-# If the total test count differs from what's noted in
-# README.md's "Tests" section, update that line too.
+npm run test:run   # existing suite + 7 new tests should all be green.
+                   # If the total test count differs from what's noted in
+                   # README.md's "Tests" section, update that line too.
 
-git add supabase/sql/02_expired_horizons_rpcs.sql src/hooks/useHistory.js \src/hooks/computed.test.js README.md GIT_GUIDE.md SUPABASE.md
+git add supabase/sql/02_expired_horizons_rpcs.sql src/hooks/useHistory.js \
+        src/hooks/computed.test.js README.md GIT_GUIDE.md SUPABASE.md
 git commit -m "feat: 3-tier hit-rate ladder — hitRate/hitRateClose/hitRateExt (v7.19.0)
 
 The 'close' verdict was invisible in both hit-rate metrics (confirmed: 9/89
@@ -6141,9 +6141,8 @@ unzip -o ~/Downloads/openbank-price-prediction_v7.19.1.zip -d .
 git status
 git diff --stat
 
-npm run test:run
-# existing suite should stay green — no logic touched,
-# AccuracyChart.jsx render isn't unit-tested.
+npm run test:run   # existing suite should stay green — no logic touched,
+                   # AccuracyChart.jsx render isn't unit-tested.
 
 git add src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
 git commit -m "feat: Accuracy horizon cards — 3-tier hit-rate ladder (v7.19.1)
@@ -6165,3 +6164,71 @@ git push origin v7.19.1
 #   "Total hits" subtitles now mention close too.
 # STILL DO NOT MERGE — v7.19.2 (table Close column) lands next, then v7.19.3
 # (chart selector), then we merge --no-ff all four together.
+
+
+# ===========================================================================
+# STEP 211 — v7.19.2  Accuracy: 3-tier hit-rate ladder — Historical batches table
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. SAME branch as v7.19.0/v7.19.1
+# (feat/accuracy-3tier-metrics) — do NOT merge yet. 1 src file + 2 docs:
+#        src/components/AccuracyChart.jsx   ("Historical batches" table)
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   Second UI step of the v7.19.x line. The batch table still showed only
+#   Hit Rate + the old "Ext Rate" (purple), so 'close' had no visibility at
+#   the per-batch level either. Alex chose the full 3-percentage-column
+#   option from the mockup (vs just adding the Close count alone).
+#
+# WHAT'S NEW:
+#   - Header: 'Date','Market','Trend','Stocks','Hit Rate','+Close',
+#     '+Close+Exc','Hit','Close','Exc','Miss','Await','Actions' (11→13 cols,
+#     empty-state colSpan updated to match).
+#   - +Close column (new): badge, blue (TIER_COLORS.hitClose), between Hit
+#     Rate and +Close+Exc.
+#   - +Close+Exc column: was "Ext Rate" (purple) — relabelled and recoloured
+#     violet (TIER_COLORS.hitExt) to match the horizon cards' +Exceeded tier.
+#   - Close count column (new): between Hit and Exc, blue — per the mockup.
+#   - Exc count column: recoloured blue→violet (blue is now Close's colour;
+#     without this the two columns would look identical).
+#   - Hit Rate column: UNCHANGED — keeps its existing green/amber/red
+#     performance-banded colouring (that's a quality band, not a ladder tier).
+#
+# NO DATA-MODEL CHANGES — reads batch.hitRateClose / batch.close, already
+# exposed by computed()'s batchSummary since v7.19.0. Chart metric selector
+# is v7.19.3 — same branch, not merged yet.
+#
+# Commit on the SHARED branch (already created in STEP 209/210):
+git checkout feat/accuracy-3tier-metrics
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.19.2.zip -d .
+# Overlays src/components/AccuracyChart.jsx + README.md + GIT_GUIDE.md straight
+# into the repo. Confirm the docs diff is only the v7.19.2 row + this STEP 211
+# block:
+git status
+git diff --stat
+
+npm run test:run
+# existing suite should stay green — no logic touched,
+# AccuracyChart.jsx render isn't unit-tested.
+
+git add src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Accuracy Historical batches table — 3-tier hit-rate columns (v7.19.2)
+
+Table gains +Close and +Close+Exc (%) columns plus a Close count column
+(between Hit and Exc), completing the 3-tier ladder at the per-batch level.
++Close+Exc replaces the old 'Ext Rate' (purple -> violet, matching the
+horizon cards' +Exceeded tier from v7.19.1). Exc count recoloured blue ->
+violet since blue is now Close's colour. Hit Rate's performance-banded
+colouring untouched. No data-model changes. Chart selector (v7.19.3)
+pending on this same branch."
+git tag -a v7.19.2 -m "v7.19.2: Accuracy Historical batches table — +Close/+Close+Exc columns + Close count"
+git push origin feat/accuracy-3tier-metrics
+git push origin v7.19.2
+# → Vercel preview: Accuracy Stats → Historical batches — confirm 3 % columns
+# (Hit Rate / +Close / +Close+Exc, each ≥ the previous per row) and the new
+# Close count column between Hit and Exc. Exc count should now read violet,
+# not blue.
+# STILL DO NOT MERGE — v7.19.3 (chart metric selector) lands next, then we
+# merge --no-ff all four (v7.19.0–v7.19.3) together.

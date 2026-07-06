@@ -661,7 +661,7 @@ export default function AccuracyChart({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted">
-                    {['Date', 'Market', 'Trend', 'Stocks', 'Hit Rate', 'Ext Rate', 'Hit', 'Exc', 'Miss', 'Await', 'Actions'].map(h => (
+                    {['Date', 'Market', 'Trend', 'Stocks', 'Hit Rate', '+Close', '+Close+Exc', 'Hit', 'Close', 'Exc', 'Miss', 'Await', 'Actions'].map(h => (
                       <TableHead key={h} className="text-xs py-2.5 px-3.5 whitespace-nowrap">{h}</TableHead>
                     ))}
                   </TableRow>
@@ -670,7 +670,7 @@ export default function AccuracyChart({
                   {/* Empty state row */}
                   {(!batches || batches.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-6 text-sm text-muted-foreground">
+                      <TableCell colSpan={13} className="text-center py-6 text-sm text-muted-foreground">
                         No batches saved yet
                       </TableCell>
                     </TableRow>
@@ -678,12 +678,14 @@ export default function AccuracyChart({
 
                   {/* Batch rows */}
                   {(stats?.batchSummary ?? batches)?.map(batch => {
-                    const hits     = batch.hit      ?? 0
-                    const exc      = batch.exceeded ?? 0
-                    const miss     = batch.miss     ?? 0
-                    const await_   = batch.awaiting ?? 0
-                    const rate     = batch.hitRate
-                    const rateExt  = batch.hitRateExt
+                    const hits      = batch.hit         ?? 0
+                    const close     = batch.close       ?? 0
+                    const exc       = batch.exceeded    ?? 0
+                    const miss      = batch.miss        ?? 0
+                    const await_    = batch.awaiting    ?? 0
+                    const rate      = batch.hitRate
+                    const rateClose = batch.hitRateClose
+                    const rateExt   = batch.hitRateExt
 
                     return (
                       <TableRow key={batch.id}>
@@ -712,7 +714,7 @@ export default function AccuracyChart({
 
                         <TableCell className="py-3 px-3.5 text-muted-foreground">{batch.stocks}</TableCell>
 
-                        {/* Hit rate pure */}
+                        {/* Hit rate pure — banded by performance (unchanged) */}
                         <TableCell className="py-3 px-3.5">
                           {rate != null && (
                             <Badge className={cn(
@@ -726,17 +728,31 @@ export default function AccuracyChart({
                           )}
                         </TableCell>
 
-                        {/* Hit rate extended */}
+                        {/* +Close — new column (v7.19.2), same blue as the horizon-card ladder */}
+                        <TableCell className="py-3 px-3.5">
+                          {rateClose != null && (
+                            <Badge className={cn('text-xs font-semibold rounded-full', TIER_COLORS.hitClose.badge)}>
+                              {rateClose}%
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        {/* +Close+Exc — was "Ext Rate" (purple); relabelled + recoloured violet
+                            to match the horizon-card ladder's +Exceeded tier (v7.19.1/.2) */}
                         <TableCell className="py-3 px-3.5">
                           {rateExt != null && (
-                            <Badge className="text-xs font-semibold rounded-full bg-purple-50 text-purple-700">
+                            <Badge className={cn('text-xs font-semibold rounded-full', TIER_COLORS.hitExt.badge)}>
                               {rateExt}%
                             </Badge>
                           )}
                         </TableCell>
 
                         <TableCell className="py-3 px-3.5 font-semibold text-success">{hits}</TableCell>
-                        <TableCell className="py-3 px-3.5 font-semibold text-blue-600">{exc}</TableCell>
+                        {/* Close count — new column (v7.19.2), between Hit and Exc per the approved mockup */}
+                        <TableCell className="py-3 px-3.5 font-semibold text-blue-600">{close}</TableCell>
+                        {/* Exceeded count — recoloured violet (was blue) so it no longer collides
+                            visually with the new Close column; matches its ladder tier colour */}
+                        <TableCell className="py-3 px-3.5 font-semibold text-violet-600">{exc}</TableCell>
                         <TableCell className="py-3 px-3.5 font-semibold text-destructive">{miss}</TableCell>
 
                         {/* Awaiting badge or dash */}
