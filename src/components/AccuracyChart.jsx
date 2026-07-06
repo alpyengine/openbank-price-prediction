@@ -7,7 +7,8 @@
  *   1. Action bar — Refresh button + log (slider removed in v7.3.3)
  *   2. KPI cards  — overall hit rate (pure + extended), total hits, awaiting
  *   3. Horizon cards — 3-tier hit-rate ladder per horizon (hit/+close/+exceeded), v7.19.1
- *   4. Multi-line chart — accuracy per horizon over time (1M/3M/6M/12M + Global)
+ *   4. Multi-line chart — accuracy per horizon over time (1M/3M/6M/12M + Global),
+ *      with a 3-position metric selector (Hit / +Close / +Close+Exc), v7.19.3
  *   5. Batch table — all saved batches with Load / Download / Delete actions
  *
  * Note: Accuracy Stats always uses SNAPSHOT_PARAMS fixed thresholds (v7.3.3+).
@@ -42,6 +43,24 @@ const TIER_COLORS = {
   hit:      { bar: '#16a34a', badge: 'bg-green-50 text-green-700',  label: 'text-green-700' },
   hitClose: { bar: '#1d4ed8', badge: 'bg-blue-50 text-blue-700',    label: 'text-blue-700' },
   hitExt:   { bar: '#8b5cf6', badge: 'bg-violet-50 text-violet-700', label: 'text-violet-700' },
+}
+
+/** Metric selector metadata (v7.19.3) — feeds the 3-position segmented control
+ *  above the trend chart and its explanatory note. Keys match TIER_COLORS and
+ *  stats.chartDataByMetric / overallRate*. */
+const METRIC_META = {
+  hit: {
+    label: 'Hit',
+    note: 'Only exact hits within the strict margin (±H%).',
+  },
+  hitClose: {
+    label: 'Hit + Close',
+    note: 'Also includes predictions that landed close to the target (within the extended margin) without surpassing it.',
+  },
+  hitExt: {
+    label: 'Hit + Close + Exc',
+    note: 'Everything that got the direction right: exact, close, or beyond the target.',
+  },
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -420,6 +439,7 @@ export default function AccuracyChart({
   const [downloadedBatch, setDownloadedBatch] = useState(null)
   const [deletingBatch,  setDeletingBatch]  = useState(null)
   const [confirmDelete,  setConfirmDelete]  = useState(null)
+  const [metric,         setMetric]         = useState('hit') // trend-chart metric selector (v7.19.3)
 
   // ── Batch actions ───────────────────────────────────────────────────────────
 
@@ -524,6 +544,13 @@ export default function AccuracyChart({
   const overallClose   = stats?.byHorizon.reduce((a, h) => a + h.close, 0) ?? 0
   const overallExc     = stats?.byHorizon.reduce((a, h) => a + h.exceeded, 0) ?? 0
   const overallAwait   = stats?.totalAwaiting ?? 0
+  // Maps the trend-chart metric selector to the matching overall rate —
+  // all 3 already exposed by computed() since v7.19.0, no new data here.
+  const overallByMetric = {
+    hit:      stats?.overallRate,
+    hitClose: stats?.overallRateClose,
+    hitExt:   stats?.overallRateExt,
+  }
 
   return (
     <div>
@@ -635,19 +662,52 @@ export default function AccuracyChart({
 
           {/* ── Accuracy trend chart ──────────────────────────────────── */}
           <Card className="mb-6 overflow-hidden">
-            <CardHeader className="py-3.5 px-4 border-b border-border flex-row items-center justify-between space-y-0">
+            <CardHeader className="py-3.5 px-4 border-b border-border flex-row items-center justify-between gap-3 flex-wrap space-y-0">
               <div>
                 <div className="text-sm font-semibold">Prediction Accuracy Over Time</div>
                 <div className="text-xs text-muted-foreground mt-0.5">Historical accuracy as batches mature — per horizon</div>
               </div>
-              {stats.overallRate != null && (
-                <Badge variant="secondary" className="text-xs font-semibold">
-                  {stats.overallRate}% overall
-                </Badge>
-              )}
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 3-position metric selector (v7.19.3) — switches which chartDataByMetric
+                    series feeds the chart below. Mirrors the horizon cards' ladder colours. */}
+                <div className="inline-flex items-center gap-0.5 bg-muted border border-border rounded-lg p-0.5">
+                  {Object.keys(METRIC_META).map(key => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setMetric(key)}
+                      className={cn(
+                        'flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-md transition-colors',
+                        metric === key
+                          ? cn('bg-card shadow-sm', TIER_COLORS[key].label)
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: TIER_COLORS[key].bar }} />
+                      {METRIC_META[key].label}
+                    </button>
+                  ))}
+                </div>
+
+                {overallByMetric[metric] != null && (
+                  <Badge variant="secondary" className="text-xs font-semibold whitespace-nowrap">
+                    {overallByMetric[metric]}% overall
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="p-4">
-              <MultiLineChart chartData={stats.chartData} chartLabels={stats.chartLabels} />
+              <MultiLineChart chartData={stats.chartDataByMetric?.[metric] ?? stats.chartData} chartLabels={stats.chartLabels} />
+
+              {/* Explanatory note for the active metric (v7.19.3) */}
+              <div className="mt-3 text-[11px] text-muted-foreground bg-muted border border-border rounded-lg px-3 py-2 flex items-start gap-2">
+                <span className="shrink-0">ℹ️</span>
+                <span>
+                  <span className={cn('font-bold', TIER_COLORS[metric].label)}>{METRIC_META[metric].label}:</span>{' '}
+                  {METRIC_META[metric].note}
+                </span>
+              </div>
             </CardContent>
           </Card>
 

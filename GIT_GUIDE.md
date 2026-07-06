@@ -6209,9 +6209,8 @@ unzip -o ~/Downloads/openbank-price-prediction_v7.19.2.zip -d .
 git status
 git diff --stat
 
-npm run test:run
-# existing suite should stay green — no logic touched,
-# AccuracyChart.jsx render isn't unit-tested.
+npm run test:run   # existing suite should stay green — no logic touched,
+                   # AccuracyChart.jsx render isn't unit-tested.
 
 git add src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
 git commit -m "feat: Accuracy Historical batches table — 3-tier hit-rate columns (v7.19.2)
@@ -6227,8 +6226,82 @@ git tag -a v7.19.2 -m "v7.19.2: Accuracy Historical batches table — +Close/+Cl
 git push origin feat/accuracy-3tier-metrics
 git push origin v7.19.2
 # → Vercel preview: Accuracy Stats → Historical batches — confirm 3 % columns
-# (Hit Rate / +Close / +Close+Exc, each ≥ the previous per row) and the new
-# Close count column between Hit and Exc. Exc count should now read violet,
-# not blue.
+#   (Hit Rate / +Close / +Close+Exc, each ≥ the previous per row) and the new
+#   Close count column between Hit and Exc. Exc count should now read violet,
+#   not blue.
 # STILL DO NOT MERGE — v7.19.3 (chart metric selector) lands next, then we
 # merge --no-ff all four (v7.19.0–v7.19.3) together.
+
+
+# ===========================================================================
+# STEP 212 — v7.19.3  Accuracy: 3-tier hit-rate ladder — trend chart selector
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. LAST version of the v7.19.x line on the
+# shared branch (feat/accuracy-3tier-metrics). 1 src file + 2 docs:
+#        src/components/AccuracyChart.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHAT'S NEW:
+#   - New 3-position segmented control next to the trend chart's "X% overall"
+#     badge: Hit / Hit + Close / Hit + Close + Exc, same dot-colour language
+#     as the horizon cards (TIER_COLORS). New `metric` state (default 'hit'
+#     — chart's default view is unchanged from before this whole line).
+#   - MultiLineChart itself is UNCHANGED — only what's passed to it changes:
+#     stats.chartDataByMetric[metric] instead of the old stats.chartData
+#     (both have existed side by side since v7.19.0; chartData was kept as
+#     an alias of chartDataByMetric.hit, so switching is a one-line change).
+#   - "X% overall" badge is now dynamic, following the selected metric via a
+#     new `overallByMetric` map computed LOCALLY in the component from
+#     stats.overallRate / overallRateClose / overallRateExt — no new
+#     data-model fields, all 3 already existed since v7.19.0.
+#   - New explanatory note below the chart (ℹ️ + one sentence) describing the
+#     active metric in plain language, per the approved mockup.
+#   - New METRIC_META const (label + note per tier, keyed like TIER_COLORS).
+#
+# CLOSES THE v7.19.x LINE — 3-tier hit-rate ladder complete end-to-end:
+#   v7.19.0 backend/data · v7.19.1 horizon cards · v7.19.2 batch table ·
+#   v7.19.3 trend chart selector.
+#
+# Commit on the SHARED branch (already created in STEP 209/210/211):
+git checkout feat/accuracy-3tier-metrics
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.19.3.zip -d .
+git status
+git diff --stat
+# expect: src/components/AccuracyChart.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+# existing suite should stay green — no logic touched.
+
+git add src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Accuracy trend chart — 3-tier metric selector (v7.19.3)
+
+New 3-position segmented control (Hit / +Close / +Close+Exc) switches which
+chartDataByMetric series feeds the trend chart; MultiLineChart itself is
+unchanged. The 'X% overall' badge now follows the selected metric. New
+explanatory note below the chart. Closes the v7.19.x line: 3-tier hit-rate
+ladder complete across backend (v7.19.0), horizon cards (v7.19.1), batch
+table (v7.19.2), and this trend-chart selector."
+git tag -a v7.19.3 -m "v7.19.3: Accuracy trend chart — 3-tier metric selector (Hit/+Close/+Close+Exc)"
+git push origin feat/accuracy-3tier-metrics
+git push origin v7.19.3
+# → Vercel preview: Accuracy Stats → Prediction Accuracy Over Time — the
+#   segmented control switches the 4 horizon lines + Global between Hit /
+#   +Close / +Close+Exc; the "X% overall" badge updates to match; the note
+#   below the chart changes text per selection.
+
+# ===========================================================================
+# FINAL MERGE — the whole v7.19.x line (v7.19.0 → v7.19.3) into main
+# ===========================================================================
+# Only after ALL four previews validated (backend data, horizon cards, batch
+# table, trend chart). The four annotated tags already point at their commits
+# on the branch and stay valid after the merge.
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/accuracy-3tier-metrics
+git push origin main
+# Push tags (if not already pushed):
+git push origin v7.19.0 v7.19.1 v7.19.2 v7.19.3
+# Branch is kept as historical reference — do NOT delete.
+# If Vercel doesn't redeploy after the merge:
+#   git commit --allow-empty -m "chore: trigger vercel deploy" && git push
