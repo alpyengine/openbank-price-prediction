@@ -5998,3 +5998,101 @@ git merge --no-ff --no-edit feat/allstocks-trading-panel
 git push origin main
 git push origin v7.18.0
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 209 — v7.19.0  Accuracy: 3-tier hit-rate ladder — backend/data layer
+# ===========================================================================
+#
+# SUPABASE CHANGES REQUIRED (manual, dashboard SQL editor — already applied
+# and verified before this commit). No npm install. NEW BRANCH from main
+# (v7.18.0 already merged). This branch is SHARED by the whole v7.19.x line
+# (accuracy 3-tier metrics) — v7.19.1+ (UI) lands on it too; merge at the end.
+# 3 src files + 3 docs:
+#        supabase/sql/02_expired_horizons_rpcs.sql   (recalc_hit_rates + hit_rate_close)
+#        src/hooks/useHistory.js                     (3 calc sites + computed())
+#        src/hooks/computed.test.js                  (mirror rewritten + 7 new tests)
+#        README.md + GIT_GUIDE.md + SUPABASE.md
+#
+# WHY:
+#   The 'close' verdict (near-target, within the extended margin, but not
+#   surpassing it) counted toward NEITHER hitRate nor hitRateExt — confirmed
+#   on real data: 9 'close' cases out of 89 evaluated, invisible in both
+#   metrics, in both the SQL (recalc_hit_rates) and the frontend (useHistory.js).
+#
+# WHAT'S NEW — 3-metric ladder, each including the previous:
+#   hitRate      = hit / evaluated                          (unchanged)
+#   hitRateClose = (hit + close) / evaluated                 (NEW)
+#   hitRateExt   = (hit + close + exceeded) / evaluated       (CHANGES: previously
+#                                                               did not include close)
+#   miss and wrong_way still never count toward any metric.
+#
+#   - Supabase: new batches.hit_rate_close column (already added). New
+#     recalc_hit_rates() (already deployed + re-run ONCE against all
+#     historical batches — verified: hit_rate_ext >= hit_rate_close >=
+#     hit_rate holds on every batch, including the May edge case).
+#   - useHistory.js: all 3 calc sites now use the same formula as SQL —
+#     the 2 inline computations (saveBatch's persisted newBatch/batchMeta,
+#     and deleteStock's post-delete recompute), plus computed()'s byHorizon,
+#     overallRate*, and batchSummary — all gaining hitRateClose.
+#   - chartData (single hit-only series) is now internally built from a new
+#     chartDataByMetric ({ hit, hitClose, hitExt }, one array per horizon per
+#     metric) to feed the v7.19.1+ trend-chart selector. chartData is kept
+#     as an alias of chartDataByMetric.hit for back-compat — AccuracyChart.jsx
+#     is its only consumer today and still reads the pure-hit series.
+#   - computed.test.js: the mirror (previously out of sync with the real
+#     computed() — missing exceeded, wrongWay, hitRateExt, market, direction)
+#     rewritten field-for-field. 7 new tests: hitRateClose arithmetic, the
+#     hitRateExt fix, the ladder invariant (hitRateExt >= hitRateClose >=
+#     hitRate) across several verdict mixes, miss/wrong_way never counting,
+#     batchSummary/overallRate* exposing hitRateClose, and chartDataByMetric
+#     shape + chartData aliasing.
+#
+# NO VISUAL CHANGES YET — AccuracyChart.jsx untouched, still reads only
+# hitRate/hitRateExt/chartData as before. NOTE: stats.overallRateExt's
+# displayed number in the top KPI card will change immediately on deploy
+# (now includes close) while its subtitle text still reads "hit + exceeded"
+# until the UI catch-up in v7.19.1 — expected, not a bug.
+#
+# Branch from main:
+git checkout main && git pull origin main
+git checkout -b feat/accuracy-3tier-metrics
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.19.0.zip -d .
+# Overlays the 3 src files + README.md + GIT_GUIDE.md + SUPABASE.md straight
+# into the repo (no wrapping folder). Confirm the docs diff is only the
+# v7.19.0 changelog row + this STEP 209 block + the SUPABASE.md hit_rate_close
+# section:
+git status
+git diff --stat
+
+npm run test:run   # existing suite + 7 new tests should all be green.
+                   # If the total test count differs from what's noted in
+                   # README.md's "Tests" section, update that line too.
+
+git add supabase/sql/02_expired_horizons_rpcs.sql src/hooks/useHistory.js \
+        src/hooks/computed.test.js README.md GIT_GUIDE.md SUPABASE.md
+git commit -m "feat: 3-tier hit-rate ladder — hitRate/hitRateClose/hitRateExt (v7.19.0)
+
+The 'close' verdict was invisible in both hit-rate metrics (confirmed: 9/89
+evaluated cases). New ladder where each metric includes the previous one:
+hitRate = hit/evaluated (unchanged), new hitRateClose = (hit+close)/evaluated,
+hitRateExt = (hit+close+exceeded)/evaluated (breaking change — previously
+excluded close). miss/wrong_way never count. Supabase recalc_hit_rates()
+updated and re-run once against all historical batches. useHistory.js: all
+3 calc sites synced (saveBatch x2, deleteStock, computed()'s byHorizon/
+overallRate*/batchSummary). chartData replaced internally by
+chartDataByMetric ({hit,hitClose,hitExt}), kept as an alias of .hit for
+back-compat. computed.test.js mirror resynced + 7 new tests. Backend/data
+only — no UI changes (AccuracyChart.jsx lands in v7.19.1)."
+git tag -a v7.19.0 -m "v7.19.0: 3-tier hit-rate ladder (hitRate/hitRateClose/hitRateExt) — backend + data layer"
+git push -u origin feat/accuracy-3tier-metrics
+git push origin v7.19.0
+# → Nothing visible changes in the UI yet except the overallRateExt KPI
+#   number ticking up (close now counted) — expected. Confirm in Supabase:
+#   select date, hit_rate, hit_rate_close, hit_rate_ext from batches
+#   where hit_rate is not null order by date desc;
+#   and that hit_rate_ext >= hit_rate_close >= hit_rate on every row.
+# DO NOT merge yet — v7.19.1 (UI: AccuracyChart.jsx cards), v7.19.2 (table),
+# and v7.19.3 (chart selector) land on this SAME branch next, then we merge
+# --no-ff and tag all of them together.
