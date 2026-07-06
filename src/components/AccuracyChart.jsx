@@ -6,7 +6,7 @@
  * Sections:
  *   1. Action bar — Refresh button + log (slider removed in v7.3.3)
  *   2. KPI cards  — overall hit rate (pure + extended), total hits, awaiting
- *   3. Horizon cards — hit rate per horizon with SNAPSHOT_PARAMS thresholds
+ *   3. Horizon cards — 3-tier hit-rate ladder per horizon (hit/+close/+exceeded), v7.19.1
  *   4. Multi-line chart — accuracy per horizon over time (1M/3M/6M/12M + Global)
  *   5. Batch table — all saved batches with Load / Download / Delete actions
  *
@@ -36,15 +36,12 @@ import { SNAPSHOT_PARAMS } from '@/utils/stocks.js'
 
 const HORIZONS = ['1M', '3M', '6M', '12M']
 
-/** Colors for each horizon's progress bar and badge */
-const H_COLORS = {
-  bar:   ['#16a34a', '#3b82f6', '#d97706', '#8b5cf6'],
-  badge: [
-    'bg-green-50 text-green-700',
-    'bg-blue-50 text-blue-700',
-    'bg-orange-50 text-orange-700',
-    'bg-violet-50 text-violet-700',
-  ],
+/** Fixed colors for the 3-tier hit-rate ladder — same on every horizon card
+ *  (v7.19.1). Each tier includes the previous one: hit ⊂ +close ⊂ +exceeded. */
+const TIER_COLORS = {
+  hit:      { bar: '#16a34a', badge: 'bg-green-50 text-green-700',  label: 'text-green-700' },
+  hitClose: { bar: '#1d4ed8', badge: 'bg-blue-50 text-blue-700',    label: 'text-blue-700' },
+  hitExt:   { bar: '#8b5cf6', badge: 'bg-violet-50 text-violet-700', label: 'text-violet-700' },
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -113,7 +110,8 @@ function KpiCard({ label, value, icon: Icon, sub, subColor }) {
 
 /**
  * Series metadata for the accuracy chart.
- * Colours match the horizon cards (H_COLORS.bar). 'global' is the aggregate
+ * Colours are hardcoded per horizon (1M green, 3M blue, 6M orange, 12M violet).
+ * 'global' is the aggregate
  * (average of the available horizon values per batch) and uses --foreground so
  * it stays legible in both light and dark themes.
  */
@@ -523,6 +521,7 @@ export default function AccuracyChart({
   )
 
   const overallHits    = stats?.byHorizon.reduce((a, h) => a + h.hit, 0) ?? 0
+  const overallClose   = stats?.byHorizon.reduce((a, h) => a + h.close, 0) ?? 0
   const overallExc     = stats?.byHorizon.reduce((a, h) => a + h.exceeded, 0) ?? 0
   const overallAwait   = stats?.totalAwaiting ?? 0
 
@@ -545,14 +544,14 @@ export default function AccuracyChart({
               label="Hit Rate — extended"
               value={stats.overallRateExt != null ? `${stats.overallRateExt}%` : '--'}
               icon={TrendingUp}
-              sub={`${overallHits} hit + ${overallExc} exceeded`}
+              sub={`${overallHits} hit · ${overallClose} close · ${overallExc} exceeded`}
               subColor="text-purple-600"
             />
             <KpiCard
               label="Total hits"
-              value={overallHits + overallExc}
+              value={overallHits + overallClose + overallExc}
               icon={CheckCircle}
-              sub={`${overallHits} hit · ${overallExc} exceeded`}
+              sub={`${overallHits} hit · ${overallClose} close · ${overallExc} exceeded`}
             />
             <KpiCard
               label="Awaiting"
@@ -564,56 +563,69 @@ export default function AccuracyChart({
 
           {/* ── Horizon hit rate cards ────────────────────────────────── */}
           <div className="grid grid-cols-4 gap-3 mb-6">
-            {stats.byHorizon.map((h, i) => {
-              const pct    = h.hitRate    ?? 0
-              const pctExt = h.hitRateExt ?? 0
+            {stats.byHorizon.map((h) => {
+              const pct      = h.hitRate      ?? 0
+              const pctClose = h.hitRateClose ?? 0
+              const pctExt   = h.hitRateExt   ?? 0
               const isLegacy = h.horizon === '12M'
               const noData   = h.total === 0
               return (
                 <Card key={h.horizon} className={cn('p-4', isLegacy && noData && 'opacity-60')}>
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <span className="text-xs text-muted-foreground font-medium">
-                        {h.horizon} horizon
-                        {isLegacy && (
-                          <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                            legacy
-                          </span>
-                        )}
-                      </span>
-                      <div className="text-[10px] text-muted-foreground">
-                        H=±{h.H}% · close&lt;{+(h.H * h.R).toFixed(1)}%
+                  <div className="mb-2.5">
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {h.horizon} horizon
+                      {isLegacy && (
+                        <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          legacy
+                        </span>
+                      )}
+                    </span>
+                    <div className="text-[10px] text-muted-foreground">
+                      H=±{h.H}% · close&lt;{+(h.H * h.R).toFixed(1)}%
+                    </div>
+                  </div>
+
+                  {/* 3-tier ladder — always visible together, no selector needed here.
+                      Each bar includes the previous one: hit ⊂ +close ⊂ +exceeded. */}
+                  <div className="space-y-1.5 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className={cn('text-[10.5px] font-bold w-[52px] shrink-0', TIER_COLORS.hit.label)}>Hit</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-400"
+                          style={{ width: `${pct}%`, background: TIER_COLORS.hit.bar }}
+                        />
                       </div>
+                      <span className="text-[11px] font-extrabold w-8 text-right shrink-0">{pct}%</span>
                     </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                      <Badge className={cn('text-[11px] font-bold rounded-full px-2', H_COLORS.badge[i])}>
-                        {pct}%
-                      </Badge>
-                      <Badge className="text-[10px] font-semibold rounded-full px-2 bg-purple-50 text-purple-700">
-                        +exc {pctExt}%
-                      </Badge>
+                    <div className="flex items-center gap-2">
+                      <span className={cn('text-[10.5px] font-bold w-[52px] shrink-0', TIER_COLORS.hitClose.label)}>+Close</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-400"
+                          style={{ width: `${pctClose}%`, background: TIER_COLORS.hitClose.bar }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-extrabold w-8 text-right shrink-0">{pctClose}%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn('text-[10.5px] font-bold w-[52px] shrink-0', TIER_COLORS.hitExt.label)}>+Exceeded</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-400"
+                          style={{ width: `${pctExt}%`, background: TIER_COLORS.hitExt.bar }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-extrabold w-8 text-right shrink-0">{pctExt}%</span>
                     </div>
                   </div>
-                  {/* Hit rate pure bar */}
-                  <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden mb-1">
-                    <div
-                      className="h-full rounded-full transition-[width] duration-400"
-                      style={{ width: `${pct}%`, background: H_COLORS.bar[i] }}
-                    />
-                  </div>
-                  {/* Extended bar */}
-                  <div className="w-full h-1 rounded-full bg-muted overflow-hidden mb-1.5">
-                    <div
-                      className="h-full rounded-full transition-[width] duration-400"
-                      style={{ width: `${pctExt}%`, background: '#8b5cf6' }}
-                    />
-                  </div>
+
                   {noData
-                    ? <div className="text-[11px] text-muted-foreground italic">
+                    ? <div className="text-[11px] text-muted-foreground italic mt-2 pt-2 border-t border-dashed border-border">
                         {isLegacy ? 'legacy batches only' : 'no data yet'}
                       </div>
-                    : <div className="text-[11px] text-muted-foreground">
-                        {h.hit} hit · {h.exceeded} exc · {h.miss} miss · {h.total} total
+                    : <div className="text-[11px] text-muted-foreground mt-2 pt-2 border-t border-dashed border-border">
+                        {h.hit} hit · {h.close} close · {h.exceeded} exc · {h.miss} miss · {h.total} total
                       </div>
                   }
                 </Card>

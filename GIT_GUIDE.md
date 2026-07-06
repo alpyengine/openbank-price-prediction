@@ -6066,12 +6066,12 @@ unzip -o ~/Downloads/openbank-price-prediction_v7.19.0.zip -d .
 git status
 git diff --stat
 
-npm run test:run   # existing suite + 7 new tests should all be green.
-                   # If the total test count differs from what's noted in
-                   # README.md's "Tests" section, update that line too.
+npm run test:run
+# existing suite + 7 new tests should all be green.
+# If the total test count differs from what's noted in
+# README.md's "Tests" section, update that line too.
 
-git add supabase/sql/02_expired_horizons_rpcs.sql src/hooks/useHistory.js \
-        src/hooks/computed.test.js README.md GIT_GUIDE.md SUPABASE.md
+git add supabase/sql/02_expired_horizons_rpcs.sql src/hooks/useHistory.js \src/hooks/computed.test.js README.md GIT_GUIDE.md SUPABASE.md
 git commit -m "feat: 3-tier hit-rate ladder — hitRate/hitRateClose/hitRateExt (v7.19.0)
 
 The 'close' verdict was invisible in both hit-rate metrics (confirmed: 9/89
@@ -6096,3 +6096,72 @@ git push origin v7.19.0
 # DO NOT merge yet — v7.19.1 (UI: AccuracyChart.jsx cards), v7.19.2 (table),
 # and v7.19.3 (chart selector) land on this SAME branch next, then we merge
 # --no-ff and tag all of them together.
+
+
+# ===========================================================================
+# STEP 210 — v7.19.1  Accuracy: 3-tier hit-rate ladder — horizon cards (UI)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. SAME branch as v7.19.0
+# (feat/accuracy-3tier-metrics) — do NOT merge yet. 1 src file + 2 docs:
+#        src/components/AccuracyChart.jsx   (horizon cards + 2 KPI subtitles)
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   First UI step of the v7.19.x line — mockup-confirmed design
+#   (mockup_selector_metrica_v7190.html). Horizon cards showed only Hit +
+#   Extended (double badge + 2 bars), so 'close' was invisible in the UI even
+#   after v7.19.0 fixed the underlying data. Along the way, found the exact
+#   same "close is invisible" bug repeated in 2 top KPI cards.
+#
+# WHAT'S NEW:
+#   - Horizon cards: replaced the double-badge + 2-bar layout with 3 STACKED
+#     BARS always visible together (Hit / +Close / +Exceeded), fixed colors
+#     green/blue/violet on all 4 cards (new TIER_COLORS const) — no selector
+#     needed since all 3 fit in the card. Bottom text now includes close:
+#     "{hit} hit · {close} close · {exceeded} exc · {miss} miss · {total} total".
+#   - KPI "Hit Rate — extended" subtitle: "{hit} hit · {close} close ·
+#     {exceeded} exceeded" (was "hit + exceeded", silently dropping close).
+#   - KPI "Total hits": value and subtitle now sum hit+close+exceeded (was
+#     hit+exceeded) — same bug, different card, caught while in this file.
+#   - Removed orphaned H_COLORS const (only consumer was the old horizon-card
+#     badges/bars); updated the SERIES_META comment that referenced it.
+#
+# NO DATA-MODEL CHANGES — reads h.hitRate/h.hitRateClose/h.hitRateExt/h.close,
+# already exposed by computed() since v7.19.0. Table (Close column) is
+# v7.19.2; trend-chart metric selector is v7.19.3 — same branch, not merged.
+#
+# Commit on the SHARED branch (already created in STEP 209):
+git checkout feat/accuracy-3tier-metrics
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.19.1.zip -d .
+# Overlays src/components/AccuracyChart.jsx + README.md + GIT_GUIDE.md straight
+# into the repo. Confirm the docs diff is only the v7.19.1 row + this STEP 210
+# block:
+git status
+git diff --stat
+
+npm run test:run
+# existing suite should stay green — no logic touched,
+# AccuracyChart.jsx render isn't unit-tested.
+
+git add src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Accuracy horizon cards — 3-tier hit-rate ladder (v7.19.1)
+
+Horizon cards now show 3 stacked bars always visible together (Hit /
++Close / +Exceeded, fixed green/blue/violet colors), replacing the old
+double-badge + 2-bar layout that made 'close' invisible in the UI. Bottom
+breakdown text includes close. Also fixes the same close-omission bug in
+the 'Hit Rate — extended' and 'Total hits' KPI cards. Removed orphaned
+H_COLORS const. Mockup-confirmed (mockup_selector_metrica_v7190.html). No
+data-model changes — table (v7.19.2) and chart selector (v7.19.3) pending
+on this same branch."
+git tag -a v7.19.1 -m "v7.19.1: Accuracy horizon cards — 3-tier hit-rate ladder (Hit/+Close/+Exceeded)"
+git push origin feat/accuracy-3tier-metrics
+git push origin v7.19.1
+# → Vercel preview: Accuracy Stats — each horizon card now shows 3 stacked
+#   bars (Hit green / +Close blue / +Exceeded violet), each ≥ the previous.
+#   Bottom text includes a close count. Top KPI "Hit Rate — extended" and
+#   "Total hits" subtitles now mention close too.
+# STILL DO NOT MERGE — v7.19.2 (table Close column) lands next, then v7.19.3
+# (chart selector), then we merge --no-ff all four together.
