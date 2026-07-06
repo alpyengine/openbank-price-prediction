@@ -6,8 +6,9 @@
  * Sections:
  *   1. Action bar — Refresh button + log (slider removed in v7.3.3)
  *   2. KPI cards  — overall hit rate (pure + extended), total hits, awaiting
- *   3. Horizon cards — hit rate per horizon with SNAPSHOT_PARAMS thresholds
- *   4. Multi-line chart — accuracy per horizon over time (1M/3M/6M/12M + Global)
+ *   3. Horizon cards — 3-tier hit-rate ladder per horizon (hit/+close/+exceeded), v7.19.1
+ *   4. Multi-line chart — accuracy per horizon over time (1M/3M/6M/12M + Global),
+ *      with a 3-position metric selector (Hit / +Close / +Close+Exc), v7.19.3
  *   5. Batch table — all saved batches with Load / Download / Delete actions
  *
  * Note: Accuracy Stats always uses SNAPSHOT_PARAMS fixed thresholds (v7.3.3+).
@@ -36,15 +37,30 @@ import { SNAPSHOT_PARAMS } from '@/utils/stocks.js'
 
 const HORIZONS = ['1M', '3M', '6M', '12M']
 
-/** Colors for each horizon's progress bar and badge */
-const H_COLORS = {
-  bar:   ['#16a34a', '#3b82f6', '#d97706', '#8b5cf6'],
-  badge: [
-    'bg-green-50 text-green-700',
-    'bg-blue-50 text-blue-700',
-    'bg-orange-50 text-orange-700',
-    'bg-violet-50 text-violet-700',
-  ],
+/** Fixed colors for the 3-tier hit-rate ladder — same on every horizon card
+ *  (v7.19.1). Each tier includes the previous one: hit ⊂ +close ⊂ +exceeded. */
+const TIER_COLORS = {
+  hit:      { bar: '#16a34a', badge: 'bg-green-50 text-green-700',  label: 'text-green-700' },
+  hitClose: { bar: '#1d4ed8', badge: 'bg-blue-50 text-blue-700',    label: 'text-blue-700' },
+  hitExt:   { bar: '#8b5cf6', badge: 'bg-violet-50 text-violet-700', label: 'text-violet-700' },
+}
+
+/** Metric selector metadata (v7.19.3) — feeds the 3-position segmented control
+ *  above the trend chart and its explanatory note. Keys match TIER_COLORS and
+ *  stats.chartDataByMetric / overallRate*. */
+const METRIC_META = {
+  hit: {
+    label: 'Hit',
+    note: 'Only exact hits within the strict margin (±H%).',
+  },
+  hitClose: {
+    label: 'Hit + Close',
+    note: 'Also includes predictions that landed close to the target (within the extended margin) without surpassing it.',
+  },
+  hitExt: {
+    label: 'Hit + Close + Exc',
+    note: 'Everything that got the direction right: exact, close, or beyond the target.',
+  },
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -113,7 +129,8 @@ function KpiCard({ label, value, icon: Icon, sub, subColor }) {
 
 /**
  * Series metadata for the accuracy chart.
- * Colours match the horizon cards (H_COLORS.bar). 'global' is the aggregate
+ * Colours are hardcoded per horizon (1M green, 3M blue, 6M orange, 12M violet).
+ * 'global' is the aggregate
  * (average of the available horizon values per batch) and uses --foreground so
  * it stays legible in both light and dark themes.
  */
@@ -422,6 +439,7 @@ export default function AccuracyChart({
   const [downloadedBatch, setDownloadedBatch] = useState(null)
   const [deletingBatch,  setDeletingBatch]  = useState(null)
   const [confirmDelete,  setConfirmDelete]  = useState(null)
+  const [metric,         setMetric]         = useState('hit') // trend-chart metric selector (v7.19.3)
 
   // ── Batch actions ───────────────────────────────────────────────────────────
 
@@ -523,8 +541,16 @@ export default function AccuracyChart({
   )
 
   const overallHits    = stats?.byHorizon.reduce((a, h) => a + h.hit, 0) ?? 0
+  const overallClose   = stats?.byHorizon.reduce((a, h) => a + h.close, 0) ?? 0
   const overallExc     = stats?.byHorizon.reduce((a, h) => a + h.exceeded, 0) ?? 0
   const overallAwait   = stats?.totalAwaiting ?? 0
+  // Maps the trend-chart metric selector to the matching overall rate —
+  // all 3 already exposed by computed() since v7.19.0, no new data here.
+  const overallByMetric = {
+    hit:      stats?.overallRate,
+    hitClose: stats?.overallRateClose,
+    hitExt:   stats?.overallRateExt,
+  }
 
   return (
     <div>
@@ -545,14 +571,14 @@ export default function AccuracyChart({
               label="Hit Rate — extended"
               value={stats.overallRateExt != null ? `${stats.overallRateExt}%` : '--'}
               icon={TrendingUp}
-              sub={`${overallHits} hit + ${overallExc} exceeded`}
+              sub={`${overallHits} hit · ${overallClose} close · ${overallExc} exceeded`}
               subColor="text-purple-600"
             />
             <KpiCard
               label="Total hits"
-              value={overallHits + overallExc}
+              value={overallHits + overallClose + overallExc}
               icon={CheckCircle}
-              sub={`${overallHits} hit · ${overallExc} exceeded`}
+              sub={`${overallHits} hit · ${overallClose} close · ${overallExc} exceeded`}
             />
             <KpiCard
               label="Awaiting"
@@ -564,56 +590,69 @@ export default function AccuracyChart({
 
           {/* ── Horizon hit rate cards ────────────────────────────────── */}
           <div className="grid grid-cols-4 gap-3 mb-6">
-            {stats.byHorizon.map((h, i) => {
-              const pct    = h.hitRate    ?? 0
-              const pctExt = h.hitRateExt ?? 0
+            {stats.byHorizon.map((h) => {
+              const pct      = h.hitRate      ?? 0
+              const pctClose = h.hitRateClose ?? 0
+              const pctExt   = h.hitRateExt   ?? 0
               const isLegacy = h.horizon === '12M'
               const noData   = h.total === 0
               return (
                 <Card key={h.horizon} className={cn('p-4', isLegacy && noData && 'opacity-60')}>
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <span className="text-xs text-muted-foreground font-medium">
-                        {h.horizon} horizon
-                        {isLegacy && (
-                          <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                            legacy
-                          </span>
-                        )}
-                      </span>
-                      <div className="text-[10px] text-muted-foreground">
-                        H=±{h.H}% · close&lt;{+(h.H * h.R).toFixed(1)}%
+                  <div className="mb-2.5">
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {h.horizon} horizon
+                      {isLegacy && (
+                        <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          legacy
+                        </span>
+                      )}
+                    </span>
+                    <div className="text-[10px] text-muted-foreground">
+                      H=±{h.H}% · close&lt;{+(h.H * h.R).toFixed(1)}%
+                    </div>
+                  </div>
+
+                  {/* 3-tier ladder — always visible together, no selector needed here.
+                      Each bar includes the previous one: hit ⊂ +close ⊂ +exceeded. */}
+                  <div className="space-y-1.5 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className={cn('text-[10.5px] font-bold w-[52px] shrink-0', TIER_COLORS.hit.label)}>Hit</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-400"
+                          style={{ width: `${pct}%`, background: TIER_COLORS.hit.bar }}
+                        />
                       </div>
+                      <span className="text-[11px] font-extrabold w-8 text-right shrink-0">{pct}%</span>
                     </div>
-                    <div className="flex flex-col items-end gap-0.5">
-                      <Badge className={cn('text-[11px] font-bold rounded-full px-2', H_COLORS.badge[i])}>
-                        {pct}%
-                      </Badge>
-                      <Badge className="text-[10px] font-semibold rounded-full px-2 bg-purple-50 text-purple-700">
-                        +exc {pctExt}%
-                      </Badge>
+                    <div className="flex items-center gap-2">
+                      <span className={cn('text-[10.5px] font-bold w-[52px] shrink-0', TIER_COLORS.hitClose.label)}>+Close</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-400"
+                          style={{ width: `${pctClose}%`, background: TIER_COLORS.hitClose.bar }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-extrabold w-8 text-right shrink-0">{pctClose}%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn('text-[10.5px] font-bold w-[52px] shrink-0', TIER_COLORS.hitExt.label)}>+Exceeded</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-400"
+                          style={{ width: `${pctExt}%`, background: TIER_COLORS.hitExt.bar }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-extrabold w-8 text-right shrink-0">{pctExt}%</span>
                     </div>
                   </div>
-                  {/* Hit rate pure bar */}
-                  <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden mb-1">
-                    <div
-                      className="h-full rounded-full transition-[width] duration-400"
-                      style={{ width: `${pct}%`, background: H_COLORS.bar[i] }}
-                    />
-                  </div>
-                  {/* Extended bar */}
-                  <div className="w-full h-1 rounded-full bg-muted overflow-hidden mb-1.5">
-                    <div
-                      className="h-full rounded-full transition-[width] duration-400"
-                      style={{ width: `${pctExt}%`, background: '#8b5cf6' }}
-                    />
-                  </div>
+
                   {noData
-                    ? <div className="text-[11px] text-muted-foreground italic">
+                    ? <div className="text-[11px] text-muted-foreground italic mt-2 pt-2 border-t border-dashed border-border">
                         {isLegacy ? 'legacy batches only' : 'no data yet'}
                       </div>
-                    : <div className="text-[11px] text-muted-foreground">
-                        {h.hit} hit · {h.exceeded} exc · {h.miss} miss · {h.total} total
+                    : <div className="text-[11px] text-muted-foreground mt-2 pt-2 border-t border-dashed border-border">
+                        {h.hit} hit · {h.close} close · {h.exceeded} exc · {h.miss} miss · {h.total} total
                       </div>
                   }
                 </Card>
@@ -623,19 +662,52 @@ export default function AccuracyChart({
 
           {/* ── Accuracy trend chart ──────────────────────────────────── */}
           <Card className="mb-6 overflow-hidden">
-            <CardHeader className="py-3.5 px-4 border-b border-border flex-row items-center justify-between space-y-0">
+            <CardHeader className="py-3.5 px-4 border-b border-border flex-row items-center justify-between gap-3 flex-wrap space-y-0">
               <div>
                 <div className="text-sm font-semibold">Prediction Accuracy Over Time</div>
                 <div className="text-xs text-muted-foreground mt-0.5">Historical accuracy as batches mature — per horizon</div>
               </div>
-              {stats.overallRate != null && (
-                <Badge variant="secondary" className="text-xs font-semibold">
-                  {stats.overallRate}% overall
-                </Badge>
-              )}
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 3-position metric selector (v7.19.3) — switches which chartDataByMetric
+                    series feeds the chart below. Mirrors the horizon cards' ladder colours. */}
+                <div className="inline-flex items-center gap-0.5 bg-muted border border-border rounded-lg p-0.5">
+                  {Object.keys(METRIC_META).map(key => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setMetric(key)}
+                      className={cn(
+                        'flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-md transition-colors',
+                        metric === key
+                          ? cn('bg-card shadow-sm', TIER_COLORS[key].label)
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: TIER_COLORS[key].bar }} />
+                      {METRIC_META[key].label}
+                    </button>
+                  ))}
+                </div>
+
+                {overallByMetric[metric] != null && (
+                  <Badge variant="secondary" className="text-xs font-semibold whitespace-nowrap">
+                    {overallByMetric[metric]}% overall
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="p-4">
-              <MultiLineChart chartData={stats.chartData} chartLabels={stats.chartLabels} />
+              <MultiLineChart chartData={stats.chartDataByMetric?.[metric] ?? stats.chartData} chartLabels={stats.chartLabels} />
+
+              {/* Explanatory note for the active metric (v7.19.3) */}
+              <div className="mt-3 text-[11px] text-muted-foreground bg-muted border border-border rounded-lg px-3 py-2 flex items-start gap-2">
+                <span className="shrink-0">ℹ️</span>
+                <span>
+                  <span className={cn('font-bold', TIER_COLORS[metric].label)}>{METRIC_META[metric].label}:</span>{' '}
+                  {METRIC_META[metric].note}
+                </span>
+              </div>
             </CardContent>
           </Card>
 
@@ -649,7 +721,7 @@ export default function AccuracyChart({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted">
-                    {['Date', 'Market', 'Trend', 'Stocks', 'Hit Rate', 'Ext Rate', 'Hit', 'Exc', 'Miss', 'Await', 'Actions'].map(h => (
+                    {['Date', 'Market', 'Trend', 'Stocks', 'Hit Rate', '+Close', '+Close+Exc', 'Hit', 'Close', 'Exc', 'Miss', 'Await', 'Actions'].map(h => (
                       <TableHead key={h} className="text-xs py-2.5 px-3.5 whitespace-nowrap">{h}</TableHead>
                     ))}
                   </TableRow>
@@ -658,7 +730,7 @@ export default function AccuracyChart({
                   {/* Empty state row */}
                   {(!batches || batches.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-6 text-sm text-muted-foreground">
+                      <TableCell colSpan={13} className="text-center py-6 text-sm text-muted-foreground">
                         No batches saved yet
                       </TableCell>
                     </TableRow>
@@ -666,12 +738,14 @@ export default function AccuracyChart({
 
                   {/* Batch rows */}
                   {(stats?.batchSummary ?? batches)?.map(batch => {
-                    const hits     = batch.hit      ?? 0
-                    const exc      = batch.exceeded ?? 0
-                    const miss     = batch.miss     ?? 0
-                    const await_   = batch.awaiting ?? 0
-                    const rate     = batch.hitRate
-                    const rateExt  = batch.hitRateExt
+                    const hits      = batch.hit         ?? 0
+                    const close     = batch.close       ?? 0
+                    const exc       = batch.exceeded    ?? 0
+                    const miss      = batch.miss        ?? 0
+                    const await_    = batch.awaiting    ?? 0
+                    const rate      = batch.hitRate
+                    const rateClose = batch.hitRateClose
+                    const rateExt   = batch.hitRateExt
 
                     return (
                       <TableRow key={batch.id}>
@@ -700,7 +774,7 @@ export default function AccuracyChart({
 
                         <TableCell className="py-3 px-3.5 text-muted-foreground">{batch.stocks}</TableCell>
 
-                        {/* Hit rate pure */}
+                        {/* Hit rate pure — banded by performance (unchanged) */}
                         <TableCell className="py-3 px-3.5">
                           {rate != null && (
                             <Badge className={cn(
@@ -714,17 +788,31 @@ export default function AccuracyChart({
                           )}
                         </TableCell>
 
-                        {/* Hit rate extended */}
+                        {/* +Close — new column (v7.19.2), same blue as the horizon-card ladder */}
+                        <TableCell className="py-3 px-3.5">
+                          {rateClose != null && (
+                            <Badge className={cn('text-xs font-semibold rounded-full', TIER_COLORS.hitClose.badge)}>
+                              {rateClose}%
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        {/* +Close+Exc — was "Ext Rate" (purple); relabelled + recoloured violet
+                            to match the horizon-card ladder's +Exceeded tier (v7.19.1/.2) */}
                         <TableCell className="py-3 px-3.5">
                           {rateExt != null && (
-                            <Badge className="text-xs font-semibold rounded-full bg-purple-50 text-purple-700">
+                            <Badge className={cn('text-xs font-semibold rounded-full', TIER_COLORS.hitExt.badge)}>
                               {rateExt}%
                             </Badge>
                           )}
                         </TableCell>
 
                         <TableCell className="py-3 px-3.5 font-semibold text-success">{hits}</TableCell>
-                        <TableCell className="py-3 px-3.5 font-semibold text-blue-600">{exc}</TableCell>
+                        {/* Close count — new column (v7.19.2), between Hit and Exc per the approved mockup */}
+                        <TableCell className="py-3 px-3.5 font-semibold text-blue-600">{close}</TableCell>
+                        {/* Exceeded count — recoloured violet (was blue) so it no longer collides
+                            visually with the new Close column; matches its ladder tier colour */}
+                        <TableCell className="py-3 px-3.5 font-semibold text-violet-600">{exc}</TableCell>
                         <TableCell className="py-3 px-3.5 font-semibold text-destructive">{miss}</TableCell>
 
                         {/* Awaiting badge or dash */}

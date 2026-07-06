@@ -146,7 +146,13 @@ returns void language sql as $$
           format('target=%s — %s', p_target_date, p_detail));
 $$;
 
--- ── 4) Recalcular hit_rate / hit_rate_ext (igual que la original) ────────
+-- ── 4) Recalcular hit_rate / hit_rate_close / hit_rate_ext ──────────────
+-- v7.19.0 — 3 métricas en escalera (cada una incluye a la anterior):
+--   hit_rate       = hit / evaluados                          (sin cambios)
+--   hit_rate_close = (hit + close) / evaluados                 (NUEVA)
+--   hit_rate_ext   = (hit + close + exceeded) / evaluados       (CAMBIA: antes
+--                                                                 no incluía close)
+-- miss y wrong_way nunca suman en ninguna métrica.
 -- Se llama de vez en cuando (al final de cada barrido) para refrescar.
 create or replace function recalc_hit_rates()
 returns void language sql as $$
@@ -159,11 +165,21 @@ returns void language sql as $$
             count(*) filter (where r->>'verdict' != 'awaiting') * 100)
         end
         from jsonb_array_elements(b.results) as r),
+      hit_rate_close = (
+        select case
+          when count(*) filter (where r->>'verdict' != 'awaiting') = 0 then null
+          else round(
+            (count(*) filter (where r->>'verdict' = 'hit') +
+             count(*) filter (where r->>'verdict' = 'close'))::numeric /
+            count(*) filter (where r->>'verdict' != 'awaiting') * 100)
+        end
+        from jsonb_array_elements(b.results) as r),
       hit_rate_ext = (
         select case
           when count(*) filter (where r->>'verdict' != 'awaiting') = 0 then null
           else round(
             (count(*) filter (where r->>'verdict' = 'hit') +
+             count(*) filter (where r->>'verdict' = 'close') +
              count(*) filter (where r->>'verdict' = 'exceeded'))::numeric /
             count(*) filter (where r->>'verdict' != 'awaiting') * 100)
         end

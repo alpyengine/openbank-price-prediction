@@ -30,15 +30,24 @@
  * }
  *
  * computed() — derives accuracy stats from history:
- *   overallRate     — hit % across all batches and horizons
- *   byHorizon       — hit rate per horizon (1M/3M/6M/12M)
- *   batchSummary    — per-batch hit/miss/awaiting counts
- *   chartData       — accuracy % per horizon over time (for AreaChart)
- *   chartLabels     — batch dates for X axis
- *   uniqueTickers   — count of unique tickers across all batches
- *   totalAwaiting   — count of predictions still awaiting expiry
- *   evaluated       — count of predictions that have been evaluated
- *   totalBatches    — number of saved batches
+ *   overallRate       — hit % across all batches and horizons (pure — hit only)
+ *   overallRateClose  — hit % including 'close' verdicts (v7.19.0)
+ *   overallRateExt    — hit % including 'close' + 'exceeded' verdicts (v7.19.0: now includes close)
+ *   byHorizon         — 3-tier hit rate per horizon (1M/3M/6M/12M): hitRate/hitRateClose/hitRateExt
+ *   batchSummary      — per-batch hit/close/exceeded/miss/awaiting counts + 3-tier rates
+ *   chartData         — alias of chartDataByMetric.hit (back-compat, pure-hit series)
+ *   chartDataByMetric — { hit, hitClose, hitExt } — 3 parallel series per horizon over time
+ *   chartLabels       — batch dates for X axis
+ *   uniqueTickers     — count of unique tickers across all batches
+ *   totalAwaiting     — count of predictions still awaiting expiry
+ *   evaluated         — count of predictions that have been evaluated
+ *   totalBatches      — number of saved batches
+ *
+ * verdict ladder (v7.19.0) — each metric includes the previous one:
+ *   hitRate      = hit / evaluated
+ *   hitRateClose = (hit + close) / evaluated
+ *   hitRateExt   = (hit + close + exceeded) / evaluated
+ *   miss and wrong_way never count toward any rate.
  *
  * Hook returns:
  *   history           — raw history object { batches: [...] }
@@ -259,14 +268,17 @@ export function useHistory(margin = 5) {
       }
     }
 
-    // Compute hit rates — both pure and extended (for Supabase storage)
+    // Compute hit rates — 3-tier ladder (each includes the previous) for Supabase storage
     // Pure:     hits ÷ evaluated (strict — only within ±H% of target)
-    // Extended: (hits + exceeded) ÷ evaluated (includes surpassed targets)
-    const evaluated  = mergedResults.filter(r => r.verdict !== 'awaiting')
-    const hits       = evaluated.filter(r => r.verdict === 'hit').length
-    const exceededs  = evaluated.filter(r => r.verdict === 'exceeded').length
-    const hitRate    = evaluated.length ? Math.round(hits / evaluated.length * 100) : null
-    const hitRateExt = evaluated.length ? Math.round((hits + exceededs) / evaluated.length * 100) : null
+    // Close:    (hits + close) ÷ evaluated (adds near-target misses)
+    // Extended: (hits + close + exceeded) ÷ evaluated (adds surpassed targets)
+    const evaluated    = mergedResults.filter(r => r.verdict !== 'awaiting')
+    const hits         = evaluated.filter(r => r.verdict === 'hit').length
+    const closes       = evaluated.filter(r => r.verdict === 'close').length
+    const exceededs    = evaluated.filter(r => r.verdict === 'exceeded').length
+    const hitRate      = evaluated.length ? Math.round(hits / evaluated.length * 100) : null
+    const hitRateClose = evaluated.length ? Math.round((hits + closes) / evaluated.length * 100) : null
+    const hitRateExt   = evaluated.length ? Math.round((hits + closes + exceededs) / evaluated.length * 100) : null
 
     // Build complete newBatch in one go — all fields present before passing to saveHistory
     const newBatch = {
@@ -277,6 +289,7 @@ export function useHistory(margin = 5) {
       results:       mergedResults,
       horizonStatus,
       hitRate,
+      hitRateClose,
       hitRateExt,
       direction,
       marketData:    marketData    ?? existingBatch?.marketData    ?? null,
@@ -293,6 +306,7 @@ export function useHistory(margin = 5) {
       stocks:    mergedStocks,
       horizonStatus,
       hitRate,
+      hitRateClose,
       hitRateExt,
       direction,
     }
@@ -368,14 +382,16 @@ export function useHistory(margin = 5) {
               const uniqueTickers = new Set(newResults.map(r => r.ticker))
               const evaluated     = newResults.filter(r => r.verdict !== 'awaiting')
               const hits          = evaluated.filter(r => r.verdict === 'hit').length
+              const close         = evaluated.filter(r => r.verdict === 'close').length
               const exceeded      = evaluated.filter(r => r.verdict === 'exceeded').length
               return {
                 ...b,
-                results:     newResults,
-                stocks:      uniqueTickers.size,
-                hitRate:     evaluated.length ? Math.round(hits / evaluated.length * 100) : null,
-                hitRateExt:  evaluated.length ? Math.round((hits + exceeded) / evaluated.length * 100) : null,
-                updatedAt:   new Date().toISOString(),
+                results:       newResults,
+                stocks:        uniqueTickers.size,
+                hitRate:       evaluated.length ? Math.round(hits / evaluated.length * 100) : null,
+                hitRateClose:  evaluated.length ? Math.round((hits + close) / evaluated.length * 100) : null,
+                hitRateExt:    evaluated.length ? Math.round((hits + close + exceeded) / evaluated.length * 100) : null,
+                updatedAt:     new Date().toISOString(),
               }
             }),
           }
@@ -442,28 +458,34 @@ function computed(history) {
     const wrongWay = rows.filter(r => r.verdict === 'wrong_way').length
     const awaiting = allRows.filter(r => r.verdict === 'awaiting').length
 
-    const total       = rows.length                    // evaluated (excludes awaiting)
-    const hitRate     = total ? Math.round(hit / total * 100) : null
-    const hitRateExt  = total ? Math.round((hit + exceeded) / total * 100) : null
+    const total        = rows.length                    // evaluated (excludes awaiting)
+    // 3-tier ladder — each metric includes the previous one:
+    const hitRate      = total ? Math.round(hit / total * 100) : null
+    const hitRateClose = total ? Math.round((hit + close) / total * 100) : null
+    const hitRateExt   = total ? Math.round((hit + close + exceeded) / total * 100) : null
 
     return {
       horizon: h,
       H: params.H, R: params.R,                        // snapshot params for reference
       total, hit, exceeded, close, miss, wrongWay, awaiting,
-      hitRate, hitRateExt,
+      hitRate, hitRateClose, hitRateExt,
     }
   })
 
-  // Overall counts across all horizons
-  const evaluated     = all.filter(r => r.verdict !== 'awaiting')
-  const totalHit      = evaluated.filter(r => r.verdict === 'hit').length
-  const totalExceeded = evaluated.filter(r => r.verdict === 'exceeded').length
-  const totalAwaiting = all.filter(r => r.verdict === 'awaiting').length
-  const overallRate   = evaluated.length ? Math.round(totalHit / evaluated.length * 100) : null
-  const overallRateExt = evaluated.length
-    ? Math.round((totalHit + totalExceeded) / evaluated.length * 100)
+  // Overall counts across all horizons — 3-tier ladder
+  const evaluated       = all.filter(r => r.verdict !== 'awaiting')
+  const totalHit        = evaluated.filter(r => r.verdict === 'hit').length
+  const totalClose      = evaluated.filter(r => r.verdict === 'close').length
+  const totalExceeded   = evaluated.filter(r => r.verdict === 'exceeded').length
+  const totalAwaiting   = all.filter(r => r.verdict === 'awaiting').length
+  const overallRate     = evaluated.length ? Math.round(totalHit / evaluated.length * 100) : null
+  const overallRateClose = evaluated.length
+    ? Math.round((totalHit + totalClose) / evaluated.length * 100)
     : null
-  const uniqueTickers = new Set(all.map(r => r.ticker)).size
+  const overallRateExt  = evaluated.length
+    ? Math.round((totalHit + totalClose + totalExceeded) / evaluated.length * 100)
+    : null
+  const uniqueTickers   = new Set(all.map(r => r.ticker)).size
 
   // Best and worst horizon by hit rate pure
   const ranked = byHorizon.filter(h => h.hitRate !== null).sort((a, b) => b.hitRate - a.hitRate)
@@ -480,38 +502,65 @@ function computed(history) {
     const miss       = evaluated.filter(r => r.verdict === 'miss').length
     const wrongWay   = evaluated.filter(r => r.verdict === 'wrong_way').length
     const awaiting   = res.filter(r => r.verdict === 'awaiting').length
-    const hitRate    = evaluated.length ? Math.round(hit / evaluated.length * 100) : null
-    const hitRateExt = evaluated.length
-      ? Math.round((hit + exceeded) / evaluated.length * 100)
+    const hitRate      = evaluated.length ? Math.round(hit / evaluated.length * 100) : null
+    const hitRateClose = evaluated.length
+      ? Math.round((hit + close) / evaluated.length * 100)
+      : null
+    const hitRateExt   = evaluated.length
+      ? Math.round((hit + close + exceeded) / evaluated.length * 100)
       : null
     return {
       id: b.id, date: b.date,
       savedAt: b.savedAt, updatedAt: b.updatedAt,
       stocks: b.stocks, evaluated: evaluated.length,
       hit, exceeded, close, miss, wrongWay, awaiting,
-      hitRate, hitRateExt,
+      hitRate, hitRateClose, hitRateExt,
       direction: b.direction ?? 'bullish',
       market: marketOf(b.results?.[0]?.ticker),
     }
   })
 
-  // Chart data — hit% per horizon per batch (chronological)
+  // Chart data — 3 parallel series per horizon per batch (chronological),
+  // one per metric tier, so the trend chart's selector (v7.19.3) can switch series.
   const chartBatches = sortedBatches  // already oldest→newest for chart
-  const chartData = HORIZONS.map(h =>
-    chartBatches.map(b => {
-      const rows  = b.results.filter(r => r.horizon === h && r.verdict !== 'awaiting')
-      const hit   = rows.filter(r => r.verdict === 'hit').length
-      return rows.length ? Math.round(hit / rows.length * 100) : null
-    })
-  )
+  const chartDataByMetric = {
+    hit: HORIZONS.map(h =>
+      chartBatches.map(b => {
+        const rows = b.results.filter(r => r.horizon === h && r.verdict !== 'awaiting')
+        const hit  = rows.filter(r => r.verdict === 'hit').length
+        return rows.length ? Math.round(hit / rows.length * 100) : null
+      })
+    ),
+    hitClose: HORIZONS.map(h =>
+      chartBatches.map(b => {
+        const rows  = b.results.filter(r => r.horizon === h && r.verdict !== 'awaiting')
+        const hit   = rows.filter(r => r.verdict === 'hit').length
+        const close = rows.filter(r => r.verdict === 'close').length
+        return rows.length ? Math.round((hit + close) / rows.length * 100) : null
+      })
+    ),
+    hitExt: HORIZONS.map(h =>
+      chartBatches.map(b => {
+        const rows     = b.results.filter(r => r.horizon === h && r.verdict !== 'awaiting')
+        const hit      = rows.filter(r => r.verdict === 'hit').length
+        const close    = rows.filter(r => r.verdict === 'close').length
+        const exceeded = rows.filter(r => r.verdict === 'exceeded').length
+        return rows.length ? Math.round((hit + close + exceeded) / rows.length * 100) : null
+      })
+    ),
+  }
+  // Kept as alias of chartDataByMetric.hit — AccuracyChart.jsx is the only consumer
+  // today and reads the pure-hit series; the v7.19.1+ UI work will migrate it to
+  // read chartDataByMetric directly with the new 3-position selector.
+  const chartData = chartDataByMetric.hit
   const chartLabels = chartBatches.map(b => b.date)
 
   return {
-    byHorizon, overallRate, overallRateExt, bestH, worstH,
+    byHorizon, overallRate, overallRateClose, overallRateExt, bestH, worstH,
     evaluated: evaluated.length,
     totalAwaiting,
     uniqueTickers,
     totalBatches: history.batches.length,
-    batchSummary, chartData, chartLabels,
+    batchSummary, chartData, chartDataByMetric, chartLabels,
   }
 }

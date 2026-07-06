@@ -5998,3 +5998,310 @@ git merge --no-ff --no-edit feat/allstocks-trading-panel
 git push origin main
 git push origin v7.18.0
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 209 — v7.19.0  Accuracy: 3-tier hit-rate ladder — backend/data layer
+# ===========================================================================
+#
+# SUPABASE CHANGES REQUIRED (manual, dashboard SQL editor — already applied
+# and verified before this commit). No npm install. NEW BRANCH from main
+# (v7.18.0 already merged). This branch is SHARED by the whole v7.19.x line
+# (accuracy 3-tier metrics) — v7.19.1+ (UI) lands on it too; merge at the end.
+# 3 src files + 3 docs:
+#        supabase/sql/02_expired_horizons_rpcs.sql   (recalc_hit_rates + hit_rate_close)
+#        src/hooks/useHistory.js                     (3 calc sites + computed())
+#        src/hooks/computed.test.js                  (mirror rewritten + 7 new tests)
+#        README.md + GIT_GUIDE.md + SUPABASE.md
+#
+# WHY:
+#   The 'close' verdict (near-target, within the extended margin, but not
+#   surpassing it) counted toward NEITHER hitRate nor hitRateExt — confirmed
+#   on real data: 9 'close' cases out of 89 evaluated, invisible in both
+#   metrics, in both the SQL (recalc_hit_rates) and the frontend (useHistory.js).
+#
+# WHAT'S NEW — 3-metric ladder, each including the previous:
+#   hitRate      = hit / evaluated                          (unchanged)
+#   hitRateClose = (hit + close) / evaluated                 (NEW)
+#   hitRateExt   = (hit + close + exceeded) / evaluated       (CHANGES: previously
+#                                                               did not include close)
+#   miss and wrong_way still never count toward any metric.
+#
+#   - Supabase: new batches.hit_rate_close column (already added). New
+#     recalc_hit_rates() (already deployed + re-run ONCE against all
+#     historical batches — verified: hit_rate_ext >= hit_rate_close >=
+#     hit_rate holds on every batch, including the May edge case).
+#   - useHistory.js: all 3 calc sites now use the same formula as SQL —
+#     the 2 inline computations (saveBatch's persisted newBatch/batchMeta,
+#     and deleteStock's post-delete recompute), plus computed()'s byHorizon,
+#     overallRate*, and batchSummary — all gaining hitRateClose.
+#   - chartData (single hit-only series) is now internally built from a new
+#     chartDataByMetric ({ hit, hitClose, hitExt }, one array per horizon per
+#     metric) to feed the v7.19.1+ trend-chart selector. chartData is kept
+#     as an alias of chartDataByMetric.hit for back-compat — AccuracyChart.jsx
+#     is its only consumer today and still reads the pure-hit series.
+#   - computed.test.js: the mirror (previously out of sync with the real
+#     computed() — missing exceeded, wrongWay, hitRateExt, market, direction)
+#     rewritten field-for-field. 7 new tests: hitRateClose arithmetic, the
+#     hitRateExt fix, the ladder invariant (hitRateExt >= hitRateClose >=
+#     hitRate) across several verdict mixes, miss/wrong_way never counting,
+#     batchSummary/overallRate* exposing hitRateClose, and chartDataByMetric
+#     shape + chartData aliasing.
+#
+# NO VISUAL CHANGES YET — AccuracyChart.jsx untouched, still reads only
+# hitRate/hitRateExt/chartData as before. NOTE: stats.overallRateExt's
+# displayed number in the top KPI card will change immediately on deploy
+# (now includes close) while its subtitle text still reads "hit + exceeded"
+# until the UI catch-up in v7.19.1 — expected, not a bug.
+#
+# Branch from main:
+git checkout main && git pull origin main
+git checkout -b feat/accuracy-3tier-metrics
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.19.0.zip -d .
+# Overlays the 3 src files + README.md + GIT_GUIDE.md + SUPABASE.md straight
+# into the repo (no wrapping folder). Confirm the docs diff is only the
+# v7.19.0 changelog row + this STEP 209 block + the SUPABASE.md hit_rate_close
+# section:
+git status
+git diff --stat
+
+npm run test:run   # existing suite + 7 new tests should all be green.
+                   # If the total test count differs from what's noted in
+                   # README.md's "Tests" section, update that line too.
+
+git add supabase/sql/02_expired_horizons_rpcs.sql src/hooks/useHistory.js \
+        src/hooks/computed.test.js README.md GIT_GUIDE.md SUPABASE.md
+git commit -m "feat: 3-tier hit-rate ladder — hitRate/hitRateClose/hitRateExt (v7.19.0)
+
+The 'close' verdict was invisible in both hit-rate metrics (confirmed: 9/89
+evaluated cases). New ladder where each metric includes the previous one:
+hitRate = hit/evaluated (unchanged), new hitRateClose = (hit+close)/evaluated,
+hitRateExt = (hit+close+exceeded)/evaluated (breaking change — previously
+excluded close). miss/wrong_way never count. Supabase recalc_hit_rates()
+updated and re-run once against all historical batches. useHistory.js: all
+3 calc sites synced (saveBatch x2, deleteStock, computed()'s byHorizon/
+overallRate*/batchSummary). chartData replaced internally by
+chartDataByMetric ({hit,hitClose,hitExt}), kept as an alias of .hit for
+back-compat. computed.test.js mirror resynced + 7 new tests. Backend/data
+only — no UI changes (AccuracyChart.jsx lands in v7.19.1)."
+git tag -a v7.19.0 -m "v7.19.0: 3-tier hit-rate ladder (hitRate/hitRateClose/hitRateExt) — backend + data layer"
+git push -u origin feat/accuracy-3tier-metrics
+git push origin v7.19.0
+# → Nothing visible changes in the UI yet except the overallRateExt KPI
+#   number ticking up (close now counted) — expected. Confirm in Supabase:
+#   select date, hit_rate, hit_rate_close, hit_rate_ext from batches
+#   where hit_rate is not null order by date desc;
+#   and that hit_rate_ext >= hit_rate_close >= hit_rate on every row.
+# DO NOT merge yet — v7.19.1 (UI: AccuracyChart.jsx cards), v7.19.2 (table),
+# and v7.19.3 (chart selector) land on this SAME branch next, then we merge
+# --no-ff and tag all of them together.
+
+
+# ===========================================================================
+# STEP 210 — v7.19.1  Accuracy: 3-tier hit-rate ladder — horizon cards (UI)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. SAME branch as v7.19.0
+# (feat/accuracy-3tier-metrics) — do NOT merge yet. 1 src file + 2 docs:
+#        src/components/AccuracyChart.jsx   (horizon cards + 2 KPI subtitles)
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   First UI step of the v7.19.x line — mockup-confirmed design
+#   (mockup_selector_metrica_v7190.html). Horizon cards showed only Hit +
+#   Extended (double badge + 2 bars), so 'close' was invisible in the UI even
+#   after v7.19.0 fixed the underlying data. Along the way, found the exact
+#   same "close is invisible" bug repeated in 2 top KPI cards.
+#
+# WHAT'S NEW:
+#   - Horizon cards: replaced the double-badge + 2-bar layout with 3 STACKED
+#     BARS always visible together (Hit / +Close / +Exceeded), fixed colors
+#     green/blue/violet on all 4 cards (new TIER_COLORS const) — no selector
+#     needed since all 3 fit in the card. Bottom text now includes close:
+#     "{hit} hit · {close} close · {exceeded} exc · {miss} miss · {total} total".
+#   - KPI "Hit Rate — extended" subtitle: "{hit} hit · {close} close ·
+#     {exceeded} exceeded" (was "hit + exceeded", silently dropping close).
+#   - KPI "Total hits": value and subtitle now sum hit+close+exceeded (was
+#     hit+exceeded) — same bug, different card, caught while in this file.
+#   - Removed orphaned H_COLORS const (only consumer was the old horizon-card
+#     badges/bars); updated the SERIES_META comment that referenced it.
+#
+# NO DATA-MODEL CHANGES — reads h.hitRate/h.hitRateClose/h.hitRateExt/h.close,
+# already exposed by computed() since v7.19.0. Table (Close column) is
+# v7.19.2; trend-chart metric selector is v7.19.3 — same branch, not merged.
+#
+# Commit on the SHARED branch (already created in STEP 209):
+git checkout feat/accuracy-3tier-metrics
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.19.1.zip -d .
+# Overlays src/components/AccuracyChart.jsx + README.md + GIT_GUIDE.md straight
+# into the repo. Confirm the docs diff is only the v7.19.1 row + this STEP 210
+# block:
+git status
+git diff --stat
+
+npm run test:run   # existing suite should stay green — no logic touched,
+                   # AccuracyChart.jsx render isn't unit-tested.
+
+git add src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Accuracy horizon cards — 3-tier hit-rate ladder (v7.19.1)
+
+Horizon cards now show 3 stacked bars always visible together (Hit /
++Close / +Exceeded, fixed green/blue/violet colors), replacing the old
+double-badge + 2-bar layout that made 'close' invisible in the UI. Bottom
+breakdown text includes close. Also fixes the same close-omission bug in
+the 'Hit Rate — extended' and 'Total hits' KPI cards. Removed orphaned
+H_COLORS const. Mockup-confirmed (mockup_selector_metrica_v7190.html). No
+data-model changes — table (v7.19.2) and chart selector (v7.19.3) pending
+on this same branch."
+git tag -a v7.19.1 -m "v7.19.1: Accuracy horizon cards — 3-tier hit-rate ladder (Hit/+Close/+Exceeded)"
+git push origin feat/accuracy-3tier-metrics
+git push origin v7.19.1
+# → Vercel preview: Accuracy Stats — each horizon card now shows 3 stacked
+#   bars (Hit green / +Close blue / +Exceeded violet), each ≥ the previous.
+#   Bottom text includes a close count. Top KPI "Hit Rate — extended" and
+#   "Total hits" subtitles now mention close too.
+# STILL DO NOT MERGE — v7.19.2 (table Close column) lands next, then v7.19.3
+# (chart selector), then we merge --no-ff all four together.
+
+
+# ===========================================================================
+# STEP 211 — v7.19.2  Accuracy: 3-tier hit-rate ladder — Historical batches table
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. SAME branch as v7.19.0/v7.19.1
+# (feat/accuracy-3tier-metrics) — do NOT merge yet. 1 src file + 2 docs:
+#        src/components/AccuracyChart.jsx   ("Historical batches" table)
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   Second UI step of the v7.19.x line. The batch table still showed only
+#   Hit Rate + the old "Ext Rate" (purple), so 'close' had no visibility at
+#   the per-batch level either. Alex chose the full 3-percentage-column
+#   option from the mockup (vs just adding the Close count alone).
+#
+# WHAT'S NEW:
+#   - Header: 'Date','Market','Trend','Stocks','Hit Rate','+Close',
+#     '+Close+Exc','Hit','Close','Exc','Miss','Await','Actions' (11→13 cols,
+#     empty-state colSpan updated to match).
+#   - +Close column (new): badge, blue (TIER_COLORS.hitClose), between Hit
+#     Rate and +Close+Exc.
+#   - +Close+Exc column: was "Ext Rate" (purple) — relabelled and recoloured
+#     violet (TIER_COLORS.hitExt) to match the horizon cards' +Exceeded tier.
+#   - Close count column (new): between Hit and Exc, blue — per the mockup.
+#   - Exc count column: recoloured blue→violet (blue is now Close's colour;
+#     without this the two columns would look identical).
+#   - Hit Rate column: UNCHANGED — keeps its existing green/amber/red
+#     performance-banded colouring (that's a quality band, not a ladder tier).
+#
+# NO DATA-MODEL CHANGES — reads batch.hitRateClose / batch.close, already
+# exposed by computed()'s batchSummary since v7.19.0. Chart metric selector
+# is v7.19.3 — same branch, not merged yet.
+#
+# Commit on the SHARED branch (already created in STEP 209/210):
+git checkout feat/accuracy-3tier-metrics
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.19.2.zip -d .
+# Overlays src/components/AccuracyChart.jsx + README.md + GIT_GUIDE.md straight
+# into the repo. Confirm the docs diff is only the v7.19.2 row + this STEP 211
+# block:
+git status
+git diff --stat
+
+npm run test:run   # existing suite should stay green — no logic touched,
+                   # AccuracyChart.jsx render isn't unit-tested.
+
+git add src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Accuracy Historical batches table — 3-tier hit-rate columns (v7.19.2)
+
+Table gains +Close and +Close+Exc (%) columns plus a Close count column
+(between Hit and Exc), completing the 3-tier ladder at the per-batch level.
++Close+Exc replaces the old 'Ext Rate' (purple -> violet, matching the
+horizon cards' +Exceeded tier from v7.19.1). Exc count recoloured blue ->
+violet since blue is now Close's colour. Hit Rate's performance-banded
+colouring untouched. No data-model changes. Chart selector (v7.19.3)
+pending on this same branch."
+git tag -a v7.19.2 -m "v7.19.2: Accuracy Historical batches table — +Close/+Close+Exc columns + Close count"
+git push origin feat/accuracy-3tier-metrics
+git push origin v7.19.2
+# → Vercel preview: Accuracy Stats → Historical batches — confirm 3 % columns
+#   (Hit Rate / +Close / +Close+Exc, each ≥ the previous per row) and the new
+#   Close count column between Hit and Exc. Exc count should now read violet,
+#   not blue.
+# STILL DO NOT MERGE — v7.19.3 (chart metric selector) lands next, then we
+# merge --no-ff all four (v7.19.0–v7.19.3) together.
+
+
+# ===========================================================================
+# STEP 212 — v7.19.3  Accuracy: 3-tier hit-rate ladder — trend chart selector
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. LAST version of the v7.19.x line on the
+# shared branch (feat/accuracy-3tier-metrics). 1 src file + 2 docs:
+#        src/components/AccuracyChart.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHAT'S NEW:
+#   - New 3-position segmented control next to the trend chart's "X% overall"
+#     badge: Hit / Hit + Close / Hit + Close + Exc, same dot-colour language
+#     as the horizon cards (TIER_COLORS). New `metric` state (default 'hit'
+#     — chart's default view is unchanged from before this whole line).
+#   - MultiLineChart itself is UNCHANGED — only what's passed to it changes:
+#     stats.chartDataByMetric[metric] instead of the old stats.chartData
+#     (both have existed side by side since v7.19.0; chartData was kept as
+#     an alias of chartDataByMetric.hit, so switching is a one-line change).
+#   - "X% overall" badge is now dynamic, following the selected metric via a
+#     new `overallByMetric` map computed LOCALLY in the component from
+#     stats.overallRate / overallRateClose / overallRateExt — no new
+#     data-model fields, all 3 already existed since v7.19.0.
+#   - New explanatory note below the chart (ℹ️ + one sentence) describing the
+#     active metric in plain language, per the approved mockup.
+#   - New METRIC_META const (label + note per tier, keyed like TIER_COLORS).
+#
+# CLOSES THE v7.19.x LINE — 3-tier hit-rate ladder complete end-to-end:
+#   v7.19.0 backend/data · v7.19.1 horizon cards · v7.19.2 batch table ·
+#   v7.19.3 trend chart selector.
+#
+# Commit on the SHARED branch (already created in STEP 209/210/211):
+git checkout feat/accuracy-3tier-metrics
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.19.3.zip -d .
+git status
+git diff --stat
+# expect: src/components/AccuracyChart.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+# existing suite should stay green — no logic touched.
+
+git add src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Accuracy trend chart — 3-tier metric selector (v7.19.3)
+
+New 3-position segmented control (Hit / +Close / +Close+Exc) switches which
+chartDataByMetric series feeds the trend chart; MultiLineChart itself is
+unchanged. The 'X% overall' badge now follows the selected metric. New
+explanatory note below the chart. Closes the v7.19.x line: 3-tier hit-rate
+ladder complete across backend (v7.19.0), horizon cards (v7.19.1), batch
+table (v7.19.2), and this trend-chart selector."
+git tag -a v7.19.3 -m "v7.19.3: Accuracy trend chart — 3-tier metric selector (Hit/+Close/+Close+Exc)"
+git push origin feat/accuracy-3tier-metrics
+git push origin v7.19.3
+# → Vercel preview: Accuracy Stats → Prediction Accuracy Over Time — the
+#   segmented control switches the 4 horizon lines + Global between Hit /
+#   +Close / +Close+Exc; the "X% overall" badge updates to match; the note
+#   below the chart changes text per selection.
+
+# ===========================================================================
+# FINAL MERGE — the whole v7.19.x line (v7.19.0 → v7.19.3) into main
+# ===========================================================================
+# Only after ALL four previews validated (backend data, horizon cards, batch
+# table, trend chart). The four annotated tags already point at their commits
+# on the branch and stay valid after the merge.
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/accuracy-3tier-metrics
+git push origin main
+# Push tags (if not already pushed):
+git push origin v7.19.0 v7.19.1 v7.19.2 v7.19.3
+# Branch is kept as historical reference — do NOT delete.
+# If Vercel doesn't redeploy after the merge:
+#   git commit --allow-empty -m "chore: trigger vercel deploy" && git push
