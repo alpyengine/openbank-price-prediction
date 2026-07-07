@@ -6493,11 +6493,9 @@ git checkout -b feat/allstocks-flat-instances
 
 unzip -o ~/Downloads/openbank-price-prediction_v7.20.2.zip -d .
 git status
-git diff --stat
-# expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
 
-npm run test:run
-# existing suite should stay green.
+npm run test:run   # existing suite should stay green.
 
 git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
 git commit -m "feat: flatten All Stocks instances view — remove LATEST+indented tree (v7.20.2)
@@ -6512,7 +6510,6 @@ two. Removed the LATEST badge, indentation, and isLatest/isOlder branching
 from row rendering; left accent bar and click-to-Batch-Detail/expand-detail
 features unchanged. No data-model changes."
 git tag -a v7.20.2 -m "v7.20.2: All Stocks — flatten instances view, sortable by Ticker or Batch independently"
-
 git push -u origin feat/allstocks-flat-instances
 git push origin v7.20.2
 
@@ -6531,4 +6528,65 @@ git checkout main && git pull origin main
 git merge --no-ff --no-edit feat/allstocks-flat-instances
 git push origin main
 git push origin v7.20.2
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 216 — v7.20.3  Chore: rename StockTable.jsx → BatchDetail.jsx
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. Purely mechanical — no behavior change.
+# 2 src files + 1 doc-only touch to App.jsx's comments + README/GIT_GUIDE:
+#        src/components/StockTable.jsx  →  src/components/BatchDetail.jsx
+#        src/App.jsx (import + JSX usage + 2 comments)
+#        README.md + GIT_GUIDE.md
+#
+# WHY: the component behind the 'batch-detail' page was named after an
+# implementation detail (a table of stocks) rather than the page it renders.
+# Cost real time to locate during the v7.20.x investigation — traced it via
+# App.jsx's activePage==='batch-detail' block rather than the filename.
+#
+# WHAT CHANGED:
+#   - File renamed (use git mv to preserve history — see below).
+#   - Exported function renamed: StockTable → BatchDetail.
+#   - App.jsx: import path/identifier, JSX usage (<StockTable> → <BatchDetail>),
+#     and 2 explanatory comments (page-map list, highlightTicker comment).
+#
+git checkout main && git pull origin main
+git checkout -b chore/rename-stocktable-to-batchdetail
+
+# git mv preserves the file's git history under the new name — do this BEFORE
+# unzipping, so the working tree already has the new path in place:
+git mv src/components/StockTable.jsx src/components/BatchDetail.jsx
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.20.3.zip -d .
+# Overlays the renamed BatchDetail.jsx (with the internal renames applied) +
+# the updated App.jsx + README.md + GIT_GUIDE.md straight into the repo.
+git status
+git diff --stat   # expect: src/App.jsx + README.md + GIT_GUIDE.md modified,
+                  # src/components/BatchDetail.jsx modified (already staged as
+                  # renamed by git mv), src/components/StockTable.jsx gone.
+
+npm run test:run   # existing suite should stay green — no logic touched.
+
+git add -A
+git commit -m "chore: rename StockTable.jsx to BatchDetail.jsx (v7.20.3)
+
+The component behind the 'batch-detail' page was named after an
+implementation detail rather than the page it renders, making it hard to
+locate by filename alone. Renamed the file (git mv, history preserved), the
+exported function, and updated App.jsx's import/JSX usage/comments. Purely
+mechanical — no behavior change."
+git tag -a v7.20.3 -m "v7.20.3: rename StockTable.jsx to BatchDetail.jsx (chore, no behavior change)"
+git push -u origin chore/rename-stocktable-to-batchdetail
+git push origin v7.20.3
+
+# → Vercel preview: Batch Overview Details page loads and behaves exactly as
+#   before (this is a pure rename — nothing should look or act different).
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit chore/rename-stocktable-to-batchdetail
+git push origin main
+git push origin v7.20.3
 # Branch kept as historical reference — do NOT delete.
