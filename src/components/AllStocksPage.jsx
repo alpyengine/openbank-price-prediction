@@ -201,6 +201,7 @@ function expandStockInstances(batches) {
   const sorted = [...batches].sort((a, b) =>
     (parseBatchDate(a.date) ?? 0) - (parseBatchDate(b.date) ?? 0)
   )
+  const out = {}  // normTicker → [instances] (built oldest→newest, reversed at the end)
   for (const batch of sorted) {
     if (!batch.results) continue
     const byTicker = new Map()

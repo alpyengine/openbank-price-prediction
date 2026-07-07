@@ -6353,12 +6353,10 @@ git checkout -b fix/allstocks-batch-sort
 
 unzip -o ~/Downloads/openbank-price-prediction_v7.20.0.zip -d .
 git status
-git diff --stat
-# expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
 
-npm run test:run
-# existing suite should stay green — no logic touched
-# outside AllStocksPage.jsx, which isn't unit-tested.
+npm run test:run   # existing suite should stay green — no logic touched
+                   # outside AllStocksPage.jsx, which isn't unit-tested.
 
 git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
 git commit -m "fix: Top/Trading Picks card click could jump to the wrong batch (v7.20.0)
@@ -6387,3 +6385,65 @@ git merge --no-ff --no-edit fix/allstocks-batch-sort
 git push origin main
 git push origin v7.20.0
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 214 — v7.20.1  Fix: regression from v7.20.0 — All Stocks blank page
+# ===========================================================================
+#
+# WHY: v7.20.0 introduced a ReferenceError ("out is not defined") that crashed
+# the whole All Stocks page on load. My mistake in that edit: while unifying
+# expandStockInstances's inline date-parsing into the new parseBatchDate(),
+# I dropped the unrelated `const out = {}` line that happened to sit right
+# next to the code I was replacing. Restored it — `out` is used and returned
+# exactly as it always was. Re-diffed the whole file against pre-v7.20.0 to
+# confirm this was the ONLY discrepancy.
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# CHECK YOUR BRANCH STATE FIRST — pick ONE of these two before continuing:
+#
+#   (A) fix/allstocks-batch-sort was NOT merged to main yet:
+#         git checkout fix/allstocks-batch-sort
+#
+#   (B) fix/allstocks-batch-sort WAS already merged to main:
+#         git checkout main && git pull origin main
+#         git checkout -b fix/allstocks-blank-page
+#
+unzip -o ~/Downloads/openbank-price-prediction_v7.20.1.zip -d .
+git status
+git diff --stat
+# expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+# (the AllStocksPage.jsx diff vs your last commit should be TINY —
+#  just the restored `const out = {}` line + its comment)
+
+npm run test:run
+# existing suite should stay green.
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: restore 'out' declaration dropped in v7.20.0 — All Stocks blank page (v7.20.1)
+
+v7.20.0's expandStockInstances edit (unifying date-parsing into the new
+parseBatchDate()) accidentally deleted the adjacent, unrelated
+'const out = {}' line, causing 'ReferenceError: out is not defined' and
+crashing the whole page on load. Restored the line — out is used/returned
+exactly as before. Full-file diff re-checked against pre-v7.20.0 to confirm
+no other discrepancy."
+git tag -a v7.20.1 -m "v7.20.1: fix blank-page regression from v7.20.0 (missing 'out' declaration)"
+git push -u origin HEAD    # pushes whichever branch you're on (A or B above)
+git push origin v7.20.1
+
+# → Vercel preview: All Stocks page loads and renders normally (no blank
+#   page, no console errors). Click a Top Picks / Trading Picks card again
+#   to re-confirm the v7.20.0 fix still works correctly alongside this one.
+
+# Merge to main (if you used path B above):
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/allstocks-blank-page
+git push origin main
+git push origin v7.20.1
+# Branch kept as historical reference — do NOT delete.
+# (If you used path A, this was already folded into the same merge as v7.20.0
+#  — just make sure the v7.20.1 commit made it into main via git log.)
