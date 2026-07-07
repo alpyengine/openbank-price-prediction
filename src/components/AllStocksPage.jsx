@@ -115,11 +115,10 @@ function deduplicateStocks(batches) {
   if (!batches?.length) return []
 
   // Step 1 — sort batches oldest→newest so newest overwrites on duplicate tickers
-  const sorted = [...batches].sort((a, b) => {
-    const [da, ma, ya] = (a.date || '').split('/').map(Number)
-    const [db, mb, yb] = (b.date || '').split('/').map(Number)
-    return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db)
-  })
+  // v7.20.0: delegates to the shared parseBatchDate() instead of its own inline copy
+  const sorted = [...batches].sort((a, b) =>
+    (parseBatchDate(a.date) ?? 0) - (parseBatchDate(b.date) ?? 0)
+  )
 
   // map: normTicker → stock data (newest batch wins)
   // counts: normTicker → how many batches contain this ticker
@@ -198,11 +197,10 @@ function deduplicateStocks(batches) {
 // only the most recent we keep EVERY instance, grouped by normalised ticker.
 function expandStockInstances(batches) {
   if (!batches?.length) return {}
-  const sorted = [...batches].sort((a, b) => {
-    const [da, ma, ya] = (a.date || '').split('/').map(Number)
-    const [db, mb, yb] = (b.date || '').split('/').map(Number)
-    return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db)
-  })
+  // v7.20.0: delegates to the shared parseBatchDate() instead of its own inline copy
+  const sorted = [...batches].sort((a, b) =>
+    (parseBatchDate(a.date) ?? 0) - (parseBatchDate(b.date) ?? 0)
+  )
   const out = {}  // normTicker → [instances] (built oldest→newest, reversed at the end)
   for (const batch of sorted) {
     if (!batch.results) continue
@@ -275,6 +273,26 @@ function fmtDate(ddmmyyyy) {
   if (!ddmmyyyy) return '—'
   const [d, m, y] = ddmmyyyy.split('/').map(Number)
   return `${d} ${MONTHS[(m||1)-1]}`
+}
+
+/**
+ * parseBatchDate — single source of truth for parsing batch.date ('DD/MM/YYYY')
+ * into a real timestamp for chronological sorting/comparison. v7.20.0: introduced
+ * to replace 6 separate ad-hoc date-parsing sites in this file (deduplicateStocks,
+ * expandStockInstances, the fundamentals-merge sort, and the `sorted` useMemo's
+ * local batchTime — all previously correct copies of the same logic — plus 2
+ * genuinely broken ones in the Top Picks / Trading Picks card click handlers,
+ * which called `new Date(batch.id)` on a composite, non-date id — always
+ * Invalid Date/NaN, so those two sorts never actually reordered anything.
+ * Returns null (never NaN) on anything unparseable, so callers can safely fall
+ * back with `?? 0` without producing NaN comparisons.
+ */
+function parseBatchDate(ddmmyyyy) {
+  if (!ddmmyyyy) return null
+  const [dd, mm, yy] = ddmmyyyy.split('/').map(Number)
+  if (!dd || !mm || !yy) return null
+  const t = new Date(yy, mm - 1, dd).getTime()
+  return Number.isNaN(t) ? null : t
 }
 
 function fmtPct(v) {
@@ -640,11 +658,10 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
 
     // Layer 2 — batch fundamentals (fallback for tickers not in cache yet)
     // Sort oldest first so newest batch overwrites
-    const sortedBatches = [...(batches ?? [])].sort((a, b) => {
-      const [da, ma, ya] = (a.date || '').split('/').map(Number)
-      const [db, mb, yb] = (b.date || '').split('/').map(Number)
-      return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db)
-    })
+    // v7.20.0: delegates to the shared parseBatchDate() instead of its own inline copy
+    const sortedBatches = [...(batches ?? [])].sort((a, b) =>
+      (parseBatchDate(a.date) ?? 0) - (parseBatchDate(b.date) ?? 0)
+    )
     for (const batch of sortedBatches) {
       if (batch.fundamentals && typeof batch.fundamentals === 'object') {
         Object.assign(merged, batch.fundamentals)
@@ -861,11 +878,10 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       if (ay) return -1
       return sortDir * x.localeCompare(y)
     }
-    const batchTime = d => {
-      if (!d) return null
-      const [dd, mm, yy] = d.split('/').map(Number)
-      return new Date(yy, mm - 1, dd).getTime()
-    }
+    // v7.20.0: was its own copy of the same parsing logic — now delegates to the
+    // single shared parseBatchDate() (module-level, near fmtDate) so there's only
+    // one place that knows how to parse batch.date.
+    const batchTime = parseBatchDate
     const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
     return [...filteredFinal].sort((a, b) => {
       switch (sortCol) {
@@ -1016,7 +1032,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   onClick={() => {
                     if (!onLoadBatch || !onNav) return
                     const batch = [...(batches ?? [])]
-                      .sort((a, b) => new Date(b.id) - new Date(a.id))
+                      .sort((a, b) => (parseBatchDate(b.date) ?? 0) - (parseBatchDate(a.date) ?? 0))
                       .find(b => b.results?.some(r => r.ticker === s.tNorm || r.ticker === s.t))
                     if (batch) { onLoadBatch(batch); onNav('batch-detail'); onScrollToTicker?.(s.t) }
                   }}
@@ -1162,7 +1178,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                         onClick={() => {
                           if (!onLoadBatch || !onNav) return
                           const batch = [...(batches ?? [])]
-                            .sort((a, b) => new Date(b.id) - new Date(a.id))
+                            .sort((a, b) => (parseBatchDate(b.date) ?? 0) - (parseBatchDate(a.date) ?? 0))
                             .find(b => b.results?.some(r => r.ticker === s.tNorm || r.ticker === s.t))
                           if (batch) { onLoadBatch(batch); onNav('batch-detail'); onScrollToTicker?.(s.t) }
                         }}

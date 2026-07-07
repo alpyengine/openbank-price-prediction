@@ -6268,11 +6268,9 @@ git checkout feat/accuracy-3tier-metrics
 
 unzip -o ~/Downloads/openbank-price-prediction_v7.19.3.zip -d .
 git status
-git diff --stat
-# expect: src/components/AccuracyChart.jsx + README.md + GIT_GUIDE.md
+git diff --stat   # expect: src/components/AccuracyChart.jsx + README.md + GIT_GUIDE.md
 
-npm run test:run
-# existing suite should stay green — no logic touched.
+npm run test:run   # existing suite should stay green — no logic touched.
 
 git add src/components/AccuracyChart.jsx README.md GIT_GUIDE.md
 git commit -m "feat: Accuracy trend chart — 3-tier metric selector (v7.19.3)
@@ -6305,3 +6303,147 @@ git push origin v7.19.0 v7.19.1 v7.19.2 v7.19.3
 # Branch is kept as historical reference — do NOT delete.
 # If Vercel doesn't redeploy after the merge:
 #   git commit --allow-empty -m "chore: trigger vercel deploy" && git push
+
+
+# ===========================================================================
+# STEP 213 — v7.20.0  Fix: "jump to newest batch" sort bug (Top/Trading Picks)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. NEW branch from main (v7.19.x already
+# merged). Fix branch — merges immediately after preview validation, same as
+# fix/allstocks-gray-band and fix/td-credit-burn. 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   Clicking a Top Picks / Trading Picks card to jump to a ticker's most
+#   recent batch could silently land on the WRONG batch. Root cause:
+#     .sort((a, b) => new Date(b.id) - new Date(a.id))
+#   batch.id is a composite key (date+market+direction), not a parseable
+#   date string, so new Date(id) was always Invalid Date, the subtraction
+#   always NaN, and .sort() treats a NaN comparator result as "no change" —
+#   the array silently kept its original (non-chronological) order.
+#   Verified with real batch data: before the fix, the "most recent" batch
+#   resolved to 17/03/2026 (the OLDEST of 17 batches) instead of 01/07/2026.
+#
+# ALSO INVESTIGATED (false alarm, no code change needed): the "Batch" column
+# showing apparently out-of-order dates. Confirmed with real data + 2
+# screenshots that the existing grouped "all instances" view (LATEST +
+# indented history per ticker) sorts correctly — each ticker-group is
+# anchored by its own latest batch, sub-instances nested beneath sorted
+# newest→oldest. Looked jumbled only because consecutive DOM rows mix a
+# group's recent LATEST row with that same group's own older sub-rows.
+# Not a bug — but confirmed Alex prefers a flat, ungrouped view instead
+# (see v7.20.1, next).
+#
+# WHAT'S NEW:
+#   - Fixed both broken sites (Top Picks, Trading Picks) to sort by
+#     batch.date instead of batch.id.
+#   - New parseBatchDate() — single shared 'DD/MM/YYYY' parser (module-level,
+#     near fmtDate). Migrated 4 OTHER pre-existing, already-correct inline
+#     copies of the same parsing logic to use it too (deduplicateStocks,
+#     expandStockInstances, the fundamentals-merge sort, and the `sorted`
+#     useMemo's local batchTime) — one source of truth, 6 sites total now
+#     unified, so a 7th ad-hoc copy can't silently reintroduce this bug.
+#
+# NO DATA-MODEL CHANGES.
+#
+git checkout main && git pull origin main
+git checkout -b fix/allstocks-batch-sort
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.20.0.zip -d .
+git status
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run   # existing suite should stay green — no logic touched
+                   # outside AllStocksPage.jsx, which isn't unit-tested.
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: Top/Trading Picks card click could jump to the wrong batch (v7.20.0)
+
+new Date(batch.id) was always Invalid Date (id is a composite key, not a
+date string) -> NaN comparator -> .sort() silently did nothing. Fixed both
+sites to sort by batch.date via a new shared parseBatchDate() helper, and
+migrated 4 other pre-existing (already-correct) inline date-parsing copies
+to use it too — one source of truth across the file. Verified with real
+batch data: 'most recent' previously resolved to the OLDEST of 17 batches.
+Also investigated the Batch column ordering report — confirmed false alarm,
+the grouped/nested instances view sorts correctly; Alex wants a flat view
+instead regardless (v7.20.1)."
+git tag -a v7.20.0 -m "v7.20.0: fix jump-to-newest-batch sort bug + unify date parsing (AllStocksPage)"
+git push -u origin fix/allstocks-batch-sort
+git push origin v7.20.0
+
+# → Vercel preview: click a Top Picks / Trading Picks card for a ticker that
+#   has an OLD batch (e.g. one only in the 17 Mar batch) and confirm it does
+#   NOT jump there if a newer batch also has that ticker — it should land on
+#   the true newest one.
+
+# Merge to main (fix branch — no need to wait for a version line to close):
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/allstocks-batch-sort
+git push origin main
+git push origin v7.20.0
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 214 — v7.20.1  Fix: regression from v7.20.0 — All Stocks blank page
+# ===========================================================================
+#
+# WHY: v7.20.0 introduced a ReferenceError ("out is not defined") that crashed
+# the whole All Stocks page on load. My mistake in that edit: while unifying
+# expandStockInstances's inline date-parsing into the new parseBatchDate(),
+# I dropped the unrelated `const out = {}` line that happened to sit right
+# next to the code I was replacing. Restored it — `out` is used and returned
+# exactly as it always was. Re-diffed the whole file against pre-v7.20.0 to
+# confirm this was the ONLY discrepancy.
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# CHECK YOUR BRANCH STATE FIRST — pick ONE of these two before continuing:
+#
+#   (A) fix/allstocks-batch-sort was NOT merged to main yet:
+#         git checkout fix/allstocks-batch-sort
+#
+#   (B) fix/allstocks-batch-sort WAS already merged to main:
+#         git checkout main && git pull origin main
+#         git checkout -b fix/allstocks-blank-page
+#
+unzip -o ~/Downloads/openbank-price-prediction_v7.20.1.zip -d .
+git status
+git diff --stat
+# expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+# (the AllStocksPage.jsx diff vs your last commit should be TINY —
+#  just the restored `const out = {}` line + its comment)
+
+npm run test:run
+# existing suite should stay green.
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: restore 'out' declaration dropped in v7.20.0 — All Stocks blank page (v7.20.1)
+
+v7.20.0's expandStockInstances edit (unifying date-parsing into the new
+parseBatchDate()) accidentally deleted the adjacent, unrelated
+'const out = {}' line, causing 'ReferenceError: out is not defined' and
+crashing the whole page on load. Restored the line — out is used/returned
+exactly as before. Full-file diff re-checked against pre-v7.20.0 to confirm
+no other discrepancy."
+git tag -a v7.20.1 -m "v7.20.1: fix blank-page regression from v7.20.0 (missing 'out' declaration)"
+git push -u origin HEAD    # pushes whichever branch you're on (A or B above)
+git push origin v7.20.1
+
+# → Vercel preview: All Stocks page loads and renders normally (no blank
+#   page, no console errors). Click a Top Picks / Trading Picks card again
+#   to re-confirm the v7.20.0 fix still works correctly alongside this one.
+
+# Merge to main (if you used path B above):
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/allstocks-blank-page
+git push origin main
+git push origin v7.20.1
+# Branch kept as historical reference — do NOT delete.
+# (If you used path A, this was already folded into the same merge as v7.20.0
+#  — just make sure the v7.20.1 commit made it into main via git log.)
