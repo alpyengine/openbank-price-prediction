@@ -295,6 +295,56 @@ function parseBatchDate(ddmmyyyy) {
   return Number.isNaN(t) ? null : t
 }
 
+/**
+ * compareStocks — single shared row comparator (v7.20.2). Previously this
+ * switch/case lived only inside the `sorted` useMemo; extracted here so both
+ * `sorted` (deduplicated, one row per ticker — feeds KPIs/Top Picks/Trading
+ * Picks) and `flatRows` (every ticker×batch instance as its own row — feeds
+ * the main table, replacing the old LATEST + indented-history tree) sort
+ * identically without duplicating the switch a second time.
+ * Missing values (null/NaN/'—') always sort to the bottom, in both directions.
+ */
+function compareStocks(a, b, { sortCol, sortDir, hKey, tKey, getUpsideHoy, weeklyPrices }) {
+  const numCmp = (x, y) => {
+    const ax = x == null || Number.isNaN(x)
+    const ay = y == null || Number.isNaN(y)
+    if (ax && ay) return 0
+    if (ax) return 1
+    if (ay) return -1
+    return sortDir * (x - y)
+  }
+  const strCmp = (x, y) => {
+    const ax = !x || x === '—'
+    const ay = !y || y === '—'
+    if (ax && ay) return 0
+    if (ax) return 1
+    if (ay) return -1
+    return sortDir * x.localeCompare(y)
+  }
+  switch (sortCol) {
+    case 'ticker':   return sortDir * a.t.localeCompare(b.t)
+    case 'market':   return strCmp(a.market, b.market)
+    case 'sector':   return strCmp(a.sector, b.sector)
+    case 'upside':   return numCmp(a[hKey], b[hKey])
+    case 'vsTarget': return numCmp(getUpsideHoy(a, tKey), getUpsideHoy(b, tKey))
+    case 'score':    return numCmp(a.score, b.score)
+    case 'peg':      return numCmp(a.peg, b.peg)
+    case 'margin':   return numCmp(a.margin, b.margin)
+    case 'batch':    return numCmp(parseBatchDate(a.batchDate), parseBatchDate(b.batchDate))
+    case 'equality': {
+      const ea = entryQuality(getUpsideHoy(a, tKey), a.score, a.peg)
+      const eb = entryQuality(getUpsideHoy(b, tKey), b.score, b.peg)
+      return numCmp(ea ? ea.v : null, eb ? eb.v : null)
+    }
+    case 'entryMom': {
+      const ma = entryMomentum(getUpsideHoy(a, tKey), weeklyTrend(weeklyPrices[a.tNorm]?.[a.batchId]))
+      const mb = entryMomentum(getUpsideHoy(b, tKey), weeklyTrend(weeklyPrices[b.tNorm]?.[b.batchId]))
+      return numCmp(ma ? MOM_META[ma].rank : null, mb ? MOM_META[mb].rank : null)
+    }
+    default: return sortDir * a.t.localeCompare(b.t)
+  }
+}
+
 function fmtPct(v) {
   if (v == null) return '—'
   return (v >= 0 ? '+' : '') + v.toFixed(1) + '%'
@@ -862,51 +912,10 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   // Sort — all columns, asc/desc. sortDir: 1 = ascending, -1 = descending.
   // Missing values (null / NaN / '—') always sort to the bottom, in both directions.
   const sorted = useMemo(() => {
-    const numCmp = (x, y) => {
-      const ax = x == null || Number.isNaN(x)
-      const ay = y == null || Number.isNaN(y)
-      if (ax && ay) return 0
-      if (ax) return 1
-      if (ay) return -1
-      return sortDir * (x - y)
-    }
-    const strCmp = (x, y) => {
-      const ax = !x || x === '—'
-      const ay = !y || y === '—'
-      if (ax && ay) return 0
-      if (ax) return 1
-      if (ay) return -1
-      return sortDir * x.localeCompare(y)
-    }
-    // v7.20.0: was its own copy of the same parsing logic — now delegates to the
-    // single shared parseBatchDate() (module-level, near fmtDate) so there's only
-    // one place that knows how to parse batch.date.
-    const batchTime = parseBatchDate
     const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
-    return [...filteredFinal].sort((a, b) => {
-      switch (sortCol) {
-        case 'ticker':   return sortDir * a.t.localeCompare(b.t)
-        case 'market':   return strCmp(a.market, b.market)
-        case 'sector':   return strCmp(a.sector, b.sector)
-        case 'upside':   return numCmp(a[hKey], b[hKey])
-        case 'vsTarget': return numCmp(getUpsideHoy(a, tKey), getUpsideHoy(b, tKey))
-        case 'score':    return numCmp(a.score, b.score)
-        case 'peg':      return numCmp(a.peg, b.peg)
-        case 'margin':   return numCmp(a.margin, b.margin)
-        case 'batch':    return numCmp(batchTime(a.batchDate), batchTime(b.batchDate))
-        case 'equality': {
-          const ea = entryQuality(getUpsideHoy(a, tKey), a.score, a.peg)
-          const eb = entryQuality(getUpsideHoy(b, tKey), b.score, b.peg)
-          return numCmp(ea ? ea.v : null, eb ? eb.v : null)
-        }
-        case 'entryMom': {
-          const ma = entryMomentum(getUpsideHoy(a, tKey), weeklyTrend(weeklyPrices[a.tNorm]?.[a.batchId]))
-          const mb = entryMomentum(getUpsideHoy(b, tKey), weeklyTrend(weeklyPrices[b.tNorm]?.[b.batchId]))
-          return numCmp(ma ? MOM_META[ma].rank : null, mb ? MOM_META[mb].rank : null)
-        }
-        default:         return sortDir * a.t.localeCompare(b.t)
-      }
-    })
+    return [...filteredFinal].sort((a, b) =>
+      compareStocks(a, b, { sortCol, sortDir, hKey, tKey, getUpsideHoy, weeklyPrices })
+    )
   }, [filteredFinal, sortCol, sortDir, hKey, horizon, getUpsideHoy, weeklyPrices])
 
   function toggleSort(col) {
@@ -918,6 +927,34 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     if (sortCol !== col) return '↕'
     return sortDir === -1 ? '↓' : '↑'
   }
+
+  // #8/v7.20.2 — flat, fully independent row list for the main table: every
+  // ticker × batch instance is its own row, sortable by ANY single column
+  // (including 'ticker' and 'batch' independently) — replaces the old
+  // LATEST + indented-history tree (each ticker's rows are no longer forced
+  // to sit together; sorting by 'ticker' clusters them naturally via
+  // alphabetical adjacency, sorting by 'batch' gives a true ungrouped
+  // chronological order). Reuses compareStocks — identical sort behaviour
+  // to `sorted`, just applied to every instance instead of one per ticker.
+  const flatRows = useMemo(() => {
+    const collapsed = bestOnly || searchQuery.trim() !== ''
+    const tKey = { '1M': 't1', '3M': 't3', '6M': 't6', '12M': 't12' }[horizon] ?? 't12'
+    const rows = []
+    for (const latest of filteredFinal) {
+      const insts   = instancesByTicker[latest.tNorm] || [latest]
+      // bestOnly / active search collapse each ticker to just its newest
+      // instance — same reduction the old tree applied, just without the
+      // visual grouping.
+      const rowList = collapsed ? insts.slice(0, 1) : insts
+      const visible = filterTrend
+        ? rowList.filter(s => (s.direction ?? 'bullish') === filterTrend)
+        : rowList
+      rows.push(...visible)
+    }
+    return rows.sort((a, b) =>
+      compareStocks(a, b, { sortCol, sortDir, hKey, tKey, getUpsideHoy, weeklyPrices })
+    )
+  }, [filteredFinal, instancesByTicker, bestOnly, searchQuery, filterTrend, sortCol, sortDir, hKey, horizon, getUpsideHoy, weeklyPrices])
 
   // KPIs
   const avgUpside = sorted.length
@@ -1599,7 +1636,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   >
                     Batch {sortIcon('batch')}
                   </button>
-                  <ColTooltip text="Batch date of this row. Each ticker shows one row per batch it appears in (newest first); older batches are indented under the latest." />
+                  <ColTooltip text="Batch date of this row. Each ticker×batch instance is its own independent row — sort by Ticker to cluster a ticker's instances together, or by Batch for a true chronological order." />
                 </div>
               </th>
 
@@ -1612,66 +1649,49 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
             </tr>
           </thead>
           <tbody>
-            {sorted.length === 0 && (
+            {flatRows.length === 0 && (
               <tr>
                 <td colSpan="11" className="px-3 py-8 text-center text-muted-foreground text-[12px]">
                   No stocks match the current filters
                 </td>
               </tr>
             )}
-            {sorted.flatMap(latest => {
-              // #8 — expand each ticker into its batch instances (newest→oldest).
-              // Collapse to the most recent row when Best only or search is active.
-              const insts     = instancesByTicker[latest.tNorm] || [latest]
-              const collapsed = bestOnly || searchQuery.trim() !== ''
-              const rowList   = collapsed ? insts.slice(0, 1) : insts
-
-              // Trend B: when filterTrend is active, include only instances whose
-              // direction matches — across ALL instances, not just the newest one.
-              // A ticker with both a bull and a bear instance shows both when
-              // filterTrend is '' (All), and only the matching ones otherwise.
-              const visibleRows = filterTrend
-                ? rowList.filter(s => (s.direction ?? 'bullish') === filterTrend)
-                : rowList
-              // Skip this ticker entirely if no instances pass the trend filter
-              if (visibleRows.length === 0) return []
-
-              const hasDups   = insts.length > 1
-              return visibleRows.map((s, idx) => {
-                const isLatest = insts[0] === s   // latest = the newest overall instance
-                const isOlder  = !isLatest
-                const u = s[hKey]
-                const expandKey  = s.instKey || (s.tNorm + '-' + idx)
-                const isExpanded = expandedRows.has(expandKey)
-                return (
-                  <Fragment key={expandKey}>
-                  <tr
-                    id={isLatest ? ('asrow-' + s.tNorm) : ('asrow-' + expandKey)}
-                    onClick={() => toggleExpand(expandKey)}
-                    className={cn('border-b border-border transition-colors cursor-pointer',
-                      isOlder && 'bg-muted/20',
-                      !collapsed && hasDups && 'border-l-2 border-l-primary/40',
-                      highlight === s.tNorm && isLatest
-                        ? 'bg-amber-100 dark:bg-amber-500/20'
-                        : 'hover:bg-muted/30')}
-                  >
+            {flatRows.map((s, idx) => {
+              const u = s[hKey]
+              const expandKey  = s.instKey || (s.tNorm + '-' + idx)
+              const isExpanded = expandedRows.has(expandKey)
+              // v7.20.2: flat rows — every ticker×batch instance is fully
+              // independent now (no more LATEST + indented-history tree).
+              // hasDups is only used for the left-accent-bar hint. isNewest
+              // gives the scroll-to-ticker anchor a stable id regardless of
+              // sort order; falls back to true when a ticker has no
+              // instancesByTicker entry (single fallback row — always "newest").
+              const siblingInsts = instancesByTicker[s.tNorm]
+              const hasDups      = (siblingInsts?.length ?? 1) > 1
+              const isNewest     = s.isLatest ?? true
+              return (
+                <Fragment key={expandKey}>
+                <tr
+                  id={isNewest ? ('asrow-' + s.tNorm) : ('asrow-' + expandKey)}
+                  onClick={() => toggleExpand(expandKey)}
+                  className={cn('border-b border-border transition-colors cursor-pointer',
+                    hasDups && 'border-l-2 border-l-primary/40',
+                    highlight === s.tNorm && isNewest
+                      ? 'bg-amber-100 dark:bg-amber-500/20'
+                      : 'hover:bg-muted/30')}
+                >
                   {/* Ticker — clickable link to Batch Overview Details */}
-                  <td className={cn('px-3 py-2.5', isOlder && 'pl-6')}>
+                  <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground text-[10px] w-3 shrink-0 select-none">{isExpanded ? '▾' : '▸'}</span>
-                      {isOlder ? (
-                        <div className="w-7 h-7 flex items-center justify-center text-muted-foreground text-[13px] shrink-0">↳</div>
-                      ) : (
-                        <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-[9px] font-black shrink-0">
-                          {s.tDisplay.slice(0, 3)}
-                        </div>
-                      )}
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-[9px] font-black shrink-0">
+                        {s.tDisplay.slice(0, 3)}
+                      </div>
                       <div>
                         <div className="flex items-center gap-1.5">
                           {/* Click ticker → load THIS instance's batch and navigate to batch-detail */}
                           <button
-                            className={cn('hover:text-primary hover:underline underline-offset-2 bg-transparent border-none cursor-pointer p-0 text-left text-[11.5px]',
-                              isOlder ? 'font-semibold text-muted-foreground' : 'font-bold text-foreground')}
+                            className="hover:text-primary hover:underline underline-offset-2 bg-transparent border-none cursor-pointer p-0 text-left text-[11.5px] font-bold text-foreground"
                             onClick={e => {
                               e.stopPropagation()
                               if (!onLoadBatch || !onNav) return
@@ -1686,15 +1706,10 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                           >
                             {s.tDisplay}
                           </button>
-                          {isLatest && hasDups && !collapsed && (
-                            <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary">latest</span>
-                          )}
                         </div>
-                        {!isOlder && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <div className="text-[10px] text-muted-foreground leading-none">{s.co}</div>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <div className="text-[10px] text-muted-foreground leading-none">{s.co}</div>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -1836,8 +1851,7 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                   </tr>
                 )}
                 </Fragment>
-                )
-              })
+              )
             })}
           </tbody>
         </table>

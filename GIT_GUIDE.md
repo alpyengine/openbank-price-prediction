@@ -6414,13 +6414,11 @@ git push origin v7.20.0
 #
 unzip -o ~/Downloads/openbank-price-prediction_v7.20.1.zip -d .
 git status
-git diff --stat
-# expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
-# (the AllStocksPage.jsx diff vs your last commit should be TINY —
-#  just the restored `const out = {}` line + its comment)
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+                  # (the AllStocksPage.jsx diff vs your last commit should be TINY —
+                  #  just the restored `const out = {}` line + its comment)
 
-npm run test:run
-# existing suite should stay green.
+npm run test:run   # existing suite should stay green.
 
 git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
 git commit -m "fix: restore 'out' declaration dropped in v7.20.0 — All Stocks blank page (v7.20.1)
@@ -6447,3 +6445,90 @@ git push origin v7.20.1
 # Branch kept as historical reference — do NOT delete.
 # (If you used path A, this was already folded into the same merge as v7.20.0
 #  — just make sure the v7.20.1 commit made it into main via git log.)
+
+
+# ===========================================================================
+# STEP 215 — v7.20.2  All Stocks: flatten instances view (remove LATEST tree)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. NEW branch from main (v7.20.0/v7.20.1
+# already merged). 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   Each ticker showed a LATEST-anchored row with older instances nested and
+#   indented beneath it — same-ticker rows were forced to stay adjacent no
+#   matter which column was sorted. That's what made the "Batch" column look
+#   jumbled when clicked (v7.20.0 investigated this and confirmed it wasn't
+#   a sort bug — each ticker-group WAS sorting correctly, it just looked
+#   wrong scanning the column in isolation). Alex confirmed: sorting by
+#   Ticker already clusters a ticker's rows together via alphabetical
+#   adjacency, so the explicit tree/indent isn't needed — a flat, fully
+#   independent row per instance is simpler and gives a true chronological
+#   order when sorted by Batch. Mockup-confirmed (full-page context mockup,
+#   inserted-panel placement question from v7.21.x prep).
+#
+# WHAT'S NEW:
+#   - New shared compareStocks() — the sort switch/case that used to live
+#     only inside the `sorted` useMemo is now a module-level function used by
+#     BOTH `sorted` (deduplicated, one row per ticker — KPIs/Top Picks/Trading
+#     Picks, unchanged) and the new `flatRows` (every ticker×batch instance,
+#     feeds the main table) — one sort implementation, not two.
+#   - New `flatRows` useMemo: every instance from instancesByTicker, with the
+#     same bestOnly/search collapse-to-newest and per-instance Trend B filter
+#     the old tree applied, now just flattened instead of nested — sorted
+#     with compareStocks.
+#   - Table body now maps flatRows directly — no more per-ticker flatMap／
+#     isLatest／isOlder branching. Removed: LATEST badge, ↳ older-instance
+#     icon, pl-6 indentation. Kept: the left accent bar hinting a ticker has
+#     other instances, click-ticker→Batch Detail, and the per-row
+#     expand/detail toggle — all unchanged.
+#   - Updated the "Batch" column tooltip (no longer mentions indentation).
+#
+# NO DATA-MODEL CHANGES.
+#
+git checkout main && git pull origin main
+git checkout -b feat/allstocks-flat-instances
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.20.2.zip -d .
+git status
+git diff --stat
+# expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+# existing suite should stay green.
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: flatten All Stocks instances view — remove LATEST+indented tree (v7.20.2)
+
+Every ticker×batch instance is now its own independent table row, sortable
+by any single column. Sort by Ticker clusters a ticker's rows via ordinary
+alphabetical adjacency (same effect as before); sort by Batch gives a true
+ungrouped chronological order. New shared compareStocks() comparator used
+by both the deduplicated 'sorted' list (KPIs/Top Picks/Trading Picks) and
+the new flat 'flatRows' (main table) — one sort implementation instead of
+two. Removed the LATEST badge, indentation, and isLatest/isOlder branching
+from row rendering; left accent bar and click-to-Batch-Detail/expand-detail
+features unchanged. No data-model changes."
+git tag -a v7.20.2 -m "v7.20.2: All Stocks — flatten instances view, sortable by Ticker or Batch independently"
+
+git push -u origin feat/allstocks-flat-instances
+git push origin v7.20.2
+
+# → Vercel preview checklist:
+#   1. Sort by "Ticker" — same-ticker rows (e.g. AMD, ENPH, HWM) should sit
+#      together, newest-to-oldest within each cluster.
+#   2. Sort by "Batch" — rows should be in TRUE chronological order across
+#      ALL tickers, no LATEST/older-sibling interleaving.
+#   3. No more "latest" badge, no ↳ icon, no indentation anywhere.
+#   4. Click a ticker still opens the right batch in Batch Detail.
+#   5. Row still expands to AllStocksExpandCard on click.
+#   6. Search / Best only still collapse each ticker to its newest instance.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/allstocks-flat-instances
+git push origin main
+git push origin v7.20.2
+# Branch kept as historical reference — do NOT delete.
