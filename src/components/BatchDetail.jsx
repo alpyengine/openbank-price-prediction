@@ -1,8 +1,10 @@
 /**
- * StockTable
+ * BatchDetail
  *
  * The main prediction table on the Batch Overview Detail page.
  * Renders all stocks with their prediction bars, prices, and market comparison.
+ * (v7.20.3: renamed from StockTable — this is the component behind the
+ * 'batch-detail' page/route, and the old name didn't make that obvious.)
  *
  * Features:
  *   - Expandable rows (click to show horizon cards, fundamentals, chart, notes)
@@ -207,7 +209,7 @@ function Th({ w, date, colKey, onOpen, children }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function StockTable({
+export default function BatchDetail({
   stocks, horizon, autoPrices, histPrices, overrides, horizonExpired,
   fundamentals, groupBySector, filterSector, filterIndustry, sortBySector,
   onOverrideChange, notes, onNoteChange, marketData, batchCurrency,

@@ -34,7 +34,7 @@
  *
  * Pages (sidebar nav):
  *   batch        — BatchSimple: quick overview table
- *   batch-detail — StockTable: full analysis with bars and market comparison
+ *   batch-detail — BatchDetail: full analysis with bars and market comparison
  *   accuracy     — AccuracyChart: historical accuracy stats
  *   import       — ImportPage: CSV import
  *   settings     — Settings: hit margin, dark mode
@@ -52,7 +52,7 @@ import FetchBar         from './components/FetchBar.jsx'
 import SectorControls   from './components/SectorControls.jsx'
 import SummaryCards     from './components/SummaryCards.jsx'
 import HorizonTabs      from './components/HorizonTabs.jsx'
-import StockTable       from './components/StockTable.jsx'
+import BatchDetail       from './components/BatchDetail.jsx'
 import BatchSimple      from './components/BatchSimple.jsx'
 import ImportPage       from './components/ImportPage.jsx'
 import EmailPreview     from './components/EmailPreview.jsx'
@@ -121,7 +121,7 @@ export default function App() {
 
   const { autoPrices, histPrices, fetching, log, fetchCurrentBatch, fetchHistoricalForHorizon, reset: resetPrices, restoreHistPrices } = usePriceFetch()
 
-  // highlightTicker — ticker to scroll-to and briefly highlight in BatchSimple/StockTable
+  // highlightTicker — ticker to scroll-to and briefly highlight in BatchSimple/BatchDetail
   const [highlightTicker, setHighlightTicker] = useState(null)
   const { history, stats, loading: histLoading, saving: histSaving, log: histLog, configured: histConfigured, load: loadHistory, saveBatch, deleteBatch, deleteStock } = useHistory(hitMargin)
   const { marketData, loading: marketLoading, log: marketLog, fetchMarketData, reset: resetMarketData, restoreMarketData } = useMarketData()
@@ -528,7 +528,7 @@ export default function App() {
                 </div>
               )}
 
-              <StockTable
+              <BatchDetail
                 stocks={stocks}
                 horizon={horizon}
                 autoPrices={autoPrices}
