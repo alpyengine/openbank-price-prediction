@@ -1442,10 +1442,16 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
       {/* overflow-x-auto on the card keeps the table inside the white box (no gray spill).
-          The inner div handles vertical scroll so sticky top-0 on <th> works correctly —
-          sticky needs a scrolling ancestor on the same axis (vertical here). */}
+          v7.20.4: removed the old inner `overflow-y-auto max-h-[calc(100vh-280px)]`
+          wrapper — that div had its own constrained height, so it created a SEPARATE
+          nested scroll pocket for the table only, and `sticky top-0` on <th> pinned
+          to THAT inner box instead of the real page scroll (the <main> element in
+          App.jsx). Removing it lets the table flow in the page's normal scroll, so
+          sticky now pins the header to the top of the actual browser viewport as
+          you scroll the whole page — everything above (KPIs, Top Picks, filters)
+          scrolls away first, then the header row freezes there, leaving maximum
+          room for data rows. */}
       <div className="bg-card border border-border rounded-xl overflow-x-auto">
-        <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
         <table className="w-full border-collapse text-[11.5px]">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
@@ -1855,7 +1861,6 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
             })}
           </tbody>
         </table>
-        </div>{/* end overflow-y-auto */}
       </div>
 
       <div className="text-[10px] text-muted-foreground text-right">

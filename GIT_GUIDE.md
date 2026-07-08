@@ -6590,3 +6590,76 @@ git merge --no-ff --no-edit chore/rename-stocktable-to-batchdetail
 git push origin main
 git push origin v7.20.3
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 217 — v7.20.4  All Stocks: sticky header pins to real page scroll
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   Above the table there's always a lot of fixed content (KPI cards, Top
+#   Picks, Mejores trades, Horizon/Market/Trend/Tabla filters, colour
+#   legend), leaving very little vertical room for the actual ticker rows.
+#   The table already had `sticky top-0` on every <th>, but it was pinning
+#   to the WRONG scrolling ancestor: the table sat inside its own nested
+#   `overflow-y-auto max-h-[calc(100vh-280px)]` div, a separate height-capped
+#   scroll pocket, so the header froze relative to THAT box instead of the
+#   page. Wanted instead: scroll the whole page, let everything above the
+#   table scroll away, and have the header row itself freeze at the top of
+#   the browser viewport once it gets there — maximizing room for data rows.
+#
+# WHAT CHANGED:
+#   Removed the inner `overflow-y-auto max-h-[calc(100vh-280px)]` wrapper div
+#   entirely. The table now sits directly inside the outer
+#   `overflow-x-auto` card div (unchanged, horizontal-only, no height cap),
+#   which itself just grows to the table's natural height — no more nested
+#   scroll context. `sticky top-0` on <th> now pins relative to the real
+#   page scroll (the <main> element in App.jsx), which is the intended
+#   scrolling ancestor.
+#
+# NO LOGIC CHANGES — purely a layout/CSS fix. Sorting, filtering, flatRows
+# (v7.20.2), and everything else is untouched.
+#
+git checkout main && git pull origin main
+git checkout -b fix/allstocks-sticky-header
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.20.4.zip -d .
+git status
+git diff --stat
+# expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+# (the .jsx diff should be small — just the removed wrapper
+#  div + its closing tag + the updated comment)
+
+npm run test:run
+# existing suite should stay green — no logic touched.
+
+git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: All Stocks table header now sticks to the real page scroll (v7.20.4)
+
+Removed the table's own nested overflow-y-auto max-h-[calc(100vh-280px)]
+wrapper, which created a separate, height-capped scroll pocket just for the
+table — sticky top-0 on <th> was pinning to that inner box instead of the
+actual page scroll (the <main> element in App.jsx). With it gone, the whole
+page scrolls together: KPIs/Top Picks/filters/legend scroll away first, then
+the header row freezes at the top of the viewport, maximizing room for data
+rows. Purely a layout fix — no logic changed."
+git tag -a v7.20.4 -m "v7.20.4: All Stocks sticky table header now pins to the real page scroll"
+git push -u origin fix/allstocks-sticky-header
+git push origin v7.20.4
+
+# → Vercel preview: scroll down the All Stocks page. Confirm the KPI cards /
+#   Top Picks / filters / legend scroll away, then the TICKER/MARKET/SECTOR/…
+#   header row freezes at the very top of the browser viewport while data
+#   rows keep scrolling underneath it. Also re-check horizontal scroll still
+#   works on narrow viewports (outer overflow-x-auto is unchanged).
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/allstocks-sticky-header
+git push origin main
+git push origin v7.20.4
+# Branch kept as historical reference — do NOT delete.
