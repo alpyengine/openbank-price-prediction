@@ -373,7 +373,12 @@ export default function ExportPage({ batches = [], loadedBatchId, fundamentals =
   }
 
   return (
-    <div className="max-w-2xl flex flex-col gap-3">
+    <div className="w-full flex flex-col gap-3">
+      {/* v7.20.7: was `max-w-2xl` — capped the whole page at 672px regardless
+          of available space, so it never used the extra room freed up by
+          collapsing the sidebar or widening the browser window. Other pages
+          (e.g. AllStocksPage) have no max-w cap at all and just fill <main>'s
+          full width — matched that same pattern here. */}
 
       {/* ── Step 1: Select batch ──────────────────────────────────────── */}
       <Card className="p-5">
@@ -401,7 +406,7 @@ export default function ExportPage({ batches = [], loadedBatchId, fundamentals =
           <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground border border-border">2</span>
           <span className="text-[13px] font-medium">Select content to include</span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {CONTENT_ITEMS.map(item => (
             <label
               key={item.id}

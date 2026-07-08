@@ -6802,11 +6802,9 @@ git checkout -b fix/userpanel-collapsed-menu-clip
 
 unzip -o ~/Downloads/openbank-price-prediction_v7.20.6.zip -d .
 git status
-git diff --stat
-# expect: src/components/UserPanel.jsx + README.md + GIT_GUIDE.md
+git diff --stat   # expect: src/components/UserPanel.jsx + README.md + GIT_GUIDE.md
 
-npm run test:run
-# existing suite should stay green — no logic touched.
+npm run test:run   # existing suite should stay green — no logic touched.
 
 git add src/components/UserPanel.jsx README.md GIT_GUIDE.md
 git commit -m "fix: user menu clipped when Sidebar is collapsed (v7.20.6)
@@ -6841,4 +6839,74 @@ git checkout main && git pull origin main
 git merge --no-ff --no-edit fix/userpanel-collapsed-menu-clip
 git push origin main
 git push origin v7.20.6
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 220 — v7.20.7  Export page: responsive to available width
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   The page's outer wrapper was capped at `max-w-2xl` (672px, fixed) — it
+#   never used the extra room freed up by collapsing the sidebar or widening
+#   the browser window, unlike every other page in the app (AllStocksPage
+#   etc., which have no width cap and just fill <main>'s natural width).
+#
+# WHAT CHANGED:
+#   - Outer wrapper: `max-w-2xl` -> `w-full` (no cap), matching the pattern
+#     already used elsewhere in the app.
+#   - "Select content" checkbox grid: `grid-cols-2` (fixed) ->
+#     `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` (responsive) — its 5 cards
+#     now spread out sensibly on wide screens instead of leaving one static
+#     2-column layout with growing empty space either side.
+#   - NOT touched: the offscreen 900px-wide iframe used internally to render
+#     the PDF export — that's a fixed rendering width for the exported
+#     *document* itself, unrelated to the page's own UI layout.
+#
+# NO LOGIC CHANGES — purely layout/CSS. Export behaviour (HTML/PDF
+# generation) is untouched.
+#
+git checkout main && git pull origin main
+git checkout -b fix/exportpage-responsive-width
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.20.7.zip -d .
+git status
+git diff --stat
+# expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+# (the .jsx diff should be tiny — 2 className changes + 1 comment)
+
+npm run test:run
+# existing suite should stay green — no logic touched.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: Export page now responsive to available width (v7.20.7)
+
+Outer wrapper was capped at max-w-2xl (672px fixed) — never adapted to the
+extra room freed up by collapsing the sidebar or widening the window,
+unlike every other page (AllStocksPage etc., which have no width cap).
+Removed the cap; also made the content checkbox grid responsive
+(1/2/3 columns depending on width) instead of a static 2-column layout.
+The offscreen 900px iframe used to render the PDF export is untouched —
+that's the exported document's own fixed width, unrelated to page layout.
+No logic changed."
+git tag -a v7.20.7 -m "v7.20.7: Export page responsive to available width"
+git push -u origin fix/exportpage-responsive-width
+git push origin v7.20.7
+
+# → Vercel preview checklist:
+#   1. Collapse the sidebar — the Export page's cards should widen to fill
+#      the extra space (previously stayed capped at 672px).
+#   2. Widen/narrow the browser window — the checkbox grid should reflow
+#      between 1/2/3 columns as space changes.
+#   3. HTML and PDF export still work exactly as before (unrelated code).
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/exportpage-responsive-width
+git push origin main
+git push origin v7.20.7
 # Branch kept as historical reference — do NOT delete.
