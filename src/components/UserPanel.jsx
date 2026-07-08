@@ -17,12 +17,24 @@
  *   4. sanitizeName() result shown to user in input as they type — no more
  *      silent filtering. If result is empty, shows error immediately.
  *
+ *   5. (v7.20.6) Dropdown menu rendered via a React portal into document.body,
+ *      positioned with fixed pixel coordinates measured from the trigger
+ *      button. Previously it used `absolute ... left-0 right-0`, which tied
+ *      its width to its positioned ancestor — fine when the sidebar is
+ *      expanded (220px), but when collapsed (64px) the menu was squeezed
+ *      into that width AND clipped by both its own `overflow-hidden` and the
+ *      Sidebar <aside>'s `overflow-hidden` (used for its collapse-width
+ *      animation). The portal sidesteps both: the menu is no longer a
+ *      descendant of anything with `overflow-hidden`, and gets a fixed,
+ *      always-sufficient width regardless of sidebar state.
+ *
  * @param {boolean}  collapsed     — sidebar collapsed (icon-only mode)
  * @param {boolean}  darkMode      — current dark mode state
  * @param {Function} onToggleDark  — toggle dark/light mode
  * @param {Function} onManageUsers — navigate to Manage Users page (admin only)
  */
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useRole } from '@/hooks/useRole'
 import { supabase } from '@/lib/supabase'
@@ -295,11 +307,44 @@ export default function UserPanel({ collapsed, darkMode, onToggleDark, onManageU
   const role = useRole()
   const [open, setOpen]           = useState(false)
   const [showProfile, setShowProfile] = useState(false)
-  const ref = useRef(null)
+  const [position, setPosition]   = useState(null) // { top, left, width } for the portaled dropdown
+  const triggerRef  = useRef(null) // wraps the trigger button — used for click-outside AND position
+  const dropdownRef = useRef(null) // the portaled dropdown content — used for click-outside only
 
-  // Close panel when clicking outside
+  // v7.20.6 — menu width is fixed regardless of sidebar state (collapsed or
+  // expanded); previously it stretched via left-0/right-0 to match its
+  // positioned ancestor, which broke down when that ancestor was the
+  // collapsed 64px-wide sidebar rail.
+  const MENU_WIDTH = 240
+
+  // Compute fixed pixel position from the trigger button whenever the menu
+  // opens (and keep it in sync if the window resizes while open).
   useEffect(() => {
-    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    if (!open) return
+    const updatePosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      setPosition({
+        // Pin it just above the button (mirrors the old `bottom-full mb-1.5`),
+        // measured from the viewport since the menu is now portaled to body.
+        bottom: window.innerHeight - rect.top + 6,
+        left:   rect.left,
+      })
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    return () => window.removeEventListener('resize', updatePosition)
+  }, [open])
+
+  // Close panel when clicking outside — checks both the trigger AND the
+  // portaled dropdown, since the dropdown is no longer a DOM descendant of
+  // the trigger's wrapping div (v7.20.6).
+  useEffect(() => {
+    const handler = e => {
+      const insideTrigger  = triggerRef.current?.contains(e.target)
+      const insideDropdown = dropdownRef.current?.contains(e.target)
+      if (!insideTrigger && !insideDropdown) setOpen(false)
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
@@ -332,49 +377,53 @@ export default function UserPanel({ collapsed, darkMode, onToggleDark, onManageU
         />
       )}
 
-      <div ref={ref} className="relative">
-        {/* Dropdown panel */}
-        {open && (
-          <div className={cn(
-            'absolute bottom-full mb-1.5 left-0 right-0',
-            'bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50'
-          )}>
-            {/* Header */}
-            <div className="px-3.5 py-3 border-b border-border">
-              <div className="flex items-center gap-2.5">
-                <Avatar user={user} size="md" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-semibold text-foreground truncate">{displayName}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">{email}</div>
-                </div>
-              </div>
-              <div className={cn(
-                'inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-[11px] font-semibold',
-                role === 'admin'
-                  ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                  : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-              )}>
-                {role === 'admin' ? '⚑ Admin' : '◎ Read-only'}
+      {/* Dropdown panel — portaled to document.body (v7.20.6) so it can never
+          be clipped by the Sidebar <aside>'s overflow-hidden (needed for its
+          own collapse-width animation), regardless of collapsed/expanded state. */}
+      {open && position && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ position: 'fixed', bottom: position.bottom, left: position.left, width: MENU_WIDTH }}
+          className="bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50"
+        >
+          {/* Header */}
+          <div className="px-3.5 py-3 border-b border-border">
+            <div className="flex items-center gap-2.5">
+              <Avatar user={user} size="md" />
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-semibold text-foreground truncate">{displayName}</div>
+                <div className="text-[11px] text-muted-foreground truncate">{email}</div>
               </div>
             </div>
-
-            {/* Menu */}
-            <div className="p-1">
-              <PanelItem icon={User} label="Profile" onClick={() => { setOpen(false); setShowProfile(true) }} />
-              {role === 'admin' && (
-                <PanelItem icon={Users} label="Manage users" onClick={() => { setOpen(false); onManageUsers?.() }} />
-              )}
-              <PanelItem
-                icon={darkMode ? Sun : Moon}
-                label={darkMode ? 'Light mode' : 'Dark mode'}
-                onClick={() => { onToggleDark?.(); setOpen(false) }}
-              />
-              <Separator className="my-1" />
-              <PanelItem icon={LogOut} label="Sign out" onClick={async () => { setOpen(false); await signOut() }} danger />
+            <div className={cn(
+              'inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-[11px] font-semibold',
+              role === 'admin'
+                ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                : 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+            )}>
+              {role === 'admin' ? '⚑ Admin' : '◎ Read-only'}
             </div>
           </div>
-        )}
 
+          {/* Menu */}
+          <div className="p-1">
+            <PanelItem icon={User} label="Profile" onClick={() => { setOpen(false); setShowProfile(true) }} />
+            {role === 'admin' && (
+              <PanelItem icon={Users} label="Manage users" onClick={() => { setOpen(false); onManageUsers?.() }} />
+            )}
+            <PanelItem
+              icon={darkMode ? Sun : Moon}
+              label={darkMode ? 'Light mode' : 'Dark mode'}
+              onClick={() => { onToggleDark?.(); setOpen(false) }}
+            />
+            <Separator className="my-1" />
+            <PanelItem icon={LogOut} label="Sign out" onClick={async () => { setOpen(false); await signOut() }} danger />
+          </div>
+        </div>,
+        document.body
+      )}
+
+      <div ref={triggerRef} className="relative">
         {/* Trigger button */}
         <button
           onClick={() => setOpen(v => !v)}

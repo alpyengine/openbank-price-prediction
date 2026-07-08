@@ -6629,13 +6629,11 @@ git checkout -b fix/allstocks-sticky-header
 
 unzip -o ~/Downloads/openbank-price-prediction_v7.20.4.zip -d .
 git status
-git diff --stat
-# expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
-# (the .jsx diff should be small — just the removed wrapper
-#  div + its closing tag + the updated comment)
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+                  # (the .jsx diff should be small — just the removed wrapper
+                  #  div + its closing tag + the updated comment)
 
-npm run test:run
-# existing suite should stay green — no logic touched.
+npm run test:run   # existing suite should stay green — no logic touched.
 
 git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
 git commit -m "fix: All Stocks table header now sticks to the real page scroll (v7.20.4)
@@ -6710,12 +6708,10 @@ git checkout -b fix/allstocks-sticky-scroll-v2
 
 unzip -o ~/Downloads/openbank-price-prediction_v7.20.5.zip -d .
 git status
-git diff --stat
-# expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
-# (small diff: the outer table-wrapper className + its comment)
+git diff --stat   # expect: src/components/AllStocksPage.jsx + README.md + GIT_GUIDE.md
+                  # (small diff: the outer table-wrapper className + its comment)
 
-npm run test:run
-# existing suite should stay green — no logic touched.
+npm run test:run   # existing suite should stay green — no logic touched.
 
 git add src/components/AllStocksPage.jsx README.md GIT_GUIDE.md
 git commit -m "fix: correct All Stocks sticky scroll — two-stage, not one continuous (v7.20.5)
@@ -6748,4 +6744,101 @@ git checkout main && git pull origin main
 git merge --no-ff --no-edit fix/allstocks-sticky-scroll-v2
 git push origin main
 git push origin v7.20.5
+# Branch kept as historical reference — do NOT delete.
+#
+# PROCESS NOTE: this merge actually carried BOTH v7.20.4 and v7.20.5's changes
+# together, because the fix/allstocks-sticky-scroll-v2 branch was created
+# before fix/allstocks-sticky-header (v7.20.4) had been merged to main. The
+# v7.20.4 branch/tag remain as historical reference only — their content
+# reached main through this merge instead. Going forward: merge a fix/
+# branch to main immediately after validating its preview, before starting
+# the next one.
+
+
+# ===========================================================================
+# STEP 219 — v7.20.6  Fix: user menu clipped when Sidebar is collapsed
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install (react-dom's createPortal is already
+# part of the react-dom dependency you have — no new package). 1 src file +
+# 2 docs:
+#        src/components/UserPanel.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY:
+#   The dropdown menu (Profile / Manage users / Dark mode / Sign out) used
+#   `absolute bottom-full mb-1.5 left-0 right-0`, which stretches its width
+#   to match its positioned ancestor (the wrapping <div className="relative">
+#   inside the Sidebar). Fine when the sidebar is expanded (220px) — but when
+#   collapsed (64px width, icon-only rail) the same ancestor shrinks too, so
+#   the menu got squeezed into 64px and its text visibly clipped. Made worse
+#   by TWO layers of overflow-hidden: the menu's own, and the Sidebar
+#   <aside>'s (needed for its collapse-width transition animation) — both
+#   would clip anything trying to overflow past the narrow rail regardless.
+#
+# WHAT CHANGED:
+#   - Dropdown menu now rendered via createPortal into document.body —
+#     completely outside the Sidebar's DOM subtree, so neither overflow-hidden
+#     layer can clip it anymore.
+#   - Fixed pixel position (`position: fixed`), computed from the trigger
+#     button's getBoundingClientRect() when the menu opens (and recomputed on
+#     window resize while open) — pinned just above the button, same visual
+#     spot as before (mirrors the old bottom-full + 6px gap).
+#   - Fixed width (240px) regardless of sidebar state — no longer stretches
+#     to match a (potentially too-narrow) positioned ancestor.
+#   - Click-outside detection updated to check BOTH the trigger's wrapping
+#     div and the portaled dropdown's own ref — they're no longer DOM-nested,
+#     so the original single-ref check would have closed the menu the
+#     instant you clicked anything inside it.
+#   - Verified via full-file diff: the trigger button and all menu items
+#     (Profile, Manage users, Dark/Light mode, Separator, Sign out) are
+#     byte-for-byte unchanged — only the dropdown's wrapping/positioning
+#     mechanism changed.
+#
+# NO DATA/LOGIC CHANGES — purely a positioning/clipping fix.
+#
+git checkout main && git pull origin main
+git checkout -b fix/userpanel-collapsed-menu-clip
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.20.6.zip -d .
+git status
+git diff --stat
+# expect: src/components/UserPanel.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+# existing suite should stay green — no logic touched.
+
+git add src/components/UserPanel.jsx README.md GIT_GUIDE.md
+git commit -m "fix: user menu clipped when Sidebar is collapsed (v7.20.6)
+
+The dropdown used absolute...left-0 right-0, stretching its width to match
+its positioned ancestor — fine at the expanded sidebar width (220px), but
+squeezed into the collapsed 64px rail and clipped by two overflow-hidden
+layers (its own, and the Sidebar <aside>'s, used for its collapse-width
+animation). Fixed by rendering the dropdown via createPortal into
+document.body with fixed pixel positioning (measured from the trigger
+button) and a fixed 240px width, independent of sidebar state. Click-outside
+detection updated to check both the trigger and the now-portaled dropdown.
+Verified via full-file diff that the trigger button and all menu items are
+unchanged."
+git tag -a v7.20.6 -m "v7.20.6: fix user menu clipped when Sidebar is collapsed (portal-based positioning)"
+git push -u origin fix/userpanel-collapsed-menu-clip
+git push origin v7.20.6
+
+# → Vercel preview checklist:
+#   1. Expand sidebar, open user menu — looks exactly as before.
+#   2. Collapse sidebar (bottom toggle), open user menu — full menu text now
+#      visible (Profile / Manage users if admin / Dark mode / Sign out),
+#      nothing cut off.
+#   3. Click outside the menu — closes normally in both collapsed/expanded.
+#   4. Click a menu item (e.g. Profile) — still opens the modal / performs
+#      the action and closes the menu.
+#   5. Resize the browser window while the menu is open — it stays correctly
+#      positioned next to the trigger button.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/userpanel-collapsed-menu-clip
+git push origin main
+git push origin v7.20.6
 # Branch kept as historical reference — do NOT delete.
