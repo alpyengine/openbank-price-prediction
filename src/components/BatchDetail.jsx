@@ -220,6 +220,23 @@ export default function BatchDetail({
   const base = stocks.find(s => s.base)?.base
   const tg   = useMemo(() => base ? targetDates(base) : null, [base])
 
+  // Sector Predominance mini-list (v7.21.0) — ranked sector counts for the
+  // WHOLE batch (all its stocks), independent of any group/filter/sort UI
+  // state on this page. No date filters here — per Alex's scope, this is
+  // the compact "just show me the ranking for this batch" view; the full
+  // filterable panel lives on All Stocks.
+  const sectorRanking = useMemo(() => {
+    const counts = new Map()
+    for (const s of stocks) {
+      const sec = fundamentals[s.t]?.sector || '—'
+      counts.set(sec, (counts.get(sec) ?? 0) + 1)
+    }
+    const total = stocks.length
+    return [...counts.entries()]
+      .map(([sector, count]) => ({ sector, noSector: sector === '—', count, pct: total ? Math.round(count / total * 100) : 0 }))
+      .sort((a, b) => b.count - a.count)
+  }, [stocks, fundamentals])
+
   const [collapsed,   setCollapsed]   = useState({})
   const [helpCol,     setHelpCol]     = useState(null)
   const [allExpanded, setAllExpanded] = useState(false)
@@ -366,6 +383,29 @@ export default function BatchDetail({
           </Button>
         </div>
       </div>
+
+      {/* ── Sector Predominance mini-list (v7.21.0) ───────────────────── */}
+      {sectorRanking.length > 0 && (
+        <div className="border border-border rounded-lg bg-card p-3.5 mb-4 max-w-[380px]">
+          <div className="flex items-center gap-1.5 mb-2.5">
+            <span className="text-[13px]">🏭</span>
+            <span className="text-[12.5px] font-bold text-foreground">Sectores de este batch</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            {sectorRanking.map((row, i) => (
+              <div key={row.sector} className="flex items-center gap-2 text-[11.5px]">
+                <span className="text-[9.5px] font-extrabold text-muted-foreground w-3.5 shrink-0">{i + 1}</span>
+                <span className={cn('flex-1 truncate', row.noSector && 'italic text-muted-foreground')}>
+                  {row.noSector ? 'Sin sector' : row.sector}
+                </span>
+                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
+                  {row.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Table ──────────────────────────────────────────────────────── */}
       <div className="border border-border rounded-lg overflow-x-clip mb-6 shadow-sm bg-card">

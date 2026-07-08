@@ -6875,12 +6875,10 @@ git checkout -b fix/exportpage-responsive-width
 
 unzip -o ~/Downloads/openbank-price-prediction_v7.20.7.zip -d .
 git status
-git diff --stat
-# expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
-# (the .jsx diff should be tiny — 2 className changes + 1 comment)
+git diff --stat   # expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+                  # (the .jsx diff should be tiny — 2 className changes + 1 comment)
 
-npm run test:run
-# existing suite should stay green — no logic touched.
+npm run test:run   # existing suite should stay green — no logic touched.
 
 git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
 git commit -m "fix: Export page now responsive to available width (v7.20.7)
@@ -6909,4 +6907,139 @@ git checkout main && git pull origin main
 git merge --no-ff --no-edit fix/exportpage-responsive-width
 git push origin main
 git push origin v7.20.7
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP (no number — v7.20.8) applied directly to main by Alex, no branch:
+#   chore: rename Pine Script indicator to 'Openbank Forecast Ondas v6'
+#   src/utils/waveScript.js + src/components/WaveScriptPage.jsx
+#   Committed, tagged v7.20.8, and pushed straight to main. Documented here
+#   for changelog continuity only — nothing to replay.
+# ===========================================================================
+
+
+# ===========================================================================
+# STEP 221 — v7.21.0  Sector Predominance (AllStocks panel + BatchDetail list)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 2 src files + 2 docs:
+#        src/components/AllStocksPage.jsx
+#        src/components/BatchDetail.jsx
+#        README.md + GIT_GUIDE.md
+#
+# Mockup-confirmed (2 rounds — isolated panel, then full-page context showing
+# where it sits relative to Top Picks / Mejores trades / Filters).
+#
+# ── AllStocksPage.jsx ────────────────────────────────────────────────────
+#   New collapsible "🏭 Predominancia de sectores" panel — same card style
+#   as "Mejores trades" (header/badge/chevron), inserted right after it,
+#   collapsed by default. Ranks sectors by count/% across EVERY ticker×batch
+#   instance (Object.values(instancesByTicker).flat()) — deliberately
+#   independent of the page's own Market/Trend/search/Best-only filters,
+#   since this panel answers its own standalone question.
+#
+#   Two independent, optional date filters (each has its own on/off toggle):
+#     - Batch date range: month+year "Desde" → month+year "Hasta"
+#     - Forecast/target date range: its OWN horizon selector (1M/3M/6M/12M,
+#       separate from the page's main Horizon filter) + month+year range
+#
+#   Forecast-date bucketing: uses the REAL parseDate() + targetDates() from
+#   utils/dates.js. Initially shipped with a locally-implemented "calendar
+#   month arithmetic" helper (matching the pipeline's CSV/calendar-event
+#   convention: 1M/3M/6M/12M = +1/+3/+6/+12 calendar months, same
+#   day-of-month) — corrected once utils/dates.js became available and
+#   revealed the deployed app's OWN targetDates() actually uses fixed day
+#   offsets instead: 1M=+30d, 3M=+91d, 6M=+182d, 12M=+365d. Caught and fixed
+#   before this version shipped (never went out with the wrong rule).
+#   Verified against the real rule via a Node simulation (e.g. 31 Jan + 1M
+#   correctly lands on 2 Mar, not 28/29 Feb as calendar-month math would give).
+#
+#   New shared date helpers: monthYearStart/End, HORIZON_DKEY (maps
+#   '1M'→'d1' etc. — the keys targetDates() itself returns) — module-level,
+#   near parseBatchDate/MONTHS.
+#
+#   SECOND FIX (caught in preview testing — forecast filter matched zero
+#   results regardless of range): was reading each ticker's base date from
+#   s.base (populated from r0?.base on the raw Supabase result row) — that
+#   field doesn't exist on batches.results rows (they have basePrice/
+#   targetPrice/targetDate/verdict, not a "base" date), so s.base was always
+#   null and every instance got filtered out. Fixed to use s.batchDate
+#   instead — every ticker in a batch shares the batch's own date as its
+#   base date (one screenshot session = one date), and batchDate is already
+#   reliable and used everywhere else in this file. Verified with Node
+#   simulation: 0 results before, correct results after.
+#
+# ── BatchDetail.jsx (formerly StockTable.jsx) ───────────────────────────
+#   Small ranked sector list for the CURRENT batch's own stocks only — no
+#   date filters (matches the mockup's "compact, I'd be satisfied with just
+#   this" scope). Inserted right after the page header, before the table.
+#
+# Both pieces reuse the `sector` field already attached via fundamentals
+# (defaults to '—', shown as "Sin sector") — no new data source needed.
+#
+# QUALITY CHECK (learned from the v7.20.0 incident): full diff review before
+# packaging confirmed ZERO deleted lines in either file — both changes are
+# purely additive.
+#
+git checkout main && git pull origin main
+git checkout -b feat/sector-predominance
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.21.0.zip -d .
+git status
+git diff --stat
+# expect: AllStocksPage.jsx + BatchDetail.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+# existing suite should stay green — no existing logic touched,
+# only new additive code + 2 new JSX sections.
+
+git add src/components/AllStocksPage.jsx src/components/BatchDetail.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Sector Predominance — All Stocks panel + Batch Detail list (v7.21.0)
+
+New collapsible panel on All Stocks (same style as Mejores trades, collapsed
+by default) ranking sectors by count/% across every ticker x batch instance,
+with 2 independent optional date filters: batch date range, and forecast/
+target date range (own horizon selector + month/year range). Forecast-date
+bucketing uses the real parseDate()/targetDates() from utils/dates.js (fixed
+day offsets: 1M=+30d, 3M=+91d, 6M=+182d, 12M=+365d), verified against that
+rule via Node simulation. Fixed a second issue caught in preview testing:
+the forecast filter read each ticker's base date from s.base, which doesn't
+exist on Supabase result rows and was always null (filter matched zero
+results regardless of range) — switched to s.batchDate, which every ticker
+in a batch correctly shares. Batch Detail (formerly StockTable)
+gets a small ranked sector list for its own batch, no filters. Both reuse
+the existing sector field from fundamentals. Zero deleted lines in either
+file — purely additive. Mockup-confirmed (2 rounds)."
+git tag -a v7.21.0 -m "v7.21.0: Sector Predominance — All Stocks panel + Batch Detail list"
+git push -u origin feat/sector-predominance
+git push origin v7.21.0
+
+# → Vercel preview checklist:
+#   1. All Stocks — new "Predominancia de sectores" section appears right
+#      after "Mejores trades", collapsed (just one header line).
+#   2. Click to expand — 2 filter groups (Fecha de batch / Fecha de
+#      previsión), each with its own on/off toggle. Ranked sector bars
+#      below, with count + % per sector.
+#   3. Toggle ONLY the batch-date filter on, pick a narrow range — sector
+#      list and "Mostrando X acciones de Y batches" update accordingly.
+#   4. Toggle ONLY the forecast-date filter on, try different horizons
+#      (1M/3M/6M/12M) — results should change per horizon (different target
+#      dates land in different months). NOTE: the default "Hasta" year only
+#      covers your batch date range + a small pad — for longer horizons
+#      (6M/12M) the real target dates land further out, so you may need to
+#      widen "Hasta" to a later year to see matches. That's expected, not
+#      a bug — the year dropdown already covers a couple of years beyond
+#      your newest batch for exactly this reason.
+#   5. Toggle BOTH filters on together — combined (AND) filtering.
+#   6. "Limpiar filtros" resets both toggles off.
+#   7. Batch Overview Detail page — small "🏭 Sectores de este batch" card
+#      appears under the header, above the predictions table, with a plain
+#      ranked list (no filters) for that batch's own stocks.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/sector-predominance
+git push origin main
+git push origin v7.21.0
 # Branch kept as historical reference — do NOT delete.

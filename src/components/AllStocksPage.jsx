@@ -23,6 +23,7 @@ import { TrendingUp, TrendingDown, Download, ChevronDown, ChevronUp, Info, Zap }
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { loadAllWeeklyPrices, loadFundamentalsCache } from '@/services/storage'
+import { parseDate, targetDates } from '@/utils/dates.js'
 import TradingViewModal from './TradingViewModal.jsx'
 import AllStocksExpandCard from './AllStocksExpandCard.jsx'
 
@@ -243,6 +244,29 @@ function expandStockInstances(batches) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+/**
+ * Sector Predominance date helpers (v7.21.0).
+ *
+ * monthYearStart/End — convert a (month 0-11, year) pair into the first/last
+ * millisecond of that month, for inclusive from/to range filtering.
+ *
+ * Forecast/target dates themselves are computed with the real targetDates()
+ * from utils/dates.js (parseDate + targetDates), NOT a locally-reimplemented
+ * rule — see HORIZON_DKEY below. (v7.21.0 initially shipped with a
+ * locally-implemented "calendar month arithmetic" helper here, based on the
+ * pipeline's CSV/calendar-event convention — turned out the deployed app's
+ * own targetDates() uses fixed day offsets instead: 1M=+30d, 3M=+91d,
+ * 6M=+182d, 12M=+365d, not "+1/3/6/12 calendar months". Fixed before this
+ * version shipped, once utils/dates.js was available to confirm.)
+ */
+function monthYearStart(month, year) {
+  return new Date(year, month, 1).getTime()
+}
+function monthYearEnd(month, year) {
+  return new Date(year, month + 1, 0, 23, 59, 59, 999).getTime()
+}
+const HORIZON_DKEY = { '1M': 'd1', '3M': 'd3', '6M': 'd6', '12M': 'd12' }
 
 // v7.13.3 — build a per-horizon settled-price map from a batch's result rows.
 // { "1M": { price: <priceOnDate>, date: <targetDate> }, ... } — only rows that
@@ -669,6 +693,44 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
   const [tradingOpen,     setTradingOpen]     = useState(true)   // expanded by default
   const [tradingHelpOpen, setTradingHelpOpen] = useState(false)  // help closed by default
   const [tradingHorizon,  setTradingHorizon]  = useState('1M')
+
+  // ── Sector Predominance (v7.21.0) ─────────────────────────────────────────
+  // Collapsed by default (same pattern as Mejores trades) — one more line
+  // until opened, no extra visual weight on the page.
+  const [sectorPanelOpen, setSectorPanelOpen] = useState(false)
+
+  // Default date-range bounds: span of actual batch dates present, so the
+  // filter shows something meaningful (everything) the first time it's
+  // toggled on, rather than an empty or arbitrarily-narrow default.
+  const batchTsList = (batches ?? [])
+    .map(b => parseBatchDate(b.date))
+    .filter(t => t != null)
+  const minBatchDate = batchTsList.length ? new Date(Math.min(...batchTsList)) : new Date()
+  const maxBatchDate = batchTsList.length ? new Date(Math.max(...batchTsList)) : new Date()
+
+  const [batchFilterOn, setBatchFilterOn] = useState(false)
+  const [batchFromM,    setBatchFromM]    = useState(() => minBatchDate.getMonth())
+  const [batchFromY,    setBatchFromY]    = useState(() => minBatchDate.getFullYear())
+  const [batchToM,      setBatchToM]      = useState(() => maxBatchDate.getMonth())
+  const [batchToY,      setBatchToY]      = useState(() => maxBatchDate.getFullYear())
+
+  const [forecastFilterOn, setForecastFilterOn] = useState(false)
+  const [forecastHorizonSel, setForecastHorizonSel] = useState('1M')
+  const [forecastFromM, setForecastFromM] = useState(() => minBatchDate.getMonth())
+  const [forecastFromY, setForecastFromY] = useState(() => minBatchDate.getFullYear())
+  const [forecastToM,   setForecastToM]   = useState(() => maxBatchDate.getMonth())
+  const [forecastToY,   setForecastToY]   = useState(() => maxBatchDate.getFullYear())
+
+  // Year options for the 4 dropdowns — derived from actual batch data, with a
+  // 1-year pad on each side so a forecast date range slightly beyond the
+  // newest batch (e.g. a 12M target) has somewhere to point to.
+  const yearOptions = useMemo(() => {
+    const minY = minBatchDate.getFullYear() - 1
+    const maxY = maxBatchDate.getFullYear() + 2
+    const ys = []
+    for (let y = minY; y <= maxY; y++) ys.push(y)
+    return ys
+  }, [minBatchDate, maxBatchDate])
   const [tradingN,        setTradingN]        = useState(5)
   // #6 ticker/company search (v7.11.1) — filters the table live; respects other filters + sort.
   const [searchQuery, setSearchQuery] = useState('')
@@ -762,6 +824,71 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
     }
     return out
   }, [batches, allFundamentals])
+
+  // Sector Predominance (v7.21.0) — ranked sector counts across ALL instances
+  // (every ticker×batch, not deduplicated), independent of the page's own
+  // Market/Trend/search/Best-only filters — this panel answers its own
+  // question ("what sectors predominate in this date range") using only its
+  // own 2 date filters, each optional and independent (batch date / forecast
+  // date). Skipped while collapsed to avoid the extra work on every render.
+  const sectorPanelData = useMemo(() => {
+    if (!sectorPanelOpen) return null
+    let pool = Object.values(instancesByTicker).flat()
+
+    if (batchFilterOn) {
+      const from = monthYearStart(batchFromM, batchFromY)
+      const to   = monthYearEnd(batchToM, batchToY)
+      pool = pool.filter(s => {
+        const t = parseBatchDate(s.batchDate)
+        return t != null && t >= from && t <= to
+      })
+    }
+
+    if (forecastFilterOn) {
+      const dKey = HORIZON_DKEY[forecastHorizonSel]
+      const from = monthYearStart(forecastFromM, forecastFromY)
+      const to   = monthYearEnd(forecastToM, forecastToY)
+      pool = pool.filter(s => {
+        // v7.21.0 fix: s.base (from raw result row r0?.base) was always null —
+        // that field doesn't exist on Supabase's batches.results rows (which
+        // have basePrice/targetPrice/targetDate/verdict, not a "base" date).
+        // Every ticker in a batch shares the SAME base date as the batch
+        // itself (one screenshot session = one date), so s.batchDate — already
+        // reliably populated and used everywhere else in this file — is the
+        // correct source, not s.base.
+        const baseDate = parseDate(s.batchDate)
+        if (!baseDate) return false
+        const targetTs = targetDates(baseDate)[dKey].getTime()
+        return targetTs >= from && targetTs <= to
+      })
+    }
+
+    const counts = new Map()
+    for (const s of pool) {
+      const key = s.sector && s.sector !== '—' ? s.sector : '—'
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const total = pool.length
+    const ranked = [...counts.entries()]
+      .map(([sector, count]) => ({
+        sector,
+        noSector: sector === '—',
+        count,
+        pct: total ? Math.round(count / total * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+
+    return {
+      ranked,
+      total,
+      batchesInRange:  new Set(pool.map(s => s.batchId)).size,
+      tickersInRange:  new Set(pool.map(s => s.tNorm)).size,
+    }
+  }, [
+    sectorPanelOpen, instancesByTicker,
+    batchFilterOn, batchFromM, batchFromY, batchToM, batchToY,
+    forecastFilterOn, forecastHorizonSel, forecastFromM, forecastFromY, forecastToM, forecastToY,
+  ])
 
   // Unique sectors for filter dropdown
   const sectors = useMemo(() => {
@@ -1257,6 +1384,220 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
                 </div>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* ── Sector Predominance (v7.21.0) — collapsed by default, same card
+             style as Mejores trades. 2 independent optional date filters:
+             batch date range, and forecast/target date range (with its own
+             horizon selector, separate from the page's main Horizon filter). ── */}
+      {baseStocks.length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div
+            className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none"
+            onClick={() => setSectorPanelOpen(o => !o)}
+          >
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[15px]">🏭</span>
+                <h2 className="text-sm font-bold text-foreground">Predominancia de sectores</h2>
+                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">Nuevo</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Todas las acciones cargadas — filtra por fecha de batch y/o de previsión
+              </p>
+            </div>
+            {sectorPanelOpen ? <ChevronUp size={15} className="text-muted-foreground shrink-0" /> : <ChevronDown size={15} className="text-muted-foreground shrink-0" />}
+          </div>
+
+          {sectorPanelOpen && (
+            <div className="px-4 pb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                {/* Filtro 1 — fecha de batch */}
+                <div className="bg-muted/40 border border-border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-1.5 text-[12px] font-bold text-foreground">
+                      <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                      Fecha de batch
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={batchFilterOn}
+                        onChange={e => setBatchFilterOn(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-border rounded-full peer peer-checked:bg-primary transition-colors" />
+                      <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-card rounded-full transition-transform peer-checked:translate-x-4" />
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                    <span className="text-[9.5px] font-bold uppercase text-muted-foreground">Desde</span>
+                    <select
+                      value={batchFromM}
+                      disabled={!batchFilterOn}
+                      onChange={e => setBatchFromM(Number(e.target.value))}
+                      className="px-1.5 py-1 rounded-md border border-border bg-card text-[11px] text-foreground disabled:opacity-40"
+                    >
+                      {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                    </select>
+                    <select
+                      value={batchFromY}
+                      disabled={!batchFilterOn}
+                      onChange={e => setBatchFromY(Number(e.target.value))}
+                      className="px-1.5 py-1 rounded-md border border-border bg-card text-[11px] text-foreground disabled:opacity-40"
+                    >
+                      {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="text-[9.5px] font-bold uppercase text-muted-foreground">Hasta</span>
+                    <select
+                      value={batchToM}
+                      disabled={!batchFilterOn}
+                      onChange={e => setBatchToM(Number(e.target.value))}
+                      className="px-1.5 py-1 rounded-md border border-border bg-card text-[11px] text-foreground disabled:opacity-40"
+                    >
+                      {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                    </select>
+                    <select
+                      value={batchToY}
+                      disabled={!batchFilterOn}
+                      onChange={e => setBatchToY(Number(e.target.value))}
+                      className="px-1.5 py-1 rounded-md border border-border bg-card text-[11px] text-foreground disabled:opacity-40"
+                    >
+                      {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Filtro 2 — fecha de previsión (con su propio selector de horizonte) */}
+                <div className="bg-muted/40 border border-border rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-1.5 text-[12px] font-bold text-foreground">
+                      <span className="w-2 h-2 rounded-full bg-violet-600 shrink-0" />
+                      Fecha de previsión
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={forecastFilterOn}
+                        onChange={e => setForecastFilterOn(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-border rounded-full peer peer-checked:bg-primary transition-colors" />
+                      <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-card rounded-full transition-transform peer-checked:translate-x-4" />
+                    </label>
+                  </div>
+                  <div className="flex gap-1 mb-2">
+                    {['1M', '3M', '6M', '12M'].map(h => (
+                      <button
+                        key={h}
+                        type="button"
+                        disabled={!forecastFilterOn}
+                        onClick={() => setForecastHorizonSel(h)}
+                        className={cn(
+                          'text-[9.5px] font-bold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-40',
+                          forecastHorizonSel === h
+                            ? 'bg-violet-100 text-violet-700 border-transparent dark:bg-violet-900/30 dark:text-violet-300'
+                            : 'bg-card text-muted-foreground border-border'
+                        )}
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                    <span className="text-[9.5px] font-bold uppercase text-muted-foreground">Desde</span>
+                    <select
+                      value={forecastFromM}
+                      disabled={!forecastFilterOn}
+                      onChange={e => setForecastFromM(Number(e.target.value))}
+                      className="px-1.5 py-1 rounded-md border border-border bg-card text-[11px] text-foreground disabled:opacity-40"
+                    >
+                      {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                    </select>
+                    <select
+                      value={forecastFromY}
+                      disabled={!forecastFilterOn}
+                      onChange={e => setForecastFromY(Number(e.target.value))}
+                      className="px-1.5 py-1 rounded-md border border-border bg-card text-[11px] text-foreground disabled:opacity-40"
+                    >
+                      {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="text-[9.5px] font-bold uppercase text-muted-foreground">Hasta</span>
+                    <select
+                      value={forecastToM}
+                      disabled={!forecastFilterOn}
+                      onChange={e => setForecastToM(Number(e.target.value))}
+                      className="px-1.5 py-1 rounded-md border border-border bg-card text-[11px] text-foreground disabled:opacity-40"
+                    >
+                      {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                    </select>
+                    <select
+                      value={forecastToY}
+                      disabled={!forecastFilterOn}
+                      onChange={e => setForecastToY(Number(e.target.value))}
+                      className="px-1.5 py-1 rounded-md border border-border bg-card text-[11px] text-foreground disabled:opacity-40"
+                    >
+                      {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {(batchFilterOn || forecastFilterOn) && (
+                <button
+                  type="button"
+                  onClick={() => { setBatchFilterOn(false); setForecastFilterOn(false) }}
+                  className="text-[10.5px] text-muted-foreground hover:text-foreground underline underline-offset-2 mt-2"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+
+              {sectorPanelData && (
+                <>
+                  <div className="text-[11px] text-muted-foreground mt-3">
+                    Mostrando <b className="text-foreground">{sectorPanelData.total} acciones</b> de{' '}
+                    <b className="text-foreground">{sectorPanelData.batchesInRange} batches</b>
+                    {' '}· <b className="text-foreground">{sectorPanelData.tickersInRange} tickers únicos</b>
+                  </div>
+
+                  <div className="h-px bg-border my-3" />
+
+                  {sectorPanelData.total === 0 ? (
+                    <div className="text-[11px] text-muted-foreground text-center py-4">
+                      Ninguna acción coincide con este rango de fechas.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      {sectorPanelData.ranked.map((row, i) => (
+                        <div key={row.sector} className="flex items-center gap-2.5">
+                          <div className="text-[9.5px] font-extrabold text-muted-foreground w-4 shrink-0">{i + 1}</div>
+                          <div className={cn(
+                            'text-[11.5px] font-semibold w-[150px] shrink-0 truncate',
+                            row.noSector && 'italic text-muted-foreground font-normal'
+                          )}>
+                            {row.noSector ? 'Sin sector (fundamentals no cargados)' : row.sector}
+                          </div>
+                          <div className="flex-1 h-3.5 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className={cn('h-full rounded-full transition-[width] duration-300', row.noSector ? 'bg-border' : 'bg-primary')}
+                              style={{ width: `${row.pct}%` }}
+                            />
+                          </div>
+                          <div className="text-[10.5px] font-bold w-16 text-right shrink-0">{row.count} stocks</div>
+                          <div className="text-[10px] text-muted-foreground w-8 text-right shrink-0">{row.pct}%</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
       )}
