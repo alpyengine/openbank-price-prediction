@@ -1441,11 +1441,24 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
       <Legend />
 
       {/* ── Table ──────────────────────────────────────────────────────────── */}
-      {/* overflow-x-auto on the card keeps the table inside the white box (no gray spill).
-          The inner div handles vertical scroll so sticky top-0 on <th> works correctly —
-          sticky needs a scrolling ancestor on the same axis (vertical here). */}
-      <div className="bg-card border border-border rounded-xl overflow-x-auto">
-        <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
+      {/* v7.20.5 — two-stage scroll, as intended:
+          1) The page scrolls normally (KPIs, Top Picks, filters, legend scroll
+             away) until this wrapper's top edge would go above the viewport.
+          2) At that point `sticky top-0` pins the wrapper right there — the
+             page's own scroll effectively "stops" moving it any further.
+          3) From then on, further scroll input is consumed by THIS element's
+             own overflow-y-auto + max-h-screen: a second, independent
+             scrollbar for the table rows only, filling the rest of the
+             viewport. `sticky top-0` on each <th> keeps the header row
+             visible while that second scroll happens.
+          v7.20.4 removed this nested-scroll wrapper entirely, assuming a
+          single continuous page scroll with just a floating sticky header
+          was wanted — turned out to be the wrong shape of fix; this restores
+          the two-stage behaviour while keeping the wrapper itself sticky
+          (v7.20.4's regression was pinning the header to the wrong ancestor;
+          this version fixes THAT root cause while giving the container the
+          sticky+overflow combo instead of a fixed always-on max-height). */}
+      <div className="bg-card border border-border rounded-xl overflow-x-auto overflow-y-auto sticky top-0 max-h-screen">
         <table className="w-full border-collapse text-[11.5px]">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
@@ -1855,7 +1868,6 @@ export default function AllStocksPage({ batches, fundamentals, autoPrices = {}, 
             })}
           </tbody>
         </table>
-        </div>{/* end overflow-y-auto */}
       </div>
 
       <div className="text-[10px] text-muted-foreground text-right">
