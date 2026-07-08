@@ -84,7 +84,7 @@ export default function WaveScriptPage({ batches = [] }) {
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')
       a.href     = url
-      a.download = 'indicador_master_ondas.txt'
+      a.download = 'Openbank_Forecast_Ondas_v6.txt'
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
