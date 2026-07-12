@@ -6987,12 +6987,10 @@ git checkout -b feat/sector-predominance
 
 unzip -o ~/Downloads/openbank-price-prediction_v7.21.0.zip -d .
 git status
-git diff --stat
-# expect: AllStocksPage.jsx + BatchDetail.jsx + README.md + GIT_GUIDE.md
+git diff --stat   # expect: AllStocksPage.jsx + BatchDetail.jsx + README.md + GIT_GUIDE.md
 
-npm run test:run
-# existing suite should stay green — no existing logic touched,
-# only new additive code + 2 new JSX sections.
+npm run test:run   # existing suite should stay green — no existing logic touched,
+                   # only new additive code + 2 new JSX sections.
 
 git add src/components/AllStocksPage.jsx src/components/BatchDetail.jsx README.md GIT_GUIDE.md
 git commit -m "feat: Sector Predominance — All Stocks panel + Batch Detail list (v7.21.0)
@@ -7042,4 +7040,626 @@ git checkout main && git pull origin main
 git merge --no-ff --no-edit feat/sector-predominance
 git push origin main
 git push origin v7.21.0
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 222 — v7.22.0  Export: Investment Candidates report
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# Mockup-confirmed. Built after 4 scoping decisions with Alex: (1) manual
+# thresholds set at export time, not fixed criteria; (2) both CSV (for
+# importing into his other investment-strategy project) and HTML/PDF
+# (visual review); (3) every ticker×batch instance across ALL batches, not
+# deduplicated; (4) per-ticker averages use ALL of a ticker's historical
+# instances, not just the ones passing the filter — avoids survivorship
+# bias, confirmed explicitly after walking through a worked example.
+#
+# WHAT'S NEW:
+#   - Report-type selector at the top: "Informe de batch" (existing,
+#     unchanged) vs "Candidatos de inversión" (new).
+#   - buildCandidatePool(batches, fundamentals): flattens every ticker×batch
+#     instance with score/sector/PEG/margin/upside-per-horizon attached —
+#     mirrors AllStocksPage's grouping logic, simplified to what this report
+#     needs.
+#   - filterCandidates(pool, criteria): Score min, Entry Quality min, Upside
+#     min (for a selectable horizon), Market, Trend — all manual, set via
+#     sliders/pills in the new Step 1.
+#   - aggregateByTicker(fullPool, matchingInstances): one row per qualifying
+#     ticker, Score/Upside(×4 horizons) averaged across the ticker's FULL
+#     history (not just filter-passing instances) — verified against a
+#     worked Node simulation (AMD: 3 instances, 1 filtered out, average
+#     still computed from all 3 — matched manual calculation exactly).
+#   - CSV exports (buildSummaryCsv, buildInstancesCsv) — 2 separate
+#     downloads, structured for import elsewhere.
+#   - HTML/PDF export (buildCandidatesReportHtml) — reuses the existing
+#     visual report style.
+#   - renderHtmlToPdf() extracted from the original inline handleExportPdf
+#     so the new PDF export reuses the same iframe/html2canvas/jsPDF
+#     pipeline instead of duplicating it.
+#
+# DELIBERATE DUPLICATION (flagged, not fixed unilaterally): calcScore,
+# entryQuality, getMarket, displayTicker, and their dependencies (WEIGHTS,
+# upsideScore, pegScore, marginScore) are copied from AllStocksPage.jsx
+# rather than extracted into a shared utils module — kept this version
+# scoped to ExportPage.jsx only, rather than also touching the larger,
+# already-stable AllStocksPage.jsx. Worth consolidating into e.g.
+# src/utils/scoring.js in a future version if it drifts.
+#
+# SEMANTIC NOTE: this report's Entry Quality uses forecast-time upside
+# (from the batch's base price, i.e. u1/u3/u6/u12) — NOT "upside from
+# today's live price" like All Stocks' own Entry Quality column (which
+# needs weeklyPrices/autoPrices cascade logic this page doesn't receive).
+# The two can legitimately show different numbers for the same ticker.
+#
+# QUALITY CHECK: full diff review before packaging confirmed every
+# "removed" line in the raw diff was just re-indentation (Step 1/2/3 moved
+# inside a reportType==='batch' conditional, PDF pipeline moved into
+# renderHtmlToPdf) — nothing actually lost. Core pipeline (pool → filter →
+# aggregate) verified against real-shaped mock data via Node simulation.
+#
+git checkout main && git pull origin main
+git checkout -b feat/export-investment-candidates
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.0.zip -d .
+git status
+git diff --stat   # expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run   # existing suite should stay green — no existing logic
+                   # changed, only new additive code + report-type toggle.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Export — Investment Candidates report (v7.22.0)
+
+New report type alongside the existing per-batch report: scans every
+ticker x batch instance across all saved batches, with manual thresholds
+set at export time (Score min, Entry Quality min, Upside min + horizon,
+Market, Trend) deciding which tickers qualify. Two output tables: summary
+(one row per ticker, Score/Upside averaged across ALL historical instances
+of that ticker — not just filter-passing ones, avoiding survivorship bias)
+and raw instances (one row per matching ticker x batch, for traceability).
+Exports as CSV (summary + instances, for importing into an external
+investment-strategy project) and HTML/PDF (reuses the existing report
+pipeline, now extracted into a shared renderHtmlToPdf() helper). Scoring
+logic duplicated from AllStocksPage.jsx rather than extracted to a shared
+module — flagged, not decided unilaterally. Verified with Node simulation
+before delivery; full diff review confirmed no accidental deletions."
+git tag -a v7.22.0 -m "v7.22.0: Export — Investment Candidates report (manual filters, CSV+HTML/PDF)"
+git push -u origin feat/export-investment-candidates
+git push origin v7.22.0
+
+# → Vercel preview checklist:
+#   1. Export page — new toggle at top, "Candidatos de inversión" selectable.
+#   2. Adjust the 3 sliders (Score/Entry Quality/Upside min) + horizon pills
+#      + Market/Trend — the "Coinciden X instancias de Y tickers" summary
+#      updates live.
+#   3. Preview table at the bottom shows the top matches, sorted by score.
+#   4. "CSV resumen" downloads one row per ticker; "CSV instancias" downloads
+#      one row per matching ticker x batch — open both in a spreadsheet and
+#      sanity-check a ticker that appears in multiple batches: its avg_score
+#      / avg_upside_* in the summary CSV should reflect ALL its historical
+#      instances, even if only some of them show up in the instances CSV.
+#   5. HTML and PDF export both work, matching the content checkboxes.
+#   6. Switch back to "Informe de batch" — confirm the original flow still
+#      works exactly as before (untouched).
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/export-investment-candidates
+git push origin main
+git push origin v7.22.0
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 223 — v7.22.1  Fix: Candidates report empty exports + match counter
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY (one root cause, two symptoms Alex reported):
+#   The 4 export buttons had inconsistent disabled conditions:
+#     CSV resumen:    disabled={aggregatedCandidates.length === 0 || ...}  ✓
+#     CSV instancias: disabled={filteredCandidates.length === 0 || ...}   ✓
+#     HTML:           disabled={!candAnySelected || ...}                  ✗ missing the count check
+#     PDF:            disabled={!candAnySelected || ...}                  ✗ missing the count check
+#   So when the active filter matched 0 tickers, the CSV buttons correctly
+#   greyed out (Alex's "solo me permite HTML/PDF pero no CSV") while
+#   HTML/PDF stayed clickable and generated an EMPTY report (Alex's "los
+#   reportes salen vacíos") — same bug, two different-looking complaints.
+#
+# WHAT CHANGED:
+#   - Added `filteredCandidates.length === 0` to the HTML and PDF buttons'
+#     disabled condition too — all 4 buttons now agree.
+#   - Match counter (Step 1) — was a thin `text-muted-foreground` line, easy
+#     to miss. Now a colored box: primary-tinted when there are matches,
+#     amber warning ("⚠️ Ningún ticker cumple estos criterios — baja los
+#     umbrales") when there are none.
+#   - Added a matching small note next to the Step 3 export buttons
+#     ("Los botones están desactivados: ningún ticker cumple los criterios
+#     del Paso 1") for anyone who scrolls straight to Export without
+#     noticing the Step 1 counter.
+#
+# NO LOGIC CHANGES beyond the disabled-condition fix — pool/filter/
+# aggregate/CSV/HTML/PDF builders are untouched.
+#
+git checkout main && git pull origin main
+git checkout -b fix/export-candidates-empty-report
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.1.zip -d .
+git status
+git diff --stat   # expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+                  # (small diff: 2 disabled= conditions + the counter box + 1 note)
+
+npm run test:run   # existing suite should stay green.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: Candidates report — empty HTML/PDF exports + match counter (v7.22.1)
+
+HTML/PDF export buttons only checked candAnySelected (content checkboxes),
+never the match count, unlike the CSV buttons — so they stayed clickable
+and produced empty reports whenever the filter matched 0 tickers. Added
+the same filteredCandidates.length===0 check to all 4 buttons. Also made
+the live match counter far more prominent (colored box, amber warning when
+0 matches) plus a note next to the export buttons explaining why they're
+disabled. No logic changes beyond the disabled-condition fix."
+git tag -a v7.22.1 -m "v7.22.1: fix Candidates report empty exports + prominent match counter"
+git push -u origin fix/export-candidates-empty-report
+git push origin v7.22.1
+
+# → Vercel preview: set criteria that match 0 tickers (e.g. Score min 100) —
+#   confirm ALL 4 export buttons grey out, and the amber warning shows both
+#   in Step 1 and next to the Step 3 buttons. Then lower the thresholds
+#   until matches appear — confirm all 4 buttons re-enable and the counter
+#   switches back to the normal (non-amber) style.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/export-candidates-empty-report
+git push origin main
+git push origin v7.22.1
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 224 — v7.22.2  Fix: Candidates filter wrongly excludes missing data
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY (Alex's real screenshot: Score min 0, Entry Quality min 2, Upside
+# min 0%, Market Todos, Trend Bullish — 0 tickers matched out of 180+):
+#   filterCandidates required `s.score` / upside to be non-null
+#   UNCONDITIONALLY — even when the matching threshold was 0 ("don't care
+#   about this dimension"). Most historical instances don't have cached
+#   fundamentals, so `score` is null for them (calcScore returns null
+#   without a fundamental) — independent of whether THAT instance's upside
+#   is available (upside comes from the batch's own base/target price, not
+#   from fundamentals). Result: almost the whole 180+ pool got silently
+#   excluded regardless of how low the sliders were set.
+#
+# WHAT CHANGED:
+#   - filterCandidates: Score/Upside/Entry Quality checks now only ENFORCED
+#     when their threshold is > 0. At 0, missing data no longer excludes;
+#     above 0, missing data still excludes (can't confirm it clears a real
+#     bar — unchanged behaviour there).
+#   - New filterDiagnostics(pool, criteria): independent per-criterion
+#     counts over the full pool (how many have no score, no upside for the
+#     selected horizon) — shown in the empty-state warning so "0 matches"
+#     is never a silent black box again.
+#   - Verified with a Node simulation mirroring the real shape (150/180
+#     instances with no fundamentals but valid upside, scoreMin=0,
+#     eqMin=2, upsideMin=0): 30 matches before the fix, 180 after.
+#
+git checkout main && git pull origin main
+git checkout -b fix/export-candidates-null-data-filter
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.2.zip -d .
+git status
+git diff --stat   # expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run   # existing suite should stay green.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: Candidates filter wrongly excluded missing data at 0 thresholds (v7.22.2)
+
+filterCandidates required score/upside to be non-null unconditionally, even
+when the corresponding threshold was 0 (meant as 'don't care'). Since most
+historical instances lack cached fundamentals (score always null there,
+independent of upside — which comes from the batch's own price data, not
+fundamentals), this silently excluded almost the entire pool regardless of
+slider position — Alex's real case: 0 matches out of 180+ instances even
+with Score/EQ/Upside all near their minimum. Fixed: each check now only
+enforces when its threshold is raised above 0. Added filterDiagnostics()
+breakdown (no score / no upside counts) shown in the empty-state warning.
+Verified with Node simulation mirroring the real shape: 30 -> 180 matches."
+git tag -a v7.22.2 -m "v7.22.2: fix Candidates filter excluding missing data even at 0 thresholds"
+git push -u origin fix/export-candidates-null-data-filter
+git push origin v7.22.2
+
+# → Vercel preview: reproduce Alex's exact screenshot settings (Score min 0,
+#   Entry Quality min 2, Upside min 0%, Market Todos, Trend Bullish) —
+#   should now show a healthy number of matches instead of 0. Then push
+#   Score min up past 0 and confirm it correctly starts excluding
+#   no-fundamentals tickers again (the >0 guard shouldn't break real
+#   filtering once a threshold is actually set).
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/export-candidates-null-data-filter
+git push origin main
+git push origin v7.22.2
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 225 — v7.22.3  Candidates report: plain-language criteria help
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY: Score and Entry Quality are composite formulas (3 inputs each,
+# weighted) — Alex asked for a simple, always-checkable explanation of how
+# each criterion is actually calculated, especially those two.
+#
+# WHAT'S NEW:
+#   - New CRITERIA_HELP content object (Score / Entry Quality / Upside),
+#     plain-language description + the exact scoring bands/weights, kept
+#     manually in sync with calcScore()/entryQuality() above it.
+#   - New CriterionHelp component: a (?) icon next to each of the 3 slider
+#     labels that toggles an inline expanded explanation box (matches the
+#     app's existing "click to expand" pattern rather than a floating
+#     tooltip/popover — avoids the positioning/clipping issues already
+#     solved elsewhere for Sidebar's user menu).
+#   - Confirmed (no code change needed): sector was already present in both
+#     CSVs, the HTML report, and the on-screen preview table since v7.22.0.
+#
+# NO LOGIC CHANGES — purely additive help UI.
+#
+git checkout main && git pull origin main
+git checkout -b feat/export-candidates-criteria-help
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.3.zip -d .
+git status
+git diff --stat   # expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run   # existing suite should stay green.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Candidates report — plain-language help for Score/EQ/Upside (v7.22.3)
+
+Added a (?) icon next to each of the 3 filter criteria that expands an
+inline explanation with the real formula in simple terms: Score (40%
+upside-12M + 45% PEG + 15% margin, -20pts on negative EPS growth, empty
+when no fundamentals), Entry Quality (50/35/15 with Score, 75/25 without),
+Upside (plain target/base % for the selected horizon). No logic changes —
+purely additive help UI."
+git tag -a v7.22.3 -m "v7.22.3: Candidates report — plain-language help for the 3 criteria"
+git push -u origin feat/export-candidates-criteria-help
+git push origin v7.22.3
+
+# → Vercel preview: click each (?) icon next to Score/Entry Quality/Upside
+#   mínimo — confirm the explanation expands inline, is readable, and
+#   collapses again on a second click.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/export-candidates-criteria-help
+git push origin main
+git push origin v7.22.3
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 226 — v7.22.4  Fix: Candidates report missing sector/score everywhere
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY (Alex's screenshot: 9/9 tickers in the preview showed sector "—" and
+# Score "—"):
+#   The `fundamentals` prop ExportPage receives from App.jsx comes from
+#   useFundamentals() — state scoped to the CURRENTLY LOADED batch, swapped
+#   out via restoreFundamentals() every time a different batch is opened.
+#   The Candidates report spans every ticker×batch instance across ALL
+#   saved batches, but only ever had fundamentals for whichever single
+#   batch happened to be loaded at the time — everything else had no
+#   sector/PEG/margin data, so score/entryQuality were null for almost the
+#   entire pool (masked earlier by the v7.22.2 fix, which correctly stopped
+#   excluding null-score instances at 0 thresholds — but the underlying
+#   data gap was still there, just newly visible in the preview table).
+#
+# WHAT CHANGED:
+#   Mirrors AllStocksPage's existing 3-layer fundamentals merge:
+#     1. fundamentals_cache table (loadFundamentalsCache(), persistent,
+#        covers any ticker ever fetched — independent of which batch is
+#        currently open)
+#     2. each historical batch's OWN saved fundamentals snapshot
+#        (batch.fundamentals — every batch stores one when saved),
+#        oldest→newest so the newest batch wins on overlap
+#     3. the active in-memory `fundamentals` prop, as the final override
+#   New allFundamentals useMemo does this merge; buildCandidatePool now
+#   reads from it instead of the raw `fundamentals` prop directly.
+#
+# NO OTHER LOGIC CHANGES — pool/filter/aggregate/CSV/HTML builders
+# untouched, only what fundamentals source they draw from.
+#
+git checkout main && git pull origin main
+git checkout -b fix/export-candidates-fundamentals-coverage
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.4.zip -d .
+git status
+git diff --stat   # expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run   # existing suite should stay green.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: Candidates report — sector/score empty for almost every ticker (v7.22.4)
+
+The fundamentals prop only ever covers the currently loaded batch
+(useFundamentals() in App.jsx), so a report spanning every historical
+instance across all batches had fundamentals for at most one batch's
+tickers — everything else showed empty sector/score. Fixed by mirroring
+AllStocksPage's 3-layer merge: the persistent fundamentals_cache table,
+each historical batch's own saved fundamentals snapshot, and the active
+in-memory fundamentals as override. buildCandidatePool now uses this
+merged allFundamentals instead of the raw prop."
+git tag -a v7.22.4 -m "v7.22.4: fix Candidates report — merge fundamentals from cache + all historical batches"
+git push -u origin fix/export-candidates-fundamentals-coverage
+git push origin v7.22.4
+
+# → Vercel preview: open the Candidates report WITHOUT a specific batch
+#   loaded (or with an old/unrelated one loaded) and confirm the preview
+#   table now shows real sectors and Score values for tickers from OTHER
+#   batches too, not just "—" everywhere. Cross-check a couple of tickers
+#   against what All Stocks shows for the same ticker's sector.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/export-candidates-fundamentals-coverage
+git push origin main
+git push origin v7.22.4
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 227 — v7.22.5  Candidates report: technical appendix (glossary+formulas)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# Mockup-confirmed, 2 rounds — initial design (criteria table + formula
+# blocks), then Alex asked for a glossary explaining abbreviated terms
+# (PEG, EPS, margen neto) too, not just the composite formulas that use
+# them as inputs.
+#
+# WHAT'S NEW:
+#   - 3rd content checkbox in Step 2: "Explicación técnica de los filtros"
+#     (checked by default, full-width row matching the mockup).
+#   - buildCandidatesReportHtml() gains a technicalHtml section, appended
+#     at the end of the document when the checkbox is checked:
+#       1. Table of the EXACT criteria used in this specific export (not
+#          generic docs — the real threshold values from that session).
+#       2. Glossary: PEG, EPS, Margen neto, Precio base/objetivo — plain
+#          language + formula where applicable.
+#       3. Score / Entry Quality / Upside formula blocks — same content as
+#          the in-app (?) help (v7.22.3), reused here in the document's own
+#          fixed light style (the exported doc always renders the same,
+#          independent of the app's dark/light theme).
+#       4. Averaging-methodology note (same message as the in-app one,
+#          expanded slightly for a reader with no app context).
+#
+# VERIFIED: extracted buildCandidatesReportHtml() and ran it directly in
+# Node with mock data — confirmed the glossary, PEG explanation, and
+# criteria table all appear correctly in the actual generated HTML output
+# (not just visual mockup — the real function).
+#
+# NO OTHER LOGIC CHANGES — pool/filter/aggregate/CSV builders untouched.
+#
+git checkout main && git pull origin main
+git checkout -b feat/export-candidates-technical-appendix
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.5.zip -d .
+git status
+git diff --stat   # expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run   # existing suite should stay green.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Candidates report — technical appendix with glossary (v7.22.5)
+
+New 3rd content checkbox ('Explicación técnica de los filtros', checked by
+default) adds a fixed-style appendix at the end of the exported HTML/PDF:
+a table of the exact criteria used in that export, a glossary explaining
+PEG/EPS/Margen neto in plain language with their own formulas, the Score/
+Entry Quality/Upside formula blocks (same content as the in-app (?) help),
+and the averaging-methodology note. Mockup-confirmed across 2 rounds.
+Verified by running buildCandidatesReportHtml() directly with mock data."
+git tag -a v7.22.5 -m "v7.22.5: Candidates report — technical appendix with glossary and formulas"
+git push -u origin feat/export-candidates-technical-appendix
+git push origin v7.22.5
+
+# → Vercel preview checklist:
+#   1. Step 2 shows the new 3rd checkbox, checked by default, full width.
+#   2. Uncheck it — generate HTML/PDF — confirm the appendix is absent.
+#   3. Check it again — generate HTML/PDF — confirm the appendix appears at
+#      the end, with the criteria table showing YOUR actual filter values,
+#      the glossary (PEG/EPS/Margen neto), and the 3 formula blocks.
+#   4. Confirm the appendix's visual style is the fixed document style
+#      (light background, same as the rest of the report) regardless of
+#      whether the app itself is in dark or light mode.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/export-candidates-technical-appendix
+git push origin main
+git push origin v7.22.5
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 228 — v7.22.6  Fix: PDF pagination cuts content mid-block
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY (Alex's screenshot: the "Margen neto" formula box in the technical
+# appendix's glossary was sliced clean through the middle by a page break):
+#   renderHtmlToPdf() rendered the WHOLE document as one giant screenshot,
+#   then sliced that single image at fixed page-height intervals — with
+#   zero awareness of where any actual content sat. A table row, a formula
+#   box, a paragraph, could get cut wherever the arbitrary boundary landed.
+#
+# WHAT CHANGED:
+#   - Every top-level section in buildReportHtml AND buildCandidatesReportHtml
+#     (header, summary cards, predictions table, market performance,
+#     fundamentals, notes, the "Resumen"/"Instancias" tables, and — new in
+#     the technical appendix — the intro+criteria block, the glossary block,
+#     and each of the Score/Entry Quality/Upside/methodology boxes, plus
+#     both reports' footers) is now tagged data-pdf-block="1" — 17 blocks
+#     total across both report types.
+#   - renderHtmlToPdf() rewritten: screenshots and places each block
+#     individually via html2canvas, tracking a running Y cursor on the
+#     current PDF page. If a block would overflow the remaining space, a
+#     new page starts BEFORE that block — page breaks now always fall in
+#     the gap between blocks, never mid-content. A small 5mm gap is added
+#     between consecutive blocks on the same page (a block's own CSS
+#     margin-bottom isn't captured by html2canvas, since margin sits
+#     outside the element's own rendered box).
+#   - Safety net: a single block taller than a full page falls back to
+#     slicing just that one block (the old blind-slice behaviour), so nothing
+#     silently breaks if a future block turns out to be unusually tall.
+#   - Fallback: if a document has NO data-pdf-block tags at all (shouldn't
+#     happen for either current report, but keeps the function safe to
+#     reuse elsewhere), it falls back to the original whole-document slice
+#     — never silently produces a blank PDF.
+#
+# VERIFIED: extracted and ran buildCandidatesReportHtml() directly with mock
+# data — confirmed all 10 expected blocks are tagged data-pdf-block="1" and
+# the HTML is well-formed (53 open / 53 close <div> tags, zero imbalance).
+# html2canvas/jsPDF are browser-only APIs and can't be exercised in this
+# sandbox — the actual PDF pagination must be confirmed in the browser.
+#
+git checkout main && git pull origin main
+git checkout -b fix/export-pdf-block-pagination
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.6.zip -d .
+git status
+git diff --stat   # expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run   # existing suite should stay green.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: PDF pagination — content was cut mid-block across page breaks (v7.22.6)
+
+renderHtmlToPdf() rendered the whole document as one screenshot, then
+sliced it at fixed page-height intervals with no awareness of content
+boundaries — a table row or formula box could get cut mid-line wherever
+the arbitrary boundary landed. Tagged every top-level section in both
+report builders with data-pdf-block=\"1\" (17 blocks total) and rewrote
+renderHtmlToPdf() to place each block individually, starting a new page
+before any block that would overflow the current one instead of splitting
+it. Oversized single blocks fall back to the old slice behaviour as a
+safety net. Verified block tagging and HTML well-formedness by running
+buildCandidatesReportHtml() directly; actual PDF pagination needs browser
+verification (html2canvas/jsPDF aren't testable in this sandbox)."
+git tag -a v7.22.6 -m "v7.22.6: fix PDF pagination — page breaks now fall between content blocks, not through them"
+git push -u origin fix/export-pdf-block-pagination
+git push origin v7.22.6
+
+# → Vercel preview checklist (this one NEEDS a real browser — cannot be
+#   pre-verified in the sandbox):
+#   1. Export the Candidates report as PDF with "Explicación técnica"
+#      checked, and with enough candidates to span multiple pages.
+#   2. Scroll through the PDF — confirm no table row, formula box, or
+#      paragraph is cut mid-line at any page boundary. Page breaks should
+#      only ever fall in the gaps between sections.
+#   3. Re-check the original per-batch report (HTML "Predictions" table
+#      with many tickers, long enough to span 2+ pages) — same check.
+#   4. Confirm content still looks visually correct within each page (no
+#      squashing, no missing sections).
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/export-pdf-block-pagination
+git push origin main
+git push origin v7.22.6
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 229 — v7.22.7  PDF: page margins (content was flush against the edge)
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# WHY (Alex's screenshot after v7.22.6 confirmed no more mid-content cuts,
+# but noted content sat flush against the paper edge on all sides):
+#   renderHtmlToPdf() placed every block at x=0 with the full page width —
+#   no margin at all. Looks unfinished on screen and risks getting clipped
+#   by a printer's own unprintable border if actually printed.
+#
+# WHAT CHANGED:
+#   New PAGE_MARGIN_MM = 15 constant. contentW/usableH are now the page
+#   dimensions minus 2×margin; every pdf.addImage() call is offset by
+#   PAGE_MARGIN_MM instead of 0. Applies to the main block-by-block loop,
+#   the oversized-block safety net, AND the no-blocks-tagged fallback path
+#   — all three place image data consistently within the margin now.
+#
+# NO OTHER LOGIC CHANGES — the v7.22.6 block-by-block pagination (no more
+# mid-content page-break cuts) is untouched, just margin-aware now.
+#
+git checkout main && git pull origin main
+git checkout -b fix/export-pdf-page-margins
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.7.zip -d .
+git status
+git diff --stat
+# expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+# existing suite should stay green.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "fix: PDF export — added 15mm page margins (v7.22.7)
+
+Content sat flush against the paper edge on all sides in the exported PDF
+(no margin at all) — looks unfinished and risks clipping if printed. Added
+PAGE_MARGIN_MM=15 in renderHtmlToPdf(): content width/height are now the
+page size minus 2x margin, and every block is placed offset by the margin
+instead of at (0,0). Applies to both report types and the no-blocks-tagged
+fallback. No other logic changes — v7.22.6's block-by-block pagination
+(no mid-content cuts) is untouched, just margin-aware now."
+git tag -a v7.22.7 -m "v7.22.7: PDF export — 15mm page margins on all sides"
+git push -u origin fix/export-pdf-page-margins
+git push origin v7.22.7
+
+# → Vercel preview: export any report as PDF — confirm a visible white
+#   margin on all 4 sides of every page, content no longer touches the
+#   paper edge. Re-confirm v7.22.6's fix still holds (no mid-content cuts
+#   at page breaks) — this version shouldn't have changed that.
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/export-pdf-page-margins
+git push origin main
+git push origin v7.22.7
 # Branch kept as historical reference — do NOT delete.
