@@ -6987,12 +6987,10 @@ git checkout -b feat/sector-predominance
 
 unzip -o ~/Downloads/openbank-price-prediction_v7.21.0.zip -d .
 git status
-git diff --stat
-# expect: AllStocksPage.jsx + BatchDetail.jsx + README.md + GIT_GUIDE.md
+git diff --stat   # expect: AllStocksPage.jsx + BatchDetail.jsx + README.md + GIT_GUIDE.md
 
-npm run test:run
-# existing suite should stay green — no existing logic touched,
-# only new additive code + 2 new JSX sections.
+npm run test:run   # existing suite should stay green — no existing logic touched,
+                   # only new additive code + 2 new JSX sections.
 
 git add src/components/AllStocksPage.jsx src/components/BatchDetail.jsx README.md GIT_GUIDE.md
 git commit -m "feat: Sector Predominance — All Stocks panel + Batch Detail list (v7.21.0)
@@ -7042,4 +7040,118 @@ git checkout main && git pull origin main
 git merge --no-ff --no-edit feat/sector-predominance
 git push origin main
 git push origin v7.21.0
+# Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 222 — v7.22.0  Export: Investment Candidates report
+# ===========================================================================
+#
+# NO SUPABASE CHANGES. No npm install. 1 src file + 2 docs:
+#        src/components/ExportPage.jsx
+#        README.md + GIT_GUIDE.md
+#
+# Mockup-confirmed. Built after 4 scoping decisions with Alex: (1) manual
+# thresholds set at export time, not fixed criteria; (2) both CSV (for
+# importing into his other investment-strategy project) and HTML/PDF
+# (visual review); (3) every ticker×batch instance across ALL batches, not
+# deduplicated; (4) per-ticker averages use ALL of a ticker's historical
+# instances, not just the ones passing the filter — avoids survivorship
+# bias, confirmed explicitly after walking through a worked example.
+#
+# WHAT'S NEW:
+#   - Report-type selector at the top: "Informe de batch" (existing,
+#     unchanged) vs "Candidatos de inversión" (new).
+#   - buildCandidatePool(batches, fundamentals): flattens every ticker×batch
+#     instance with score/sector/PEG/margin/upside-per-horizon attached —
+#     mirrors AllStocksPage's grouping logic, simplified to what this report
+#     needs.
+#   - filterCandidates(pool, criteria): Score min, Entry Quality min, Upside
+#     min (for a selectable horizon), Market, Trend — all manual, set via
+#     sliders/pills in the new Step 1.
+#   - aggregateByTicker(fullPool, matchingInstances): one row per qualifying
+#     ticker, Score/Upside(×4 horizons) averaged across the ticker's FULL
+#     history (not just filter-passing instances) — verified against a
+#     worked Node simulation (AMD: 3 instances, 1 filtered out, average
+#     still computed from all 3 — matched manual calculation exactly).
+#   - CSV exports (buildSummaryCsv, buildInstancesCsv) — 2 separate
+#     downloads, structured for import elsewhere.
+#   - HTML/PDF export (buildCandidatesReportHtml) — reuses the existing
+#     visual report style.
+#   - renderHtmlToPdf() extracted from the original inline handleExportPdf
+#     so the new PDF export reuses the same iframe/html2canvas/jsPDF
+#     pipeline instead of duplicating it.
+#
+# DELIBERATE DUPLICATION (flagged, not fixed unilaterally): calcScore,
+# entryQuality, getMarket, displayTicker, and their dependencies (WEIGHTS,
+# upsideScore, pegScore, marginScore) are copied from AllStocksPage.jsx
+# rather than extracted into a shared utils module — kept this version
+# scoped to ExportPage.jsx only, rather than also touching the larger,
+# already-stable AllStocksPage.jsx. Worth consolidating into e.g.
+# src/utils/scoring.js in a future version if it drifts.
+#
+# SEMANTIC NOTE: this report's Entry Quality uses forecast-time upside
+# (from the batch's base price, i.e. u1/u3/u6/u12) — NOT "upside from
+# today's live price" like All Stocks' own Entry Quality column (which
+# needs weeklyPrices/autoPrices cascade logic this page doesn't receive).
+# The two can legitimately show different numbers for the same ticker.
+#
+# QUALITY CHECK: full diff review before packaging confirmed every
+# "removed" line in the raw diff was just re-indentation (Step 1/2/3 moved
+# inside a reportType==='batch' conditional, PDF pipeline moved into
+# renderHtmlToPdf) — nothing actually lost. Core pipeline (pool → filter →
+# aggregate) verified against real-shaped mock data via Node simulation.
+#
+git checkout main && git pull origin main
+git checkout -b feat/export-investment-candidates
+
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.0.zip -d .
+git status
+git diff --stat
+# expect: src/components/ExportPage.jsx + README.md + GIT_GUIDE.md
+
+npm run test:run
+# existing suite should stay green — no existing logic
+# changed, only new additive code + report-type toggle.
+
+git add src/components/ExportPage.jsx README.md GIT_GUIDE.md
+git commit -m "feat: Export — Investment Candidates report (v7.22.0)
+
+New report type alongside the existing per-batch report: scans every
+ticker x batch instance across all saved batches, with manual thresholds
+set at export time (Score min, Entry Quality min, Upside min + horizon,
+Market, Trend) deciding which tickers qualify. Two output tables: summary
+(one row per ticker, Score/Upside averaged across ALL historical instances
+of that ticker — not just filter-passing ones, avoiding survivorship bias)
+and raw instances (one row per matching ticker x batch, for traceability).
+Exports as CSV (summary + instances, for importing into an external
+investment-strategy project) and HTML/PDF (reuses the existing report
+pipeline, now extracted into a shared renderHtmlToPdf() helper). Scoring
+logic duplicated from AllStocksPage.jsx rather than extracted to a shared
+module — flagged, not decided unilaterally. Verified with Node simulation
+before delivery; full diff review confirmed no accidental deletions."
+git tag -a v7.22.0 -m "v7.22.0: Export — Investment Candidates report (manual filters, CSV+HTML/PDF)"
+git push -u origin feat/export-investment-candidates
+git push origin v7.22.0
+
+# → Vercel preview checklist:
+#   1. Export page — new toggle at top, "Candidatos de inversión" selectable.
+#   2. Adjust the 3 sliders (Score/Entry Quality/Upside min) + horizon pills
+#      + Market/Trend — the "Coinciden X instancias de Y tickers" summary
+#      updates live.
+#   3. Preview table at the bottom shows the top matches, sorted by score.
+#   4. "CSV resumen" downloads one row per ticker; "CSV instancias" downloads
+#      one row per matching ticker x batch — open both in a spreadsheet and
+#      sanity-check a ticker that appears in multiple batches: its avg_score
+#      / avg_upside_* in the summary CSV should reflect ALL its historical
+#      instances, even if only some of them show up in the instances CSV.
+#   5. HTML and PDF export both work, matching the content checkboxes.
+#   6. Switch back to "Informe de batch" — confirm the original flow still
+#      works exactly as before (untouched).
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit feat/export-investment-candidates
+git push origin main
+git push origin v7.22.0
 # Branch kept as historical reference — do NOT delete.
