@@ -7663,3 +7663,74 @@ git merge --no-ff --no-edit fix/export-pdf-page-margins
 git push origin main
 git push origin v7.22.7
 # Branch kept as historical reference — do NOT delete.
+
+
+# ===========================================================================
+# STEP 230 — v7.22.8  Fix: weekly price pipeline skipped batches <7 days old
+# ===========================================================================
+#
+# BACKEND ONLY. No src/ changes. Found during the monthly data check
+# (a "pending weekly prices" query that should read 0 returned 20).
+#
+# ROOT CAUSE (two functions, same integer-division bug):
+#   get_pending_weekly_tickers() and save_weekly_price() both compute
+#     v_week := (friday - batch_date) / 7        -- integer division
+#   and required `v_week between 1 and 52`. A batch created 1-6 days before
+#   the Friday being processed truncates to v_week=0, which never satisfied
+#   `>= 1` -> silently skipped, no error anywhere.
+#
+# IMPACT: batch 2026-07-06_US_bullish (created 3 days before Friday 2026-07-10),
+# 20 tickers total:
+#   - 5 brand-new tickers (FFIV, JBHT, ALGN, MOH, POOL — no older batch to
+#     anchor them): get_pending_weekly_tickers never considered them pending
+#     -> zero fetch attempts.
+#   - 15 tickers already tracked via older batches: fetch succeeded (their old
+#     batches had valid v_week), but save_weekly_price's per-batch fan-out
+#     silently dropped the row for THIS batch specifically. Weekly job's own
+#     log showed "success" throughout — nothing flagged it.
+#
+# FIX: both functions changed to `v_week between 0 and 52`.
+#
+# RECOVERY (already done live, no manual backfill of guessed prices):
+#   1. Applied both CREATE OR REPLACE FUNCTION in the dashboard SQL editor.
+#   2. select * from get_pending_weekly_tickers(50) where ticker in
+#      ('FFIV','JBHT','ALGN','MOH','POOL');  -> confirmed all 5 now pending.
+#   3. Re-triggered the weekly Edge Function via net.http_post 3x (chunked
+#      by the existing Twelve Data rate limit) until
+#      select count(*) from get_pending_weekly_tickers(50); returned 0.
+#   4. Verified: select count(*) from weekly_prices where batch_id =
+#      '2026-07-06_US_bullish' and week_date = '2026-07-10';  -> 20.
+#   5. Verified the original pending-check query (the one that first
+#      surfaced this during the monthly check) -> returns 0.
+#
+# WHAT'S NEW IN THE REPO:
+#   supabase/sql/05_fix_weekly_week_zero.sql — both corrected functions
+#
+# No tests needed (no src/ changes, backend fix already live and verified
+# against real data). Apply on a feature branch:
+git checkout main && git pull origin main
+git checkout -b fix/weekly-prices-week-zero
+unzip -o ~/Downloads/openbank-price-prediction_v7.22.8.zip -d .
+git add supabase/sql/05_fix_weekly_week_zero.sql README.md GIT_GUIDE.md
+git commit -m "fix: weekly price pipeline silently skipped batches <7 days old (v7.22.8)
+
+get_pending_weekly_tickers() and save_weekly_price() both computed
+v_week := (friday - batch_date) / 7 (integer division) and required
+v_week between 1 and 52. A batch created 1-6 days before the Friday being
+processed truncates to v_week=0, which never satisfied >= 1 -> silently
+skipped, no error logged. Found during the monthly data check: a
+pending-weekly-prices query that should read 0 returned 20, all from one
+recent batch. 5 brand-new tickers got zero fetch attempts (never considered
+pending); 15 already-tracked tickers fetched fine but their row for this
+specific batch was dropped in the fan-out. Fixed both functions to accept
+0..52. Recovered live via re-trigger of the weekly Edge Function until
+pending=0 - all 20 rows from real fetches, no guessed backfill. Backend
+only - no src changes."
+git push origin fix/weekly-prices-week-zero
+git checkout main
+git merge --no-ff --no-edit fix/weekly-prices-week-zero
+git tag -a v7.22.8 -m "v7.22.8: fix weekly price pipeline — batches <7 days old were silently skipped"
+git push origin main
+git push origin v7.22.8
+git branch -d fix/weekly-prices-week-zero
+git push origin --delete fix/weekly-prices-week-zero   # opcional
