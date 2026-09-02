@@ -163,8 +163,8 @@ function BatchSelector({ batches, loadedBatchDate, loadedBatchId, onLoadBatch })
       {open && hasBatches && (
         <div className={cn(
           'absolute top-[calc(100%+6px)] right-0 z-50',
-          'bg-card border border-border rounded-lg shadow-lg',
-          'min-w-[240px] overflow-hidden'
+          'bg-card rounded-xl shadow-lg',
+          'min-w-[240px] max-h-[350px] overflow-y-auto overflow-x-hidden'
         )}>
           {sorted.map(batch => {
             const isActive = batch.id === loadedBatchId
