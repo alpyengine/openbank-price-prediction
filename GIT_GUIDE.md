@@ -7734,3 +7734,89 @@ git push origin main
 git push origin v7.22.8
 git branch -d fix/weekly-prices-week-zero
 git push origin --delete fix/weekly-prices-week-zero   # opcional
+
+
+# ===========================================================================
+# STEP 231 — v7.23.0  Fix: batch selector dropdown — no height limit
+# ===========================================================================
+#
+# FRONTEND ONLY. Single file changed: src/components/FetchBar.jsx
+# (internal BatchSelector component).
+#
+# PROBLEM: with many saved batches, the dropdown panel under the batch-date
+# selector (top bar of Batch Overview / Batch Overview Detail) had no
+# max-height — it grew unbounded and pushed the whole page down, forcing
+# the user to scroll the MAIN page to reach the last items instead of
+# scrolling inside the dropdown itself.
+#
+# ROOT CAUSE: className had `overflow-hidden` but no max-height:
+#   'absolute top-[calc(100%+6px)] right-0 z-50',
+#   'bg-card border border-border rounded-lg shadow-lg',
+#   'min-w-[240px] overflow-hidden'
+#
+# CONFIRMED: FetchBar.jsx renders ONCE in App.jsx (~line 355), shared between
+# 'batch' and 'batch-detail' pages via showFetchBar = ['batch',
+# 'batch-detail'].includes(activePage). Fixing this one component fixes both
+# pages — no changes needed in BatchSimple.jsx or BatchDetail.jsx. Also
+# confirmed no other copies of this dropdown pattern exist elsewhere in the
+# project (checked BatchDetail.jsx and BatchSimple.jsx — neither has it).
+#
+# FIX (mockup-confirmed, 3 rounds):
+#   1. Initial mockup — max-h-[300px] + overflow-y-auto, panel border kept.
+#   2. Alex asked to drop the box border and row divider lines entirely,
+#      and compare 350px vs 400px heights.
+#   3. Comparison mockup accidentally showed thick black boxes around each
+#      row — turned out to be the browser's DEFAULT <button> border (the
+#      dropdown items are <button> elements with no CSS reset), not an
+#      intentional design. Not a real bug in the eventual React code, since
+#      the original FetchBar.jsx already resets button styling via
+#      Tailwind's base layer — but the mockup needed an explicit reset to
+#      demonstrate it correctly.
+#   4. Final: Alex locked height at 350px and asked to keep the SAME thin
+#      gray row divider FetchBar.jsx already has (border-b border-border,
+#      last:border-0) — i.e. that part needed NO change at all. Only the
+#      panel's own className changed.
+#
+# ACTUAL DIFF (verified with `diff -u` against the original — nothing else
+# touched):
+#   -  'bg-card border border-border rounded-lg shadow-lg',
+#   -  'min-w-[240px] overflow-hidden'
+#   +  'bg-card rounded-xl shadow-lg',
+#   +  'min-w-[240px] max-h-[350px] overflow-y-auto overflow-x-hidden'
+#
+# Validated with esbuild (JSX syntax OK). No test suite changes needed —
+# pure Tailwind className change, no logic touched.
+#
+# Isolated, self-contained fix -> fix/ branch pattern with immediate merge
+# after preview validation:
+git checkout main && git pull origin main
+git checkout -b fix/batch-dropdown-height
+unzip -o ~/Downloads/openbank-price-prediction_v7.23.0.zip -d .
+git add src/components/FetchBar.jsx README.md GIT_GUIDE.md
+git commit -m "fix: batch selector dropdown had no height limit (v7.23.0)
+
+The dropdown panel under the batch-date selector (FetchBar.jsx,
+BatchSelector) had overflow-hidden but no max-height, so with many saved
+batches it grew unbounded and pushed the whole page down instead of
+scrolling internally. Capped at max-h-[350px] with overflow-y-auto /
+overflow-x-hidden, and dropped the panel's own box border in favor of
+shadow-lg only, per mockup review. Row divider (border-b border-border)
+unchanged. FetchBar.jsx renders once in App.jsx, shared by the batch and
+batch-detail pages, so this single fix covers both. Confirmed no other
+copies of this dropdown pattern exist elsewhere in the project."
+git push origin fix/batch-dropdown-height
+
+# Preview the branch on Vercel, confirm:
+#   - dropdown stops at 350px with many batches, scrolls internally
+#   - main page does not move/scroll when the dropdown is open
+#   - no box border around the panel, row divider line still present
+#   - both Batch Overview and Batch Overview Detail show the fix
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/batch-dropdown-height
+git tag -a v7.23.0 -m "v7.23.0: fix batch selector dropdown — capped height + internal scroll"
+git push origin main
+git push origin v7.23.0
+git branch -d fix/batch-dropdown-height
+git push origin --delete fix/batch-dropdown-height   # opcional
