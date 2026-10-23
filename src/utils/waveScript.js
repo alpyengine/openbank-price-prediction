@@ -11,6 +11,9 @@
  * Plus small date/ticker helpers, exported for direct testing.
  *
  * Behaviour is byte-for-byte identical to the inline version it replaced.
+ *
+ * Version: v7.23.1 — Pine data emitted in chunks (fix CE10205 "if statement
+ * is too long"). See buildPineScript().
  */
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -149,6 +152,13 @@ export function extractWaves(batches) {
 // ── Pine Script v6 generation ─────────────────────────────────────────────────
 
 /**
+ * WAVE_CHUNK_SIZE — max waves per Pine data constant (v7.23.1).
+ * ~40 rows ≈ 4–5 KB per literal: small enough to stay far below Pine's
+ * statement/block size limits, few enough constants for hundreds of waves.
+ */
+export const WAVE_CHUNK_SIZE = 40
+
+/**
  * buildPineScript — assemble the full indicador_master_ondas.txt content.
  *
  * SCALABLE DATA LOADING (avoids CE10209 "too many local variables"):
@@ -159,6 +169,11 @@ export function extractWaves(batches) {
  * and parses each row in a loop, using a fixed handful of locals regardless of
  * how many waves there are. The only remaining ceiling is the 500-line draw
  * limit, not the variable count.
+ *
+ * CHUNKING (v7.23.1, avoids CE10205 "The if statement is too long"):
+ * the rows are split into WAVE_DATA_0..N constants of WAVE_CHUNK_SIZE rows,
+ * each str.split() once at global scope (`var`), and the render if-block only
+ * calls renderChunk() per chunk — so its size never grows with the data.
  *
  * Row format:  ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4
  *   - ci  = per-ticker colour index (0,1,2,…)
@@ -190,9 +205,29 @@ export function buildPineScript(waves) {
     ].join(';')
   })
 
+  // CHUNKED DATA (v7.23.1 — fixes CE10205 "The if statement is too long"):
+  // Pine inlines a `const string` wherever it is referenced. With one giant
+  // WAVE_DATA referenced inside `if barstate.islast`, the compiled if-block
+  // grew with every batch until it hit Pine's block-size limit. Now the rows
+  // are split into small constants (WAVE_CHUNK_SIZE rows each), each one is
+  // split ONCE at global scope (`var`), and the if-block only calls
+  // renderChunk() per chunk — its size no longer depends on the data volume.
   // Escape nothing special needed: tickers are [A-Z.]; numbers are plain.
-  // Newlines separate rows inside one Pine string literal.
-  const dataLiteral = rows.join('\\n')
+  // Newlines separate rows inside each Pine string literal.
+  const chunks = []
+  for (let i = 0; i < rows.length; i += WAVE_CHUNK_SIZE) {
+    chunks.push(rows.slice(i, i + WAVE_CHUNK_SIZE).join('\\n'))
+  }
+
+  const dataConsts = chunks
+    .map((c, i) => `const string WAVE_DATA_${i} = "${c}"`)
+    .join('\n')
+  const dataSplits = chunks
+    .map((_, i) => `var array<string> WAVE_LINES_${i} = str.split(WAVE_DATA_${i}, "\\n")`)
+    .join('\n')
+  const renderCalls = chunks
+    .map((_, i) => `    renderChunk(WAVE_LINES_${i})`)
+    .join('\n')
 
   const header = `//@version=6
 indicator("Openbank Forecast Ondas v6", overlay = true, max_lines_count = 500, max_labels_count = 500)
@@ -204,13 +239,15 @@ indicator("Openbank Forecast Ondas v6", overlay = true, max_lines_count = 500, m
 // Missing 12M target → final segment is left unpainted (empty p4 → na).
 // Waves: ${waves.length}
 //
-// Data model: a single string constant (one wave per line, fields split by ";")
-// is parsed in a loop — fixed local-variable count regardless of wave count
-// (avoids CE10209). Row: ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4
+// Data model: small string constants (one wave per line, fields split by ";")
+// parsed in a loop — fixed local-variable count regardless of wave count
+// (avoids CE10209). Chunked + split at global scope so the render if-block
+// stays small (avoids CE10205). Row: ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4
+// Chunks: ${chunks.length} (max ${WAVE_CHUNK_SIZE} waves each)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// All wave data in one string constant (one wave per line).
-const string WAVE_DATA = "${dataLiteral}"
+// Wave data in small string constants (one wave per line).
+${dataConsts}
 
 // ─── Helper: draw one parsed wave ────────────────────────────────────────────
 //@function Draws a small dot (●) at a forecast point in the given colour.
@@ -258,15 +295,26 @@ drawWave(array<string> f) =>
     label.new(tEnd, pEnd, str.tostring(ci + 1), xloc = xloc.bar_time, color = color.new(color.white, 100), textcolor = c, style = label.style_label_left, size = size.large)
 `
 
+  // No waves → no data constants and no render block (an empty `if` body is
+  // invalid Pine). The indicator still compiles and simply draws nothing.
+  if (!chunks.length) return header
+
   const renderer = `
-// Render on the last bar: split the data once, draw only rows for this symbol.
-if barstate.islast and str.length(WAVE_DATA) > 0
-    array<string> lines = str.split(WAVE_DATA, "\\n")
-    for i = 0 to array.size(lines) - 1
-        array<string> f = str.split(array.get(lines, i), ";")
+//@function Draws every row of one data chunk that belongs to the open symbol.
+//@param lines (array<string>) the pre-split rows of one chunk
+renderChunk(array<string> lines) =>
+    for row in lines
+        array<string> f = str.split(row, ";")
         // Per-ticker filter: only draw waves for the open symbol.
-        if array.get(f, 0) == syminfo.ticker
+        if array.size(f) > 0 and array.get(f, 0) == syminfo.ticker
             drawWave(f)
+
+// Split each chunk ONCE at global scope (var) — keeps the data out of the if.
+${dataSplits}
+
+// Render on the last bar: one small call per chunk.
+if barstate.islast
+${renderCalls}
 `
 
   return `${header}${renderer}`

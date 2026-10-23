@@ -157,9 +157,10 @@ vanish; 500 covers ~125 full waves.
 
 ## 7. Generated Pine Script v6 — reference
 
-All wave data is emitted as a **single string constant** (`WAVE_DATA`), one wave
-per line, fields separated by `;`. Pine splits it once on the last bar and parses
-each row in a loop. Times use `xloc.bar_time` (epoch ms), so the lines sit at
+All wave data is emitted as **small string constants** (`WAVE_DATA_0`,
+`WAVE_DATA_1`, … — up to `WAVE_CHUNK_SIZE` = 40 waves each, since v7.23.1), one
+wave per line, fields separated by `;`. Each chunk is split once at global scope
+(`var`) and parsed row by row in a loop on the last bar. Times use `xloc.bar_time` (epoch ms), so the lines sit at
 absolute calendar dates regardless of the chart's bar spacing.
 
 **Why a string instead of `array.push` blocks?** The earlier approach emitted one
@@ -169,6 +170,13 @@ local-variable limit** (compile error **CE10209**). The string model parses ever
 wave with a *fixed* handful of locals, independent of wave count — the only
 remaining ceiling is the 500-line draw limit.
 
+**Why chunks? (v7.23.1)** Pine inlines a `const string` wherever it is used. With
+one giant `WAVE_DATA` referenced inside `if barstate.islast`, the compiled
+if-block grew with every batch until it failed with **CE10205 — "The if
+statement is too long"**. Now the data is split into small constants, each one is
+`str.split()` once at global scope, and the if-block only holds one short
+`renderChunk(...)` call per chunk — its size no longer depends on the data.
+
 Row format: `ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4`
 The 12M field (`p4`) is **left empty** when no target exists →
 `str.tonumber("")` returns `na` → the final segment stays unpainted.
@@ -177,9 +185,9 @@ The 12M field (`p4`) is **left empty** when no target exists →
 //@version=6
 indicator("Sistema Maestro de Ondas Elliott V6", overlay = true, max_lines_count = 500, max_labels_count = 500)
 
-// All wave data in one string constant (one wave per line).
+// Wave data in small string constants (one wave per line, max 40 per chunk).
 // Row: ticker;ci;t0;p0;t1;p1;t2;p2;t3;p3;t4;p4   (empty p4 → na)
-const string WAVE_DATA = "AMD;0;1736464800000;100;1739143200000;110;1744056000000;120;1752012000000;130;1767999600000;150\nAMD;1;1739143200000;105;1741822800000;115;1746478800000;125;1754434800000;135;1770422400000;\nNEM;0;1739143200000;50;1741822800000;55;1746478800000;58;1754434800000;60;1770422400000;65"
+const string WAVE_DATA_0 = "AMD;0;1736464800000;100;1739143200000;110;1744056000000;120;1752012000000;130;1767999600000;150\nAMD;1;1739143200000;105;1741822800000;115;1746478800000;125;1754434800000;135;1770422400000;\nNEM;0;1739143200000;50;1741822800000;55;1746478800000;58;1754434800000;60;1770422400000;65"
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 //@function Draws a small dot (●) at a forecast point in the given colour.
@@ -225,30 +233,44 @@ drawWave(array<string> f) =>
     // Wave number (1 = oldest for this ticker), same colour.
     label.new(tEnd, pEnd, str.tostring(ci + 1), xloc = xloc.bar_time, color = color.new(color.white, 100), textcolor = c, style = label.style_label_left, size = size.large)
 
-// Render on the last bar: split the data once, draw only rows for this symbol.
-if barstate.islast and str.length(WAVE_DATA) > 0
-    array<string> lines = str.split(WAVE_DATA, "\n")
-    for i = 0 to array.size(lines) - 1
-        array<string> f = str.split(array.get(lines, i), ";")
+//@function Draws every row of one data chunk that belongs to the open symbol.
+renderChunk(array<string> lines) =>
+    for row in lines
+        array<string> f = str.split(row, ";")
         // Per-ticker filter: only draw waves for the open symbol.
-        if array.get(f, 0) == syminfo.ticker
+        if array.size(f) > 0 and array.get(f, 0) == syminfo.ticker
             drawWave(f)
+
+// Split each chunk ONCE at global scope (var) — keeps the data out of the if.
+var array<string> WAVE_LINES_0 = str.split(WAVE_DATA_0, "\n")
+
+// Render on the last bar: one small call per chunk.
+if barstate.islast
+    renderChunk(WAVE_LINES_0)
 ```
+
+With no waves at all, the generator emits only the header and helpers (no data
+constants, no render block — an empty `if` body is invalid Pine).
 
 ### Line-by-line notes
 
 - `max_lines_count = 500` / `max_labels_count = 500` — raise Pine's default
   drawing budgets (lines and labels) so many waves render without truncation.
   Each wave draws up to 4 lines + up to 6 labels (5 dots + 1 number).
-- `const string WAVE_DATA` — every wave in one literal, one row per line,
-  fields split by `;`. Fixed local-variable cost regardless of wave count
-  (this is the fix for **CE10209**).
+- `const string WAVE_DATA_N` — waves in small literals (max 40 rows each), one
+  row per line, fields split by `;`. Fixed local-variable cost regardless of
+  wave count (fix for **CE10209**); chunking keeps every statement small (fix
+  for **CE10205**, v7.23.1).
+- `var array<string> WAVE_LINES_N = str.split(...)` — each chunk split once, at
+  global scope, so the data never sits inside the render `if`.
+- `renderChunk(lines)` — top-level helper looping the rows of one chunk; the
+  render `if` only calls it once per chunk.
 - Empty trailing field (`…;135;1770422400000;`) — the missing 12M price;
   `str.tonumber("")` → `na`, so the 6M→12M segment is skipped.
 - `drawWave(array<string> f) =>` — a user-defined function declared before use;
   parses the 12 fields and draws the wave. Keeping the per-wave locals inside a
   function (not in `#main`) is what avoids the variable-limit blow-up.
-- `str.split(WAVE_DATA, "\n")` then `str.split(row, ";")` — two-level parse:
+- `str.split(WAVE_DATA_N, "\n")` then `str.split(row, ";")` — two-level parse:
   rows first, then fields.
 - `array.get(f, 0) == syminfo.ticker` — the per-ticker filter: a wave is drawn
   only when its ticker equals the open chart's symbol. Keeps AMD's waves on AMD
