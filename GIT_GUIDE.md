@@ -7820,3 +7820,61 @@ git push origin main
 git push origin v7.23.0
 git branch -d fix/batch-dropdown-height
 git push origin --delete fix/batch-dropdown-height   # opcional
+
+
+# ===========================================================================
+# STEP 232 — v7.23.1  Fix: Wave Script Pine — CE10205 "if statement is too long"
+# ===========================================================================
+#
+# FRONTEND ONLY. Files changed:
+#   src/utils/waveScript.js        (buildPineScript — chunked data)
+#   src/utils/waveScript.test.js   (2 updated + 2 new tests)
+#   docs/WAVE_SCRIPT.md            (reference + notes)
+#
+# PROBLEM: TradingView rejected the generated indicador_master_ondas.txt with
+# CE10205 "The if statement is too long" on `if barstate.islast`. All waves
+# lived in ONE `const string WAVE_DATA`, referenced inside that if. Pine
+# inlines const strings where they are used, so the if-block grew with every
+# new batch until it crossed Pine's block-size limit.
+#
+# FIX:
+#   - Rows split into small constants WAVE_DATA_0..N (WAVE_CHUNK_SIZE = 40).
+#   - Each chunk split ONCE at global scope:
+#       var array<string> WAVE_LINES_N = str.split(WAVE_DATA_N, "\n")
+#   - New top-level renderChunk(lines) helper (loop + per-ticker filter).
+#   - The if-block only calls renderChunk(WAVE_LINES_N) once per chunk.
+#   - Zero waves -> no data constants, no render block (empty if is invalid).
+# Drawing output unchanged (row format, colours, dots, numbers, filter).
+#
+# Validated: vitest 204/204 green, esbuild OK, full diff reviewed.
+# Pending: compile check in TradingView (no local Pine compiler).
+#
+# Isolated fix -> fix/ branch, merge right after validation:
+git checkout main && git pull origin main
+git checkout -b fix/wave-script-if-too-long
+unzip -o ~/Downloads/openbank-price-prediction_v7.23.1.zip -d .
+git status
+git add src/utils/waveScript.js src/utils/waveScript.test.js docs/WAVE_SCRIPT.md README.md GIT_GUIDE.md
+git commit -m "fix: wave script Pine CE10205 if statement too long (v7.23.1)
+
+The generated Pine kept all waves in one const string WAVE_DATA used
+inside if barstate.islast. Pine inlines const strings, so the if-block
+grew with every batch until CE10205. Data is now split into small
+WAVE_DATA_N constants (40 waves each), split once at global scope with
+var, and the if-block only calls renderChunk() per chunk. Drawing
+output unchanged. Tests updated, 204/204 green."
+git push origin fix/wave-script-if-too-long
+
+# Preview on Vercel, then:
+#   - Wave Script page -> download indicador_master_ondas.txt
+#   - Paste into TradingView Pine editor -> compiles with no CE10205
+#   - Open a ticker from your batches -> waves, dots and numbers as before
+
+# Merge to main:
+git checkout main && git pull origin main
+git merge --no-ff --no-edit fix/wave-script-if-too-long
+git tag -a v7.23.1 -m "v7.23.1: fix wave script Pine CE10205 — chunked data"
+git push origin main
+git push origin v7.23.1
+git branch -d fix/wave-script-if-too-long
+git push origin --delete fix/wave-script-if-too-long   # opcional

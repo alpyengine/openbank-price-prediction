@@ -1,6 +1,8 @@
+// waveScript.test.js — v7.23.1 (chunked Pine data, CE10205 tests)
 import { describe, it, expect } from 'vitest'
 import {
   parseDDMMYYYY, addMonths, stripMarket, extractWaves, buildPineScript,
+  WAVE_CHUNK_SIZE,
 } from './waveScript.js'
 
 // Helper: build a batch whose results[] are one row per horizon for a ticker.
@@ -216,7 +218,8 @@ describe('buildPineScript', () => {
     const pine = buildPineScript(sample())
     expect(pine).toContain('drawWave(array<string> f) =>')
     expect(pine).toContain('array.get(f, 0) == syminfo.ticker')
-    expect(pine).toContain('str.split(WAVE_DATA')
+    expect(pine).toContain('str.split(WAVE_DATA_0')
+    expect(pine).toContain('renderChunk(array<string> lines) =>')
   })
 
   it('reports the wave count in the header comment', () => {
@@ -228,5 +231,40 @@ describe('buildPineScript', () => {
     const pine = buildPineScript([])
     expect(pine).toContain('//@version=6')
     expect(pine).toContain('Waves: 0')
+    // No data → no constants and no (invalid) empty if-block.
+    expect(pine).not.toContain('WAVE_DATA_0')
+    expect(pine).not.toContain('if barstate.islast')
+  })
+
+  // v7.23.1 — CE10205 "The if statement is too long": data must be chunked
+  // and kept OUT of the render if-block, whatever the wave count.
+  it('splits the data into chunks of WAVE_CHUNK_SIZE waves', () => {
+    const n = WAVE_CHUNK_SIZE * 2 + 5
+    const many = Array.from({ length: n }, (_, i) => ({
+      tickerNorm: 'T' + i, t0: 1, p0: 1, t1: 2, p1: 2, t2: 3, p2: 3,
+      t3: 4, p3: 4, t4: 5, p4: 5,
+    }))
+    const pine = buildPineScript(many)
+    expect(pine).toContain('const string WAVE_DATA_0 =')
+    expect(pine).toContain('const string WAVE_DATA_2 =')
+    expect(pine).not.toContain('WAVE_DATA_3')
+    expect(pine).toContain(`Waves: ${n}`)
+    // Every wave row is present across the chunks.
+    for (let i = 0; i < n; i++) expect(pine).toContain(`T${i};0;`)
+  })
+
+  it('keeps the render if-block small and free of data constants', () => {
+    const many = Array.from({ length: WAVE_CHUNK_SIZE * 5 }, (_, i) => ({
+      tickerNorm: 'T' + i, t0: 1, p0: 1, t1: 2, p1: 2, t2: 3, p2: 3,
+      t3: 4, p3: 4, t4: 5, p4: null,
+    }))
+    const pine = buildPineScript(many)
+    const ifBlock = pine.slice(pine.indexOf('if barstate.islast'))
+    expect(ifBlock).not.toContain('WAVE_DATA')
+    // One short call per chunk, nothing else.
+    const calls = ifBlock.split('\n').filter(l => l.includes('renderChunk('))
+    expect(calls.length).toBe(5)
+    // Splits happen once, at global scope (no indentation).
+    expect(pine).toContain('\nvar array<string> WAVE_LINES_0 = str.split(WAVE_DATA_0, "\\n")')
   })
 })
